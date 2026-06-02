@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Bell, Search, LogOut, MessageSquare, BarChart2,
+  Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
-  AlertCircle, Clock, ChevronDown, Zap,
+  AlertCircle, Clock, ChevronDown, Zap, ShoppingBag,
 } from "lucide-react";
+import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, calcularAlertas,
@@ -141,8 +142,8 @@ function Login() {
         <div style={{ background: L.white, borderRadius: 20, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,.10)", border: `1px solid ${L.border}` }}>
           {/* Logo */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ width: 80, height: 80, borderRadius: 20, background: C.red, margin: "0 auto 18px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 6px 24px rgba(185,28,28,.35)` }}>
-              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 62, objectFit: "contain" }} />
+            <div style={{ margin: "0 auto 18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 90, objectFit: "contain" }} />
             </div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 22, color: L.text, letterSpacing: 0.5 }}>NUEVO MUNICH</div>
             <div style={{ fontSize: 12, color: L.muted, letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Sistema CRM</div>
@@ -364,8 +365,8 @@ function AIAsistente({ contactoActivo }) {
         <div style={{ position: "fixed", bottom: 90, right: 24, width: 350, height: 490, background: L.white, borderRadius: 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header */}
           <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <img src={LOGO_URL} alt="NM" style={{ height: 32, objectFit: "contain" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <img src={LOGO_URL} alt="NM" style={{ height: 38, objectFit: "contain" }} />
             </div>
             <div>
               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, letterSpacing: 0.3, lineHeight: 1.2 }}>Asistente IA</div>
@@ -450,8 +451,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "15px 18px", display: "flex", alignItems: "center", gap: 13, borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <div style={{ background: C.red, borderRadius: 12, padding: "7px 9px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 14px rgba(185,28,28,.3)`, flexShrink: 0 }}>
-          <img src={LOGO_URL} alt="NM" style={{ height: 32, objectFit: "contain" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 17, color: L.text, letterSpacing: 0.3, lineHeight: 1.1 }}>NUEVO MUNICH</div>
@@ -462,9 +463,13 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 
       {/* ── Tabs ── */}
       <div style={{ display: "flex", borderBottom: `1px solid ${L.border}` }}>
-        {[["chat", <MessageSquare size={15} />, "Conversaciones"], ["reportes", <BarChart2 size={15} />, "Reportes"]].map(([k, icon, l]) => (
+        {[
+          ["chat",     <MessageSquare size={14} />, "Chats"],
+          ["pedidos",  <Package size={14} />,       "Pedidos"],
+          ["reportes", <BarChart2 size={14} />,     "Reportes"],
+        ].map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
-            style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0", fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: vista === k ? C.red : L.muted, background: vista === k ? "#FFF5F5" : "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
+            style={{ flex: 1, border: "none", cursor: "pointer", padding: "11px 0", fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: vista === k ? "#FFF5F5" : "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
             {icon} {l}
           </button>
         ))}
@@ -573,10 +578,11 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 function ChatPanel({ contacto, onUpdateContacto, userName }) {
   const [mensajes, setMensajes] = useState([]);
   const [texto, setTexto]       = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [err, setErr]           = useState("");
-  const [panelSeg, setPanelSeg] = useState(false);
-  const [drawer, setDrawer]     = useState(false);
+  const [enviando, setEnviando]   = useState(false);
+  const [err, setErr]             = useState("");
+  const [panelSeg, setPanelSeg]   = useState(false);
+  const [drawer, setDrawer]       = useState(false);
+  const [pedidoModal, setPedido]  = useState(false);
   const endRef = useRef(null);
 
   const cargar = useCallback(async () => {
@@ -648,6 +654,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
             <Pencil size={14} /> Editar
+          </button>
+          <button onClick={() => setPedido(true)}
+            style={{ background: C.red, border: "none", color: "#fff", borderRadius: 9, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)", transition: "all .15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.redDark; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = C.red; }}>
+            <ShoppingBag size={14} /> Nuevo Pedido
           </button>
         </div>
 
@@ -755,6 +767,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
       </div>
 
       {drawer && <ContactoDrawer contacto={contacto} onClose={() => setDrawer(false)} onSave={onUpdateContacto} />}
+      {pedidoModal && (
+        <NuevoPedidoModal
+          contacto={contacto}
+          vendedorActual={contacto.vendedor}
+          onClose={() => setPedido(false)}
+          onGuardado={() => {}}
+        />
+      )}
     </div>
   );
 }
@@ -809,12 +829,14 @@ export default function App() {
       <div style={{ flex: 1, overflow: "hidden" }}>
         {vista === "reportes" ? (
           <Reportes />
+        ) : vista === "pedidos" ? (
+          <PedidosPanel />
         ) : activo ? (
           <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName} />
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
-            <div style={{ width: 100, height: 100, borderRadius: 24, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 8px 32px rgba(185,28,28,.35)` }}>
-              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 78, objectFit: "contain" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
             </div>
             <div>
               <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
