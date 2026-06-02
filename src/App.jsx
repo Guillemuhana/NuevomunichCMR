@@ -450,14 +450,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
     <div style={{ width: 340, minWidth: 340, background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100vh" }}>
 
       {/* ── Brand bar ── */}
-      <div style={{ padding: "15px 18px", display: "flex", alignItems: "center", gap: 13, borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain" }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 17, color: L.text, letterSpacing: 0.3, lineHeight: 1.1 }}>NUEVO MUNICH</div>
-          <div style={{ fontSize: 9.5, letterSpacing: 2.5, textTransform: "uppercase", color: L.muted, marginTop: 2 }}>CRM · WhatsApp</div>
-        </div>
+      <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 58, objectFit: "contain" }} />
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
