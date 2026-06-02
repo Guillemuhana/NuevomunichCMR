@@ -771,14 +771,17 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
     if (!cuerpo || enviando) return;
     setEnviando(true); setErr(""); setTexto("");
     try {
+      // Guardar el mensaje limpio en la base de datos
       const { error } = await supabase.from("mensajes").insert({
         contacto_id: contacto.id, direccion: "out", origen: "agente",
         agente: userName, contenido: cuerpo,
       });
       if (error) throw error;
+      // Enviar a WhatsApp con firma del agente para que el cliente sepa con quién habla
+      const msgWhatsApp = `*${userName} · Nuevo Munich:*\n${cuerpo}`;
       const res = await fetch(N8N_SEND_WEBHOOK, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telefono: contacto.telefono, mensaje: cuerpo, agente: userName }),
+        body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWhatsApp, agente: userName }),
       });
       if (!res.ok) throw new Error("El mensaje se guardó pero falló el envío por WhatsApp.");
     } catch (e) {
@@ -885,10 +888,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
         )}
         {mensajes.map((m) => {
           const esCliente = m.direccion === "in";
+          const esBot     = m.origen === "bot";
           const esAgente  = m.origen === "agente";
+          const hora = new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
           return (
             <div key={m.id} style={{ alignSelf: esCliente ? "flex-start" : "flex-end", maxWidth: "70%", display: "flex", flexDirection: "column", gap: 3 }}>
-              {/* Nombre remitente */}
+              {/* Remitente superior */}
               {esCliente && (
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 1 }}>
                   <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={20} border="none" />
@@ -897,9 +902,23 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
                   </span>
                 </div>
               )}
+              {esBot && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 1 }}>
+                  <span style={{ fontSize: 10, background: "#fef9c3", color: "#713f12", padding: "2px 9px", borderRadius: 10, fontWeight: 700, letterSpacing: 0.3 }}>
+                    🤖 Bot Nuevo Munich
+                  </span>
+                </div>
+              )}
+              {esAgente && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginBottom: 1 }}>
+                  <span style={{ fontSize: 10, background: "#fee2e2", color: C.redDark, padding: "2px 9px", borderRadius: 10, fontWeight: 700 }}>
+                    ✋ {m.agente || "Agente"} · Nuevo Munich
+                  </span>
+                </div>
+              )}
               {/* Burbuja */}
               <div style={{
-                background: esCliente ? "#fff" : esAgente ? "#f3dcdc" : "#fbeede",
+                background: esCliente ? "#fff" : esAgente ? "#fdf2f2" : "#fefce8",
                 borderRadius: esCliente ? "3px 14px 14px 14px" : "14px 3px 14px 14px",
                 borderLeft:  esCliente ? `3px solid ${C.border}` : "none",
                 borderRight: !esCliente ? `3px solid ${esAgente ? C.red : C.gold}` : "none",
@@ -908,13 +927,9 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
               }}>
                 {m.contenido}
               </div>
-              {/* Meta */}
-              <div style={{ fontSize: 10.5, color: C.muted, textAlign: esCliente ? "left" : "right", paddingLeft: esCliente ? 2 : 0, paddingRight: esCliente ? 0 : 2 }}>
-                {!esCliente && (esAgente
-                  ? <span style={{ color: C.red, fontWeight: 700 }}>{m.agente || "Agente"}</span>
-                  : <span style={{ color: C.gold, fontWeight: 700 }}>Bot</span>)}
-                {!esCliente ? " · " : ""}
-                {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+              {/* Hora */}
+              <div style={{ fontSize: 10.5, color: C.muted, textAlign: esCliente ? "left" : "right" }}>
+                {hora}
               </div>
             </div>
           );
