@@ -3,7 +3,7 @@ import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
-  AlertCircle, Clock, ChevronDown, Zap, ShoppingBag,
+  AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -34,6 +34,19 @@ const AVT = [
   ["#9D174D","#fff"],["#374151","#fff"],["#C2410C","#fff"],
   ["#1E40AF","#fff"],
 ];
+
+// ============================================================
+// MOBILE HOOK
+// ============================================================
+function useIsMobile(bp = 768) {
+  const [v, setV] = useState(() => window.innerWidth < bp);
+  useEffect(() => {
+    const h = () => setV(window.innerWidth < bp);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [bp]);
+  return v;
+}
 
 // Base de conocimiento del asistente
 const IA_KB = [
@@ -174,6 +187,21 @@ function Login() {
 }
 
 // ============================================================
+// MOBILE BACK HEADER
+// ============================================================
+function MobileBack({ title, onBack }) {
+  return (
+    <div style={{ padding: "11px 16px", background: L.white, borderBottom: `3px solid ${C.gold}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <button onClick={onBack}
+        style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+        <ChevronLeft size={20} />
+      </button>
+      <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: L.text, textTransform: "uppercase", letterSpacing: 0.5 }}>{title}</span>
+    </div>
+  );
+}
+
+// ============================================================
 // ALERTAS BTN
 // ============================================================
 function AlertasBtn({ alertas, onSelect }) {
@@ -225,6 +253,7 @@ function AlertasBtn({ alertas, onSelect }) {
 // CONTACT DRAWER
 // ============================================================
 function ContactoDrawer({ contacto, onClose, onSave }) {
+  const isMobile = useIsMobile();
   const [form, setForm] = useState({
     nombre: contacto.nombre || "", email: contacto.email || "",
     empresa: contacto.empresa || "", direccion: contacto.direccion || "",
@@ -264,7 +293,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 200 }} />
-      <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 390, background: L.white, boxShadow: "-6px 0 40px rgba(0,0,0,.18)", zIndex: 201, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
+      <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: isMobile ? "100%" : 390, background: L.white, boxShadow: "-6px 0 40px rgba(0,0,0,.18)", zIndex: 201, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
         {/* Header */}
         <div style={{ padding: "20px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 14 }}>
           <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={52} border={`2px solid ${C.gold}`} />
@@ -321,6 +350,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 // ASISTENTE IA
 // ============================================================
 function AIAsistente({ contactoActivo }) {
+  const isMobile = useIsMobile();
   const [open, setOpen]         = useState(false);
   const [msgs, setMsgs]         = useState([
     { from: "ai", text: `¡Hola! Soy el asistente de IA de **Nuevo Munich**.\n\nEstoy aquí para ayudarte a gestionar contactos, conversaciones y ventas de forma más eficiente.\n\n¿En qué puedo ayudarte hoy?` },
@@ -362,7 +392,7 @@ function AIAsistente({ contactoActivo }) {
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: 90, right: 24, width: 350, height: 490, background: L.white, borderRadius: 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? 80 : 90, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72vh" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header */}
           <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -436,7 +466,7 @@ function AIAsistente({ contactoActivo }) {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas }) {
+function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile }) {
   const [filtro, setFiltro]     = useState("todos");
   const [busqueda, setBusqueda] = useState("");
 
@@ -447,7 +477,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
   });
 
   return (
-    <div style={{ width: 340, minWidth: 340, background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ width: isMobile ? "100%" : 340, minWidth: isMobile ? 0 : 340, background: L.white, borderRight: isMobile ? "none" : `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100vh" }}>
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
@@ -569,7 +599,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 // ============================================================
 // CHAT PANEL
 // ============================================================
-function ChatPanel({ contacto, onUpdateContacto, userName }) {
+function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const [mensajes, setMensajes] = useState([]);
   const [texto, setTexto]       = useState("");
   const [enviando, setEnviando]   = useState(false);
@@ -630,55 +660,78 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", background: L.bg }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, boxShadow: "0 1px 6px rgba(0,0,0,.06)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={48} border={`2px solid ${C.gold}`} />
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text }}>{contacto.nombre || contacto.telefono}</span>
-              <span style={{ fontSize: 10.5, padding: "2px 9px", borderRadius: 5, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase" }}>{est.label}</span>
+      <div style={{ padding: isMobile ? "10px 14px" : "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, boxShadow: "0 1px 6px rgba(0,0,0,.06)", flexShrink: 0 }}>
+        {/* Fila 1: contacto info */}
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14 }}>
+          {isMobile && onBack && (
+            <button onClick={onBack}
+              style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={isMobile ? 38 : 48} border={`2px solid ${C.gold}`} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? 15 : 18, fontWeight: 700, color: L.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 160 : "none" }}>{contacto.nombre || contacto.telefono}</span>
+              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", flexShrink: 0 }}>{est.label}</span>
             </div>
-            <div style={{ fontSize: 12, color: L.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 11.5, color: L.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Phone size={11} /> {contacto.telefono}</span>
-              {contacto.empresa && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Building2 size={11} /> {contacto.empresa}</span>}
+              {contacto.empresa && !isMobile && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Building2 size={11} /> {contacto.empresa}</span>}
             </div>
           </div>
-          <button onClick={() => setDrawer(true)}
-            style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
-            <Pencil size={14} /> Editar
-          </button>
-          <button onClick={() => setPedido(true)}
-            style={{ background: C.red, border: "none", color: "#fff", borderRadius: 9, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)", transition: "all .15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = C.redDark; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = C.red; }}>
-            <ShoppingBag size={14} /> Nuevo Pedido
-          </button>
+          {!isMobile && (
+            <>
+              <button onClick={() => setDrawer(true)}
+                style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
+                <Pencil size={14} /> Editar
+              </button>
+              <button onClick={() => setPedido(true)}
+                style={{ background: C.red, border: "none", color: "#fff", borderRadius: 9, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)", transition: "all .15s", flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = C.redDark; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = C.red; }}>
+                <ShoppingBag size={14} /> Nuevo Pedido
+              </button>
+            </>
+          )}
         </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={contacto.vendedor || ""} onChange={(e) => upd({ vendedor: e.target.value })} style={selSt}>
+        {/* Fila 2: acciones (scrollable en mobile) */}
+        <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: isMobile ? 9 : 10, overflowX: isMobile ? "auto" : "visible", flexWrap: isMobile ? "nowrap" : "wrap", paddingBottom: isMobile ? 2 : 0 }}>
+          {isMobile && (
+            <>
+              <button onClick={() => setDrawer(true)}
+                style={{ ...btnSt, flexShrink: 0, fontSize: 12, padding: "6px 11px", background: L.soft, color: L.muted, borderColor: L.border }}>
+                <Pencil size={13} /> Editar
+              </button>
+              <button onClick={() => setPedido(true)}
+                style={{ ...btnSt, flexShrink: 0, fontSize: 12, padding: "6px 11px", background: C.red, color: "#fff", borderColor: C.red }}>
+                <ShoppingBag size={13} /> Pedido
+              </button>
+            </>
+          )}
+          <select value={contacto.vendedor || ""} onChange={(e) => upd({ vendedor: e.target.value })} style={{ ...selSt, flexShrink: 0, fontSize: 12 }}>
             <option value="">Sin vendedor</option>
             {VENDEDORES.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
-          <select value={contacto.estado} onChange={(e) => upd({ estado: e.target.value })} style={selSt}>
+          <select value={contacto.estado} onChange={(e) => upd({ estado: e.target.value })} style={{ ...selSt, flexShrink: 0, fontSize: 12 }}>
             {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <button onClick={() => setPanelSeg((v) => !v)}
-            style={{ ...btnSt, background: panelSeg ? C.gold : L.soft, color: panelSeg ? "#fff" : L.muted, borderColor: panelSeg ? C.gold : L.border }}>
-            <Calendar size={14} /> Seguimiento
+            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: panelSeg ? C.gold : L.soft, color: panelSeg ? "#fff" : L.muted, borderColor: panelSeg ? C.gold : L.border }}>
+            <Calendar size={13} /> {isMobile ? "" : "Seguimiento"}
           </button>
           <button onClick={() => upd({ bot_activo: !contacto.bot_activo })}
-            style={{ ...btnSt, background: contacto.bot_activo ? "#DCFCE7" : "#FEF2F2", color: contacto.bot_activo ? "#15803D" : C.red, borderColor: contacto.bot_activo ? "#86EFAC" : "#FECACA" }}>
-            {contacto.bot_activo ? <><Bot size={14} /> Bot activo</> : <><User size={14} /> Yo atiendo</>}
+            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: contacto.bot_activo ? "#DCFCE7" : "#FEF2F2", color: contacto.bot_activo ? "#15803D" : C.red, borderColor: contacto.bot_activo ? "#86EFAC" : "#FECACA" }}>
+            {contacto.bot_activo ? <><Bot size={13} /> Bot</> : <><User size={13} /> {isMobile ? "Agente" : "Yo atiendo"}</>}
           </button>
         </div>
       </div>
 
       {/* ── Panel seguimiento ── */}
       {panelSeg && (
-        <div style={{ background: "#FFFBEB", borderBottom: `1px solid #FDE68A`, padding: "13px 22px", display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div style={{ background: "#FFFBEB", borderBottom: `1px solid #FDE68A`, padding: isMobile ? "12px 14px" : "13px 22px", display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
             <label style={lblSt}>Próximo contacto</label>
             <input type="datetime-local" style={{ ...inpSt, width: 215 }}
@@ -694,13 +747,13 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
 
       {/* ── Banner bot pausado ── */}
       {!contacto.bot_activo && (
-        <div style={{ background: "#FFFBEB", color: "#92400E", fontSize: 12.5, padding: "8px 22px", borderBottom: `1px solid #FDE68A`, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ background: "#FFFBEB", color: "#92400E", fontSize: 12.5, padding: isMobile ? "8px 14px" : "8px 22px", borderBottom: `1px solid #FDE68A`, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
           <User size={14} /> <strong>{userName}</strong> — estás atendiendo esta conversación directamente.
         </div>
       )}
 
       {/* ── Mensajes ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px", background: L.bg, backgroundImage: `radial-gradient(${L.border} 0.5px, transparent 0.5px)`, backgroundSize: "20px 20px", display: "flex", flexDirection: "column", gap: 11 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "18px 22px", background: L.bg, backgroundImage: `radial-gradient(${L.border} 0.5px, transparent 0.5px)`, backgroundSize: "20px 20px", display: "flex", flexDirection: "column", gap: 11 }}>
         {mensajes.length === 0 && (
           <div style={{ textAlign: "center", color: L.light, fontSize: 13.5, marginTop: 40 }}>Sin mensajes en esta conversación aún.</div>
         )}
@@ -749,14 +802,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
       </div>}
 
       {/* ── Input ── */}
-      <div style={{ padding: "14px 22px", borderTop: `1px solid ${L.border}`, background: L.white, display: "flex", gap: 10, alignItems: "flex-end" }}>
+      <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderTop: `1px solid ${L.border}`, background: L.white, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
         <textarea value={texto} onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-          placeholder="Escribí un mensaje… (Enter para enviar · Shift+Enter = nueva línea)" rows={1}
+          placeholder={isMobile ? "Escribí un mensaje…" : "Escribí un mensaje… (Enter para enviar · Shift+Enter = nueva línea)"} rows={1}
           style={{ flex: 1, resize: "none", border: `1.5px solid ${L.border}`, borderRadius: 11, padding: "11px 14px", fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none", maxHeight: 120, lineHeight: 1.5 }} />
         <button onClick={enviar} disabled={enviando}
-          style={{ background: enviando ? L.light : C.red, color: "#fff", border: "none", borderRadius: 11, padding: "11px 22px", fontSize: 14, fontWeight: 700, cursor: enviando ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 7, boxShadow: enviando ? "none" : "0 2px 10px rgba(185,28,28,.3)", transition: "all .2s" }}>
-          <Send size={16} /> {enviando ? "…" : "Enviar"}
+          style={{ background: enviando ? L.light : C.red, color: "#fff", border: "none", borderRadius: 11, padding: isMobile ? "11px 16px" : "11px 22px", fontSize: 14, fontWeight: 700, cursor: enviando ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 7, boxShadow: enviando ? "none" : "0 2px 10px rgba(185,28,28,.3)", transition: "all .2s", flexShrink: 0 }}>
+          <Send size={16} /> {enviando || isMobile ? (enviando ? "…" : "") : "Enviar"}
         </button>
       </div>
 
@@ -777,6 +830,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName }) {
 // APP
 // ============================================================
 export default function App() {
+  const isMobile = useIsMobile();
   const [session,   setSession]   = useState(null);
   const [contactos, setContactos] = useState([]);
   const [activo,    setActivo]    = useState(null);
@@ -813,39 +867,61 @@ export default function App() {
   const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
   const alertas   = calcularAlertas(contactos);
 
+  // En mobile: mostramos sidebar O panel, no ambos a la vez
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes");
+
   return (
     <div style={{ display: "flex", fontFamily: FONT_BODY, height: "100vh", overflow: "hidden", background: L.bg }}>
       <FontLoader />
-      <Sidebar contactos={contactos} activo={activo} onSelect={setActivo}
-        onLogout={() => supabase.auth.signOut()}
-        userEmail={userEmail} userName={userName}
-        vista={vista} setVista={setVista} alertas={alertas} />
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        {vista === "reportes" ? (
-          <Reportes />
-        ) : vista === "pedidos" ? (
-          <PedidosPanel />
-        ) : activo ? (
-          <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName} />
-        ) : (
-          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
+
+      {/* Sidebar — oculto en mobile cuando hay panel activo */}
+      {(!isMobile || !mobileInPanel) && (
+        <Sidebar contactos={contactos} activo={activo}
+          onSelect={(c) => setActivo(c)}
+          onLogout={() => supabase.auth.signOut()}
+          userEmail={userEmail} userName={userName}
+          vista={vista} setVista={setVista} alertas={alertas}
+          isMobile={isMobile} />
+      )}
+
+      {/* Panel principal — en mobile solo visible cuando hay panel activo */}
+      {(!isMobile || mobileInPanel) && (
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
+          {vista === "reportes" ? (
+            <>
+              {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
+              <div style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
+            </>
+          ) : vista === "pedidos" ? (
+            <>
+              {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
+              <div style={{ flex: 1, overflowY: "auto" }}><PedidosPanel /></div>
+            </>
+          ) : activo ? (
+            <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
+              onBack={isMobile ? () => setActivo(null) : undefined}
+              isMobile={isMobile} />
+          ) : !isMobile ? (
+            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
+              </div>
+              <div>
+                <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
+                <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>Seleccioná una conversación para comenzar</div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
+                  <div key={txt} style={{ padding: "10px 18px", background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, fontSize: 13, color: L.muted, display: "flex", alignItems: "center", gap: 8, fontWeight: 500, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
+                    <span style={{ color: C.red }}>{icon}</span> {txt}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
-              <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>Seleccioná una conversación para comenzar</div>
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
-              {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
-                <div key={txt} style={{ padding: "10px 18px", background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, fontSize: 13, color: L.muted, display: "flex", alignItems: "center", gap: 8, fontWeight: 500, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
-                  <span style={{ color: C.red }}>{icon}</span> {txt}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          ) : null}
+        </div>
+      )}
+
       <AIAsistente contactoActivo={activo} />
     </div>
   );
