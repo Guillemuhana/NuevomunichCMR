@@ -16,7 +16,7 @@ export const supabase = createClient(
 export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
 
 // Logo oficial de Nuevo Munich
-export const LOGO_URL = "https://i.postimg.cc/hPdnrTxH/Logo-Nuevo-Munich-web.png";
+export const LOGO_URL = "/logo.png";
 
 export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra"];
 
