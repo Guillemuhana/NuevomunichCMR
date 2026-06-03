@@ -153,12 +153,9 @@ function Login() {
         {/* Card */}
         <div style={{ background: L.white, borderRadius: 20, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,.10)", border: `1px solid ${L.border}` }}>
           {/* Logo */}
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ margin: "0 auto 18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 90, objectFit: "contain" }} />
-            </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 22, color: L.text, letterSpacing: 0.5 }}>NUEVO MUNICH</div>
-            <div style={{ fontSize: 12, color: L.muted, letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Sistema CRM</div>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 115, objectFit: "contain", display: "block", margin: "0 auto 14px" }} />
+            <div style={{ fontSize: 11, color: L.light, letterSpacing: 4, textTransform: "uppercase" }}>Sistema CRM</div>
           </div>
           {/* Fields */}
           {[
