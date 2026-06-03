@@ -149,41 +149,50 @@ function Login() {
 
   return (
     <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", fontFamily: FONT_BODY, padding: "24px 20px" }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes nmFadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes nmGlow { 0%,100% { filter:drop-shadow(0 0 0px rgba(156,27,27,0)); } 50% { filter:drop-shadow(0 6px 28px rgba(156,27,27,.25)); } }
+        .nm-logo { animation: nmFadeUp .6s ease both, nmGlow 3.5s ease-in-out 0.8s infinite; }
+        .nm-form { animation: nmFadeUp .6s .25s ease both; opacity:0; animation-fill-mode:both; }
+      `}} />
 
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 312, objectFit: "contain", display: "block", margin: "0 auto 16px" }} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-            <div style={{ height: 1, width: 32, background: L.border }} />
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
+          <img
+            src={LOGO_URL}
+            alt="Nuevo Munich"
+            className="nm-logo"
+            style={{ height: 312, objectFit: "contain", width: "100%", maxWidth: 360, display: "block" }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+            <div style={{ height: 1, width: 28, background: L.border }} />
             <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
-            <div style={{ height: 1, width: 32, background: L.border }} />
+            <div style={{ height: 1, width: 28, background: L.border }} />
           </div>
         </div>
 
-        {/* Campos */}
-        {[
-          { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
-          { label: "Contraseña", type: "password", val: pass, set: setPass, ph: "••••••••" },
-        ].map(({ label, type, val, set, ph }) => (
-          <div key={label} style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
-            <input type={type} value={val} onChange={(e) => set(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()} placeholder={ph}
-              style={{ width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" }} />
-          </div>
-        ))}
-
-        {err && (
-          <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
-            <AlertCircle size={15} /> {err}
-          </div>
-        )}
-
-        <button onClick={handleLogin} disabled={loading}
-          style={{ width: "100%", marginTop: 8, background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
-          {loading ? "Entrando…" : "ENTRAR"}
-        </button>
+        <div className="nm-form">
+          {[
+            { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
+            { label: "Contraseña", type: "password", val: pass, set: setPass, ph: "••••••••" },
+          ].map(({ label, type, val, set, ph }) => (
+            <div key={label} style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
+              <input type={type} value={val} onChange={(e) => set(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()} placeholder={ph}
+                style={{ width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" }} />
+            </div>
+          ))}
+          {err && (
+            <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
+              <AlertCircle size={15} /> {err}
+            </div>
+          )}
+          <button onClick={handleLogin} disabled={loading}
+            style={{ width: "100%", marginTop: 8, background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
+            {loading ? "Entrando…" : "ENTRAR"}
+          </button>
+        </div>
       </div>
     </div>
   );
