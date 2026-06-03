@@ -153,7 +153,7 @@ function Login() {
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 120, objectFit: "contain", display: "block", margin: "0 auto 16px" }} />
+          <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 180, objectFit: "contain", display: "block", margin: "0 auto 16px" }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
             <div style={{ height: 1, width: 32, background: L.border }} />
             <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
@@ -399,7 +399,7 @@ function AIAsistente({ contactoActivo }) {
           {/* Header */}
           <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <img src={LOGO_URL} alt="NM" style={{ height: 38, objectFit: "contain" }} />
+              <img src={LOGO_URL} alt="NM" style={{ height: 48, objectFit: "contain" }} />
             </div>
             <div>
               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, letterSpacing: 0.3, lineHeight: 1.2 }}>Asistente IA</div>
@@ -484,7 +484,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 78, objectFit: "contain" }} />
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 108, objectFit: "contain" }} />
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
@@ -932,7 +932,7 @@ export default function App() {
             isMobile={isMobile} />
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
-            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
+            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 160, objectFit: "contain" }} />
             <div>
               <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
               <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>
