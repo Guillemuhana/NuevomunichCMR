@@ -101,8 +101,6 @@ function FontLoader() {
     l.rel = "stylesheet";
     l.href = "https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&display=swap";
     document.head.appendChild(l);
-    document.body.style.margin = "0";
-    document.body.style.overflow = "hidden";
     document.body.style.background = L.bg;
   }, []);
   return null;
@@ -149,7 +147,7 @@ function Login() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, fontFamily: FONT_BODY, padding: 20 }}>
+    <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, fontFamily: FONT_BODY, padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
         {/* Card */}
         <div style={{ background: L.white, borderRadius: 20, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,.10)", border: `1px solid ${L.border}` }}>
@@ -308,7 +306,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
           </button>
         </div>
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "22px" }}>
+        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "22px" }}>
           <div style={{ fontSize: 11, color: L.light, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 18, paddingBottom: 10, borderBottom: `1px solid ${L.border}` }}>
             Datos del contacto
           </div>
@@ -384,7 +382,7 @@ function AIAsistente({ contactoActivo }) {
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: 24, right: 24, width: 54, height: 54, borderRadius: "50%", background: open ? L.muted : C.red, border: "none", color: "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(185,28,28,.45)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 24, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? L.muted : C.red, border: "none", color: "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(185,28,28,.45)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -392,7 +390,7 @@ function AIAsistente({ contactoActivo }) {
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? 80 : 90, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72vh" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : 90, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header */}
           <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -408,7 +406,7 @@ function AIAsistente({ contactoActivo }) {
           </div>
 
           {/* Mensajes */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: L.bg }}>
+          <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: L.bg }}>
             {msgs.map((m, i) => (
               <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start" }}>
                 {m.from === "ai" && (
@@ -477,7 +475,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
   });
 
   return (
-    <div style={{ width: isMobile ? "100%" : 340, minWidth: isMobile ? 0 : 340, background: L.white, borderRight: isMobile ? "none" : `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ width: isMobile ? "100%" : 340, minWidth: isMobile ? 0 : 340, background: L.white, borderRight: isMobile ? "none" : `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100%", flexShrink: 0 }}>
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
@@ -526,7 +524,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           </div>
 
           {/* ── Lista contactos ── */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          <div className="scroll-y" style={{ overflowY: "auto", flex: 1 }}>
             {lista.length === 0 && (
               <div style={{ padding: 36, color: L.light, fontSize: 13.5, textAlign: "center" }}>
                 {busqueda ? "Sin resultados para la búsqueda" : "Sin conversaciones"}
@@ -657,7 +655,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const est = ESTADOS[contacto.estado] || ESTADOS.nuevo;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", background: L.bg }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minWidth: 0, background: L.bg }}>
 
       {/* ── Header ── */}
       <div style={{ padding: isMobile ? "10px 14px" : "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, boxShadow: "0 1px 6px rgba(0,0,0,.06)", flexShrink: 0 }}>
@@ -698,7 +696,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
           )}
         </div>
         {/* Fila 2: acciones (scrollable en mobile) */}
-        <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: isMobile ? 9 : 10, overflowX: isMobile ? "auto" : "visible", flexWrap: isMobile ? "nowrap" : "wrap", paddingBottom: isMobile ? 2 : 0 }}>
+        <div className={isMobile ? "strip" : ""} style={{ display: "flex", gap: 7, alignItems: "center", marginTop: isMobile ? 9 : 10, overflowX: isMobile ? "auto" : "visible", flexWrap: isMobile ? "nowrap" : "wrap", paddingBottom: isMobile ? 2 : 0 }}>
           {isMobile && (
             <>
               <button onClick={() => setDrawer(true)}
@@ -753,7 +751,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
       )}
 
       {/* ── Mensajes ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "18px 22px", background: L.bg, backgroundImage: `radial-gradient(${L.border} 0.5px, transparent 0.5px)`, backgroundSize: "20px 20px", display: "flex", flexDirection: "column", gap: 11 }}>
+      <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "18px 22px", background: L.bg, backgroundImage: `radial-gradient(${L.border} 0.5px, transparent 0.5px)`, backgroundSize: "20px 20px", display: "flex", flexDirection: "column", gap: 11 }}>
         {mensajes.length === 0 && (
           <div style={{ textAlign: "center", color: L.light, fontSize: 13.5, marginTop: 40 }}>Sin mensajes en esta conversación aún.</div>
         )}
@@ -871,7 +869,7 @@ export default function App() {
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes");
 
   return (
-    <div style={{ display: "flex", fontFamily: FONT_BODY, height: "100vh", overflow: "hidden", background: L.bg }}>
+    <div style={{ display: "flex", fontFamily: FONT_BODY, height: "100%", overflow: "hidden", background: L.bg }}>
       <FontLoader />
 
       {/* Sidebar — oculto en mobile cuando hay panel activo */}
