@@ -163,9 +163,8 @@ function Login() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
           {/* Contenedor con fondo suave que le da contexto al logo sin fondo */}
           <div className="nm-wrap" style={{
-            background: "linear-gradient(160deg, #fdf0f0 0%, #fff8ee 50%, #f5f0ff 100%)",
-            borderRadius: 24, padding: "20px 24px 12px",
-            border: "1px solid rgba(156,27,27,.08)",
+            background: "transparent",
+            borderRadius: 24, padding: "8px 0",
             width: "100%", display: "flex", flexDirection: "column", alignItems: "center",
             marginBottom: 8,
           }}>
@@ -173,7 +172,7 @@ function Login() {
               src={LOGO_URL}
               alt="Nuevo Munich"
               className="nm-logo"
-              style={{ height: 280, objectFit: "contain", width: "100%", maxWidth: 340, display: "block" }}
+              style={{ height: 360, objectFit: "contain", width: "100%", maxWidth: 420, display: "block" }}
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
