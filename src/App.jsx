@@ -153,7 +153,7 @@ function Login() {
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 240, objectFit: "contain", display: "block", margin: "0 auto 16px" }} />
+          <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 312, objectFit: "contain", display: "block", margin: "0 auto 16px" }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
             <div style={{ height: 1, width: 32, background: L.border }} />
             <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
