@@ -12,12 +12,26 @@ export const LOGO_URL = "https://i.postimg.cc/hPdnrTxH/Logo-Nuevo-Munich-web.png
 
 export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra"];
 
+// ─── Roles de usuario ───────────────────────────────────────
+// "cristian" (por email) es admin/dueño; el resto son vendedores
+export function getRol(userEmail) {
+  const prefix = (userEmail || "").split("@")[0].toLowerCase();
+  return prefix === "cristian" ? "admin" : "vendedor";
+}
+
+// ─── Estados del pipeline CRM ───────────────────────────────
 export const ESTADOS = {
-  nuevo: { label: "Nuevo", color: "#8a6a1e", bg: "#f5e6c8" },
+  // Estados CRM nuevos (pipeline principal)
+  nuevo:       { label: "Nuevo",        color: "#8a6a1e", bg: "#f5e6c8" },
+  contactado:  { label: "Contactado",   color: "#1D4ED8", bg: "#DBEAFE" },
+  interesado:  { label: "Interesado",   color: "#7C3AED", bg: "#EDE9FE" },
+  pendiente:   { label: "Pendiente",    color: "#92400E", bg: "#FEF3C7" },
+  vendido:     { label: "Vendido",      color: "#15803D", bg: "#DCFCE7" },
+  perdido:     { label: "Perdido",      color: "#7a3a2a", bg: "#ecd5cf" },
+  // Legacy — backward compat para datos existentes
   en_conversacion: { label: "En conversación", color: "#7a1212", bg: "#e7d4d4" },
-  pedido: { label: "Pedido", color: "#46571f", bg: "#dde7cf" },
-  cerrado: { label: "Cerrado", color: "#4a4a4a", bg: "#e3e3e3" },
-  perdido: { label: "Perdido", color: "#7a3a2a", bg: "#ecd5cf" },
+  pedido:      { label: "Pedido",       color: "#46571f", bg: "#dde7cf" },
+  cerrado:     { label: "Cerrado",      color: "#4a4a4a", bg: "#e3e3e3" },
 };
 
 // Paleta de marca (rojo bávaro / dorado / crema)

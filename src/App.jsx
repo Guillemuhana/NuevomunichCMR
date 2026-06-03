@@ -3,14 +3,15 @@ import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
-  AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag,
+  AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, calcularAlertas,
+  VENDEDORES, ESTADOS, calcularAlertas, getRol,
 } from "./lib";
 import Reportes from "./Reportes";
+import AdminPanel from "./AdminPanel";
 
 // ============================================================
 // PALETA LIGHT — tema claro profesional
@@ -464,7 +465,7 @@ function AIAsistente({ contactoActivo }) {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile }) {
+function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
   const [filtro, setFiltro]     = useState("todos");
   const [busqueda, setBusqueda] = useState("");
 
@@ -484,14 +485,15 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
       </div>
 
       {/* ── Tabs ── */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${L.border}` }}>
+      <div className="strip" style={{ display: "flex", borderBottom: `1px solid ${L.border}`, overflowX: "auto" }}>
         {[
-          ["chat",     <MessageSquare size={14} />, "Chats"],
-          ["pedidos",  <Package size={14} />,       "Pedidos"],
-          ["reportes", <BarChart2 size={14} />,     "Reportes"],
+          ["chat",     <MessageSquare size={13} />, "Chats"],
+          ["pedidos",  <Package size={13} />,       "Pedidos"],
+          ["reportes", <BarChart2 size={13} />,     "Reportes"],
+          ...(rol === "admin" ? [["admin", <Shield size={13} />, "Admin"]] : []),
         ].map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
-            style={{ flex: 1, border: "none", cursor: "pointer", padding: "11px 0", fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: vista === k ? "#FFF5F5" : "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
+            style={{ flex: 1, border: "none", cursor: "pointer", padding: "11px 0", fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: "nowrap", minWidth: 60, color: vista === k ? C.red : L.muted, background: vista === k ? "#FFF5F5" : "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
             {icon} {l}
           </button>
         ))}
@@ -843,8 +845,15 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
+    const rolActual  = getRol(session.user.email);
+    const userNombre = session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase());
     const cargar = async () => {
-      const { data } = await supabase.from("contactos").select("*").order("updated_at", { ascending: false });
+      let query = supabase.from("contactos").select("*").order("updated_at", { ascending: false });
+      // Vendedor solo ve los contactos que tiene asignados
+      if (rolActual === "vendedor") {
+        query = query.eq("vendedor", userNombre);
+      }
+      const { data } = await query;
       setContactos(data || []);
     };
     cargar();
@@ -863,10 +872,11 @@ export default function App() {
 
   const userEmail = session.user.email;
   const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
+  const rol       = getRol(userEmail); // "admin" solo para cristian, "vendedor" para el resto
   const alertas   = calcularAlertas(contactos);
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes" || vista === "admin");
 
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
@@ -882,12 +892,17 @@ export default function App() {
           onLogout={() => supabase.auth.signOut()}
           userEmail={userEmail} userName={userName}
           vista={vista} setVista={setVista} alertas={alertas}
-          isMobile={isMobile} />
+          isMobile={isMobile} rol={rol} />
       </div>
 
       {/* Panel principal — CSS lo muestra en mobile sólo con .in-panel */}
       <div className="app-main">
-        {vista === "reportes" ? (
+        {vista === "admin" && rol === "admin" ? (
+          <>
+            {isMobile && <MobileBack title="Admin" onBack={() => setVista("chat")} />}
+            <AdminPanel userName={userName} isMobile={isMobile} />
+          </>
+        ) : vista === "reportes" ? (
           <>
             {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
@@ -906,7 +921,9 @@ export default function App() {
             <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
             <div>
               <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
-              <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>Seleccioná una conversación para comenzar</div>
+              <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>
+                {rol === "admin" ? `Bienvenido, ${userName} · Panel de administración disponible` : `Seleccioná una conversación para comenzar`}
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center", padding: "0 20px" }}>
               {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
