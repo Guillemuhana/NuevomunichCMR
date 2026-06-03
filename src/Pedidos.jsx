@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Package, Plus, Printer, X, Check, Clock, Zap,
   ChevronDown, Search, Phone, MapPin, FileText,
-  Trash2, AlertCircle, User, CheckCircle, ShoppingBag,
+  Trash2, AlertCircle, User, CheckCircle, ShoppingBag, UserSearch,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -382,6 +382,10 @@ export default function PedidosPanel() {
   const [busqueda, setBusqueda]     = useState("");
   const [loading, setLoading]       = useState(true);
   const [expandido, setExpandido]   = useState(null);
+  const [nuevoPedidoModal, setNuevoPedidoModal] = useState(false);
+  const [contactoSelec, setContactoSelec]       = useState(null);
+  const [busqContacto, setBusqContacto]         = useState("");
+  const [listaContactos, setListaContactos]     = useState([]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -418,32 +422,55 @@ export default function PedidosPanel() {
 
   const totalFact = lista.reduce((s, p) => s + (Number(p.total) || 0), 0);
 
+  // Buscar contactos para el selector del modal
+  const buscarContactos = async (q) => {
+    setBusqContacto(q);
+    if (!q.trim()) { setListaContactos([]); return; }
+    const { data } = await supabase.from("contactos").select("id,nombre,telefono")
+      .or(`nombre.ilike.%${q}%,telefono.ilike.%${q}%`).limit(8);
+    setListaContactos(data || []);
+  };
+
+  const abrirNuevoPedido = () => {
+    setContactoSelec(null);
+    setBusqContacto("");
+    setListaContactos([]);
+    setNuevoPedidoModal(true);
+  };
+
   return (
-    <div style={{ flex: 1, height: "100vh", overflowY: "auto", background: L.bg, fontFamily: FONT_BODY }}>
+    <div style={{ flex: 1, height: "100%", overflowY: "auto", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* ── Header ── */}
-      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "16px 26px", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 6px rgba(0,0,0,.06)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 14px rgba(185,28,28,.3)` }}>
-              <Package size={20} color="#fff" />
+      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "14px 18px", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 6px rgba(0,0,0,.06)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Package size={19} color="#fff" />
             </div>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Pedidos
               </div>
-              <div style={{ fontSize: 12, color: L.muted }}>
+              <div style={{ fontSize: 11.5, color: L.muted }}>
                 {lista.length} pedido{lista.length !== 1 ? "s" : ""} · <strong style={{ color: C.red }}>{fmtMoneda(totalFact)}</strong>
               </div>
             </div>
           </div>
 
-          {/* Búsqueda */}
-          <div style={{ position: "relative", minWidth: 240 }}>
-            <Search size={15} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar cliente o vendedor…"
-              style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 33px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Búsqueda */}
+            <div style={{ position: "relative" }}>
+              <Search size={14} color={L.light} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar cliente o vendedor…"
+                style={{ width: 200, boxSizing: "border-box", padding: "8px 12px 8px 30px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+            </div>
+            {/* Botón Nuevo Pedido */}
+            <button onClick={abrirNuevoPedido}
+              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 7, boxShadow: "0 2px 10px rgba(185,28,28,.3)", whiteSpace: "nowrap" }}>
+              <Plus size={16} /> Nuevo Pedido
+            </button>
           </div>
         </div>
 
@@ -607,6 +634,68 @@ export default function PedidosPanel() {
           })}
           <div style={{ height: 32 }} />
         </div>
+      )}
+
+      {/* ── Modal: seleccionar contacto para nuevo pedido ── */}
+      {nuevoPedidoModal && !contactoSelec && (
+        <>
+          <div onClick={() => setNuevoPedidoModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(95vw,440px)", background: L.white, borderRadius: 18, zIndex: 401, boxShadow: "0 24px 80px rgba(0,0,0,.3)", fontFamily: FONT_BODY, overflow: "hidden" }}>
+            <div style={{ padding: "18px 20px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <ShoppingBag size={18} color="#fff" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 17, color: L.text }}>Nuevo Pedido</div>
+                <div style={{ fontSize: 12, color: L.muted }}>Buscá el cliente</div>
+              </div>
+              <button onClick={() => setNuevoPedidoModal(false)} style={{ background: L.soft, border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ padding: "18px 20px" }}>
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <Search size={14} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input value={busqContacto} onChange={(e) => buscarContactos(e.target.value)}
+                  placeholder="Nombre o teléfono del cliente…"
+                  autoFocus
+                  style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px 11px 32px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                {listaContactos.length === 0 && busqContacto.length > 0 && (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: L.muted, fontSize: 13 }}>Sin resultados</div>
+                )}
+                {listaContactos.length === 0 && busqContacto.length === 0 && (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: L.light, fontSize: 13 }}>Escribí el nombre o teléfono para buscar</div>
+                )}
+                {listaContactos.map(c => (
+                  <button key={c.id} onClick={() => setContactoSelec(c)}
+                    style={{ background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, textAlign: "left", transition: "border-color .15s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = C.red}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = L.border}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>
+                      {(c.nombre || c.telefono)[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: L.text, fontSize: 14 }}>{c.nombre || c.telefono}</div>
+                      <div style={{ fontSize: 11.5, color: L.muted }}>{c.telefono}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Modal: formulario de pedido (una vez seleccionado el contacto) ── */}
+      {nuevoPedidoModal && contactoSelec && (
+        <NuevoPedidoModal
+          contacto={contactoSelec}
+          vendedorActual={contactoSelec.vendedor || ""}
+          onClose={() => { setNuevoPedidoModal(false); setContactoSelec(null); }}
+          onGuardado={() => { cargar(); setNuevoPedidoModal(false); setContactoSelec(null); }}
+        />
       )}
     </div>
   );
