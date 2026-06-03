@@ -148,13 +148,13 @@ function Login() {
   };
 
   return (
-    <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", fontFamily: FONT_BODY, padding: "24px 20px" }}>
-      <div style={{ width: "100%", maxWidth: 420 }}>
+    <div className="login-scroll" style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", background: "#fff", fontFamily: FONT_BODY, padding: "56px 20px 48px" }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
           <img
             src={LOGO_URL}
             alt="Nuevo Munich"
-            style={{ height: 468, objectFit: "contain", width: "100%", maxWidth: 500, display: "block" }}
+            style={{ width: "100%", maxWidth: 380, height: "auto", display: "block" }}
           />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
             <div style={{ height: 1, width: 28, background: L.border }} />
