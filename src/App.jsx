@@ -475,7 +475,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
   });
 
   return (
-    <div style={{ width: isMobile ? "100%" : 340, minWidth: isMobile ? 0 : 340, background: L.white, borderRight: isMobile ? "none" : `1px solid ${L.border}`, display: "flex", flexDirection: "column", height: "100%", flexShrink: 0 }}>
+    <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
@@ -655,7 +655,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const est = ESTADOS[contacto.estado] || ESTADOS.nuevo;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minWidth: 0, background: L.bg }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: L.bg, overflow: "hidden" }}>
 
       {/* ── Header ── */}
       <div style={{ padding: isMobile ? "10px 14px" : "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, boxShadow: "0 1px 6px rgba(0,0,0,.06)", flexShrink: 0 }}>
@@ -869,56 +869,55 @@ export default function App() {
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes");
 
   return (
-    <div style={{ display: "flex", fontFamily: FONT_BODY, height: "100%", overflow: "hidden", background: L.bg }}>
+    // CSS media queries en index.html controlan qué panel es visible en mobile
+    // .in-panel = hay panel activo → ocultar sidebar, mostrar app-main
+    <div className={`app-layout${mobileInPanel ? " in-panel" : ""}`}
+      style={{ fontFamily: FONT_BODY, background: L.bg }}>
       <FontLoader />
 
-      {/* Sidebar — oculto en mobile cuando hay panel activo */}
-      {(!isMobile || !mobileInPanel) && (
+      {/* Sidebar — CSS lo oculta en mobile cuando hay .in-panel */}
+      <div className="app-sidebar">
         <Sidebar contactos={contactos} activo={activo}
           onSelect={(c) => setActivo(c)}
           onLogout={() => supabase.auth.signOut()}
           userEmail={userEmail} userName={userName}
           vista={vista} setVista={setVista} alertas={alertas}
           isMobile={isMobile} />
-      )}
+      </div>
 
-      {/* Panel principal — en mobile solo visible cuando hay panel activo */}
-      {(!isMobile || mobileInPanel) && (
-        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
-          {vista === "reportes" ? (
-            <>
-              {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
-              <div style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
-            </>
-          ) : vista === "pedidos" ? (
-            <>
-              {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
-              <div style={{ flex: 1, overflowY: "auto" }}><PedidosPanel /></div>
-            </>
-          ) : activo ? (
-            <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
-              onBack={isMobile ? () => setActivo(null) : undefined}
-              isMobile={isMobile} />
-          ) : !isMobile ? (
-            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
-              </div>
-              <div>
-                <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
-                <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>Seleccioná una conversación para comenzar</div>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
-                {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
-                  <div key={txt} style={{ padding: "10px 18px", background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, fontSize: 13, color: L.muted, display: "flex", alignItems: "center", gap: 8, fontWeight: 500, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
-                    <span style={{ color: C.red }}>{icon}</span> {txt}
-                  </div>
-                ))}
-              </div>
+      {/* Panel principal — CSS lo muestra en mobile sólo con .in-panel */}
+      <div className="app-main">
+        {vista === "reportes" ? (
+          <>
+            {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
+            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
+          </>
+        ) : vista === "pedidos" ? (
+          <>
+            {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
+            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel /></div>
+          </>
+        ) : activo ? (
+          <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
+            onBack={isMobile ? () => setActivo(null) : undefined}
+            isMobile={isMobile} />
+        ) : (
+          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
+            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 110, objectFit: "contain" }} />
+            <div>
+              <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, textAlign: "center" }}>Nuevo Munich CRM</div>
+              <div style={{ color: L.muted, fontSize: 14, textAlign: "center", marginTop: 8 }}>Seleccioná una conversación para comenzar</div>
             </div>
-          ) : null}
-        </div>
-      )}
+            <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center", padding: "0 20px" }}>
+              {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
+                <div key={txt} style={{ padding: "10px 18px", background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, fontSize: 13, color: L.muted, display: "flex", alignItems: "center", gap: 8, fontWeight: 500, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
+                  <span style={{ color: C.red }}>{icon}</span> {txt}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <AIAsistente contactoActivo={activo} />
     </div>
