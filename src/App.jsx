@@ -833,10 +833,17 @@ export default function App() {
   const [activo,    setActivo]    = useState(null);
   const [vista,     setVista]     = useState("chat");
   const [ready,     setReady]     = useState(false);
+  // Ref para evitar mostrar login si hubo sesión previa y solo es un refresh
+  const tuvoSesion = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      // Solo actualizar sesión en eventos explícitos, evitar flashes durante refresh
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        setSession(s);
+      }
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -864,8 +871,11 @@ export default function App() {
     if (activo?.id === c.id) setActivo(c);
   };
 
+  if (session) tuvoSesion.current = true;
   if (!ready) return null;
-  if (!session) return (<><FontLoader /><Login /></>);
+  // No mostrar login si tuvo sesión previa y solo está refrescando token
+  if (!session && !tuvoSesion.current) return (<><FontLoader /><Login /></>);
+  if (!session) return null; // espera silenciosa si tuvo sesión (evita flash de login)
 
   const userEmail = session.user.email;
   const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
