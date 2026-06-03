@@ -149,32 +149,13 @@ function Login() {
 
   return (
     <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", fontFamily: FONT_BODY, padding: "24px 20px" }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes nmFadeUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes nmFloat   { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
-        @keyframes nmShine   { 0% { background-position:-200% center; } 100% { background-position:200% center; } }
-        @keyframes nmPulse   { 0%,100% { box-shadow:0 0 0 0 rgba(156,27,27,0); } 50% { box-shadow:0 0 40px 12px rgba(156,27,27,.1); } }
-        .nm-wrap { animation: nmFadeUp .7s ease both, nmPulse 4s ease-in-out 1s infinite; border-radius:24px; }
-        .nm-logo { animation: nmFloat 4s ease-in-out 0.8s infinite; }
-        .nm-form { animation: nmFadeUp .7s .3s ease both; opacity:0; animation-fill-mode:both; }
-      `}} />
-
-      <div style={{ width: "100%", maxWidth: 380 }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-          {/* Contenedor con fondo suave que le da contexto al logo sin fondo */}
-          <div className="nm-wrap" style={{
-            background: "transparent",
-            borderRadius: 24, padding: "8px 0",
-            width: "100%", display: "flex", flexDirection: "column", alignItems: "center",
-            marginBottom: 8,
-          }}>
-            <img
-              src={LOGO_URL}
-              alt="Nuevo Munich"
-              className="nm-logo"
-              style={{ height: 360, objectFit: "contain", width: "100%", maxWidth: 420, display: "block" }}
-            />
-          </div>
+          <img
+            src={LOGO_URL}
+            alt="Nuevo Munich"
+            style={{ height: 468, objectFit: "contain", width: "100%", maxWidth: 500, display: "block" }}
+          />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
             <div style={{ height: 1, width: 28, background: L.border }} />
             <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
@@ -182,7 +163,7 @@ function Login() {
           </div>
         </div>
 
-        <div className="nm-form">
+        <div>
           {[
             { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
             { label: "Contraseña", type: "password", val: pass, set: setPass, ph: "••••••••" },
