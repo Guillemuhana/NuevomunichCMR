@@ -148,33 +148,83 @@ function Login() {
   };
 
   return (
-    <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, fontFamily: FONT_BODY, padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 420 }}>
-        {/* Card */}
-        <div style={{ background: L.white, borderRadius: 20, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,.10)", border: `1px solid ${L.border}` }}>
-          {/* Logo */}
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 115, objectFit: "contain", display: "block", margin: "0 auto 14px" }} />
-            <div style={{ fontSize: 11, color: L.light, letterSpacing: 4, textTransform: "uppercase" }}>Sistema CRM</div>
+    <div style={{
+      minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: FONT_BODY, padding: "24px 16px",
+      background: `linear-gradient(145deg, #1a0a0a 0%, #2d1010 40%, #1a0e00 100%)`,
+    }}>
+      {/* Círculos decorativos de fondo */}
+      <div style={{ position: "fixed", top: "-80px", right: "-80px", width: 320, height: 320, borderRadius: "50%", background: "rgba(185,28,28,.12)", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", bottom: "-60px", left: "-60px", width: 240, height: 240, borderRadius: "50%", background: `rgba(212,161,58,.08)`, pointerEvents: "none" }} />
+
+      <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1 }}>
+
+        {/* Logo centrado sobre la card */}
+        <div style={{ textAlign: "center", marginBottom: -30, position: "relative", zIndex: 2 }}>
+          <div style={{
+            display: "inline-block",
+            background: "rgba(255,255,255,.07)",
+            backdropFilter: "blur(12px)",
+            borderRadius: 24,
+            padding: "18px 28px 10px",
+            border: "1px solid rgba(255,255,255,.12)",
+          }}>
+            <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 130, objectFit: "contain", display: "block" }} />
+            {/* Badge CRM con efecto dorado */}
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <div style={{ height: 1, width: 28, background: `linear-gradient(to right, transparent, ${C.gold})` }} />
+              <span style={{
+                fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, letterSpacing: 5,
+                background: `linear-gradient(90deg, ${C.gold}, #f5d78e, ${C.gold})`,
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                backgroundClip: "text", textTransform: "uppercase",
+              }}>CRM</span>
+              <div style={{ height: 1, width: 28, background: `linear-gradient(to left, transparent, ${C.gold})` }} />
+            </div>
           </div>
-          {/* Fields */}
+        </div>
+
+        {/* Card del formulario */}
+        <div style={{
+          background: "rgba(255,255,255,.97)",
+          borderRadius: 22, paddingTop: 52, paddingBottom: 32, paddingLeft: 32, paddingRight: 32,
+          boxShadow: "0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08)",
+        }}>
+
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div style={{ fontSize: 13, color: L.muted, letterSpacing: 0.5 }}>Ingresá con tu cuenta</div>
+          </div>
+
+          {/* Campos */}
           {[
             { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
             { label: "Contraseña", type: "password", val: pass, set: setPass, ph: "••••••••" },
           ].map(({ label, type, val, set, ph }) => (
             <div key={label} style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</label>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
               <input type={type} value={val} onChange={(e) => set(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()} placeholder={ph}
-                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" }} />
+                style={{ width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" }} />
             </div>
           ))}
-          {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "9px 13px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
-            <AlertCircle size={15} /> {err}
-          </div>}
+
+          {err && (
+            <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
+              <AlertCircle size={15} /> {err}
+            </div>
+          )}
+
           <button onClick={handleLogin} disabled={loading}
-            style={{ width: "100%", marginTop: 6, background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1, boxShadow: loading ? "none" : "0 4px 16px rgba(185,28,28,.35)", transition: "all .2s" }}>
-            {loading ? "Entrando…" : "ENTRAR"}
+            style={{
+              width: "100%", marginTop: 8,
+              background: loading ? L.light : `linear-gradient(135deg, ${C.red} 0%, ${C.redDark} 100%)`,
+              color: "#fff", border: "none", borderRadius: 12, padding: "15px",
+              fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer",
+              fontFamily: FONT_DISPLAY, letterSpacing: 2,
+              boxShadow: loading ? "none" : "0 6px 20px rgba(156,27,27,.45)",
+              transition: "all .2s",
+            }}>
+            {loading ? "Entrando…" : "INGRESAR"}
           </button>
         </div>
       </div>
