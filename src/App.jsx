@@ -627,6 +627,11 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
     setMensajes((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const marcarComoPedido = async (contenido) => {
+    const detalle = JSON.stringify({ items: [{ desc: contenido, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: contacto.direccion || "", pago: "Efectivo" });
+    await supabase.from("pedidos").insert({ contacto_id: contacto.id, vendedor: contacto.vendedor || "", detalle, total: 0, estado: "pendiente" });
+  };
+
   const cargar = useCallback(async () => {
     const { data } = await supabase.from("mensajes").select("*").eq("contacto_id", contacto.id).order("created_at", { ascending: true });
     setMensajes(data || []);
@@ -832,7 +837,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
                 <div style={{ fontSize: 10.5, color: L.light }}>{hora}</div>
                 {hoverMsg === m.id && (
                   <>
-                    <button onClick={() => { setMsgParaPedido(m.contenido); setPedido(true); }} title="Convertir en pedido"
+                    <button onClick={() => marcarComoPedido(m.contenido)} title="Convertir en pedido"
                       style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: C.red, display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
                       onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
                       onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
