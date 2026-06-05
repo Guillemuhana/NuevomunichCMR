@@ -365,24 +365,76 @@ function AIAsistente({ contactoActivo }) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
 
-  const enviar = () => {
+  const enviar = async () => {
     const q = input.trim();
     if (!q || typing) return;
     setMsgs((p) => [...p, { from: "user", text: q }]);
     setInput(""); setTyping(true);
-    const qLow = q.toLowerCase();
-    let resp = "No tengo información sobre eso. Probá preguntarme sobre vendedores, estados, seguimientos, reportes, el bot de WhatsApp o cómo guardar datos de contactos.";
-    for (const item of IA_KB) {
-      if (item.tags.some((t) => qLow.includes(t))) { resp = item.r; break; }
+
+    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!geminiKey) {
+      setMsgs((p) => [...p, { from: "ai", text: "⚠️ Falta configurar VITE_GEMINI_API_KEY en las variables de entorno de Vercel." }]);
+      setTyping(false); return;
     }
-    if (contactoActivo && (qLow.includes("este") || qLow.includes("actual") || qLow.includes("cliente"))) {
-      const est = ESTADOS[contactoActivo.estado];
-      resp += `\n\n📋 **Contacto abierto:** ${contactoActivo.nombre || contactoActivo.telefono} — ${est?.label || contactoActivo.estado}${contactoActivo.vendedor ? ` · ${contactoActivo.vendedor}` : ""}`;
+
+    try {
+      // Contexto real de Supabase
+      const hoy = new Date();
+      const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - 6); inicioSemana.setHours(0,0,0,0);
+      const inicioMes    = new Date(hoy); inicioMes.setDate(hoy.getDate() - 29);   inicioMes.setHours(0,0,0,0);
+
+      const [contRes, pedRes, msgRes] = await Promise.all([
+        supabase.from("contactos").select("id,nombre,telefono,estado,vendedor,created_at"),
+        supabase.from("pedidos").select("id,total,estado,vendedor,created_at,detalle").gte("created_at", inicioSemana.toISOString()),
+        supabase.from("mensajes").select("id,direccion,created_at").gte("created_at", inicioSemana.toISOString()),
+      ]);
+
+      const contactos = contRes.data || [];
+      const pedidos   = pedRes.data  || [];
+      const mensajes  = msgRes.data  || [];
+
+      const nuevosHoy     = contactos.filter((c) => new Date(c.created_at).toDateString() === hoy.toDateString()).length;
+      const nuevosSemana  = contactos.filter((c) => new Date(c.created_at) >= inicioSemana).length;
+      const vendidos      = contactos.filter((c) => c.estado === "vendido").length;
+      const facturacion   = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const porVendedor   = VENDEDORES.map((v) => ({ vendedor: v, pedidos: pedidos.filter((p) => p.vendedor === v).length, total: pedidos.filter((p) => p.vendedor === v).reduce((s, p) => s + (Number(p.total) || 0), 0) }));
+
+      const ctx = `Sos el asistente IA del CRM de Nuevo Munich, una hamburguesería/gastronomía argentina.
+Fecha hoy: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
+
+DATOS EN TIEMPO REAL DEL CRM:
+• Total contactos en el sistema: ${contactos.length}
+• Nuevos contactos hoy: ${nuevosHoy}
+• Nuevos esta semana: ${nuevosSemana}
+• En estado "vendido": ${vendidos}
+• Pedidos esta semana: ${pedidos.length}
+• Facturación esta semana: $${facturacion.toLocaleString("es-AR")}
+• Mensajes recibidos esta semana: ${mensajes.filter((m) => m.direccion === "in").length}
+• Mensajes enviados esta semana: ${mensajes.filter((m) => m.direccion === "out").length}
+• Rendimiento por vendedor esta semana:
+${porVendedor.filter((v) => v.pedidos > 0).map((v) => `  - ${v.vendedor}: ${v.pedidos} pedidos / $${v.total.toLocaleString("es-AR")}`).join("\n") || "  Sin pedidos esta semana"}
+${contactoActivo ? `• Contacto abierto ahora: ${contactoActivo.nombre || contactoActivo.telefono} (${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado}${contactoActivo.vendedor ? `, vendedor: ${contactoActivo.vendedor}` : ""})` : ""}
+
+Respondé siempre en español, de forma concisa y clara. Si te piden reportes, dá los números reales de arriba. Si te piden crear o modificar algo, indicá los pasos en el CRM.`;
+
+      const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "model", parts: [{ text: m.text }] }));
+      historial.push({ role: "user", parts: [{ text: q }] });
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ system_instruction: { parts: [{ text: ctx }] }, contents: historial }) }
+      );
+      const json = await res.json();
+      const texto = json.candidates?.[0]?.content?.parts?.[0]?.text || "No pude obtener una respuesta. Intentá de nuevo.";
+      setMsgs((p) => [...p, { from: "ai", text: texto }]);
+    } catch {
+      setMsgs((p) => [...p, { from: "ai", text: "Error al conectar con Gemini. Verificá tu API key y conexión." }]);
     }
-    setTimeout(() => { setMsgs((p) => [...p, { from: "ai", text: resp }]); setTyping(false); }, 700);
+    setTyping(false);
   };
 
-  const sugerencias = ["¿Cómo asigno un vendedor?", "¿Cómo funciona el bot?", "¿Cómo veo reportes?"];
+  const sugerencias = ["Reporte de esta semana", "¿Cuántos pedidos hoy?", "¿Cómo creo un contacto?"];
 
   return (
     <>
