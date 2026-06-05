@@ -650,22 +650,32 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
     const cuerpo = texto.trim();
     if (!cuerpo || enviando) return;
     setEnviando(true); setErr(""); setTexto("");
-    try {
-      const { error } = await supabase.from("mensajes").insert({
-        contacto_id: contacto.id, direccion: "out", origen: "agente", agente: userName, contenido: cuerpo,
-      });
-      if (error) throw error;
-      // Firma del agente visible para el cliente en WhatsApp
-      const msgWA = `*${userName} · Nuevo Munich:*\n${cuerpo}`;
-      const res = await fetch(N8N_SEND_WEBHOOK, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWA, agente: userName }),
-      });
-      if (!res.ok) throw new Error("El mensaje se guardó pero falló el envío por WhatsApp.");
-    } catch (e) {
-      setErr(e.message || "Error al enviar.");
+
+    // 1) Guardar en CRM (Supabase)
+    const { error } = await supabase.from("mensajes").insert({
+      contacto_id: contacto.id, direccion: "out", origen: "agente", agente: userName, contenido: cuerpo,
+    });
+    if (error) {
+      setErr("Error al guardar el mensaje: " + error.message);
       setTexto(cuerpo);
+      setEnviando(false);
+      return;
     }
+
+    // 2) Enviar por WhatsApp vía n8n (no bloquea si falla)
+    if (N8N_SEND_WEBHOOK) {
+      try {
+        const msgWA = `*${userName} · Nuevo Munich:*\n${cuerpo}`;
+        const res = await fetch(N8N_SEND_WEBHOOK, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWA, agente: userName }),
+        });
+        if (!res.ok) setErr("Mensaje guardado en CRM, pero falló el envío por WhatsApp.");
+      } catch {
+        setErr("Mensaje guardado en CRM, pero no se pudo conectar con WhatsApp.");
+      }
+    }
+
     setEnviando(false);
   };
 
