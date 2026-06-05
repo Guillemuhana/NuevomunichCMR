@@ -426,10 +426,14 @@ Respondé siempre en español, de forma concisa y clara. Si te piden reportes, d
           body: JSON.stringify({ system_instruction: { parts: [{ text: ctx }] }, contents: historial }) }
       );
       const json = await res.json();
-      const texto = json.candidates?.[0]?.content?.parts?.[0]?.text || "No pude obtener una respuesta. Intentá de nuevo.";
-      setMsgs((p) => [...p, { from: "ai", text: texto }]);
-    } catch {
-      setMsgs((p) => [...p, { from: "ai", text: "Error al conectar con Gemini. Verificá tu API key y conexión." }]);
+      if (json.error) {
+        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error de API: ${json.error.message || json.error.status}\n\nVerificá que la API key sea válida (debe empezar con AIzaSy...).` }]);
+      } else {
+        const texto = json.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta de Gemini.";
+        setMsgs((p) => [...p, { from: "ai", text: texto }]);
+      }
+    } catch (e) {
+      setMsgs((p) => [...p, { from: "ai", text: `Error de conexión: ${e.message}` }]);
     }
     setTyping(false);
   };
