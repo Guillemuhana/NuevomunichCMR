@@ -417,26 +417,24 @@ ${contactoActivo ? `• Contacto abierto ahora: ${contactoActivo.nombre || conta
 
 Respondé siempre en español, de forma concisa y clara. Si te piden reportes, dá los números reales de arriba. Si te piden crear o modificar algo, indicá los pasos en el CRM.`;
 
-      const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "model", parts: [{ text: m.text }] }));
-      historial.push({ role: "user", parts: [{ text: q }] });
+      const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
+      historial.push({ role: "user", content: q });
 
-      // Soporta keys AQ. (Bearer) y AIzaSy (query param)
-      const esBearer = geminiKey.startsWith("AQ.");
-      const url = esBearer
-        ? "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-      const headers = { "Content-Type": "application/json" };
-      if (esBearer) headers["Authorization"] = `Bearer ${geminiKey}`;
-
-      const res = await fetch(url, {
-        method: "POST", headers,
-        body: JSON.stringify({ system_instruction: { parts: [{ text: ctx }] }, contents: historial })
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${geminiKey}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "system", content: ctx }, ...historial],
+          max_tokens: 1024,
+          temperature: 0.7,
+        }),
       });
       const json = await res.json();
       if (json.error) {
-        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error Gemini: ${json.error.message || json.error.status}` }]);
+        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error: ${json.error.message || json.error.type}` }]);
       } else {
-        const texto = json.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta de Gemini.";
+        const texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
         setMsgs((p) => [...p, { from: "ai", text: texto }]);
       }
     } catch (e) {
