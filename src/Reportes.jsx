@@ -157,14 +157,25 @@ export default function Reportes() {
 
   const buscarMensajes = async () => {
     setLoadingMsg(true);
-    const { data: rows, error } = await supabase
+    const { data: mensajes, error } = await supabase
       .from("mensajes")
-      .select("*, contactos(nombre, telefono, empresa)")
+      .select("*")
       .gte("created_at", mDesde + "T00:00:00")
       .lte("created_at", mHasta + "T23:59:59")
       .order("created_at", { ascending: true });
+
+    if (error || !mensajes) { setLoadingMsg(false); setMsgResult([]); return; }
+
+    const ids = [...new Set(mensajes.map((m) => m.contacto_id).filter(Boolean))];
+    let contactosMap = {};
+    if (ids.length > 0) {
+      const { data: conts } = await supabase
+        .from("contactos").select("id, nombre, telefono, empresa").in("id", ids);
+      (conts || []).forEach((c) => { contactosMap[c.id] = c; });
+    }
+
     setLoadingMsg(false);
-    if (!error) setMsgResult(rows || []);
+    setMsgResult(mensajes.map((m) => ({ ...m, contactos: contactosMap[m.contacto_id] || null })));
   };
 
   const exportarMsgCSV = () => {
@@ -219,14 +230,34 @@ export default function Reportes() {
 
   const buscarPedidos = async () => {
     setLoadingPed(true);
-    const { data: rows, error } = await supabase
+    // Pedidos en el rango
+    const { data: pedidos, error } = await supabase
       .from("pedidos")
-      .select("*, contactos(nombre, telefono, empresa)")
+      .select("*")
       .gte("created_at", pDesde + "T00:00:00")
       .lte("created_at", pHasta + "T23:59:59")
       .order("created_at", { ascending: false });
+
+    if (error || !pedidos) {
+      setLoadingPed(false);
+      setPedResult([]);
+      return;
+    }
+
+    // Traer datos de contactos por separado
+    const ids = [...new Set(pedidos.map((p) => p.contacto_id).filter(Boolean))];
+    let contactosMap = {};
+    if (ids.length > 0) {
+      const { data: conts } = await supabase
+        .from("contactos")
+        .select("id, nombre, telefono, empresa")
+        .in("id", ids);
+      (conts || []).forEach((c) => { contactosMap[c.id] = c; });
+    }
+
+    const rows = pedidos.map((p) => ({ ...p, contactos: contactosMap[p.contacto_id] || null }));
     setLoadingPed(false);
-    if (!error) setPedResult(rows || []);
+    setPedResult(rows);
   };
 
   const exportarPedidosCSV = () => {
