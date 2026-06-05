@@ -119,10 +119,110 @@ function TooltipHoras({ active, payload, label }) {
 // ─────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
+function hoyISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shortId(id) {
+  return (id || "").slice(0, 6).toUpperCase();
+}
+
+function parseDet(det) {
+  if (!det) return { items: [], notas: "", entrega: "Retiro en local", direccion: "", pago: "Efectivo" };
+  try {
+    const p = JSON.parse(det);
+    return p.items ? p : { items: [{ desc: det, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: "", pago: "Efectivo" };
+  } catch {
+    return { items: [{ desc: det, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: "", pago: "Efectivo" };
+  }
+}
+
 export default function Reportes() {
   const [periodo, setPeriodo] = useState("semana");
   const [loading, setLoading] = useState(true);
   const [data, setData]       = useState(null);
+
+  // ── Reporte pedidos ──
+  const [pDesde, setPDesde]       = useState(() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10); });
+  const [pHasta, setPHasta]       = useState(hoyISO);
+  const [pedResult, setPedResult] = useState(null);
+  const [loadingPed, setLoadingPed] = useState(false);
+
+  const buscarPedidos = async () => {
+    setLoadingPed(true);
+    const { data: rows, error } = await supabase
+      .from("pedidos")
+      .select("*, contactos(nombre, telefono, empresa)")
+      .gte("created_at", pDesde + "T00:00:00")
+      .lte("created_at", pHasta + "T23:59:59")
+      .order("created_at", { ascending: false });
+    setLoadingPed(false);
+    if (!error) setPedResult(rows || []);
+  };
+
+  const exportarPedidosCSV = () => {
+    if (!pedResult?.length) return;
+    const filas = [];
+    for (const p of pedResult) {
+      const det = parseDet(p.detalle);
+      const cliente = p.contactos?.nombre || p.contactos?.telefono || p.contacto_id;
+      const telefono = p.contactos?.telefono || "";
+      const empresa = p.contactos?.empresa || "";
+      const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      if (det.items.length === 0) {
+        filas.push({ "N° Pedido": shortId(p.id), Fecha: fecha, Cliente: cliente, Teléfono: telefono, Empresa: empresa, Vendedor: p.vendedor || "", Estado: p.estado || "", Artículo: "", Cantidad: "", "Precio unit.": "", Subtotal: "", Notas: det.notas, Entrega: det.entrega, Dirección: det.direccion, Pago: det.pago, Total: p.total || 0 });
+      } else {
+        det.items.forEach((it, idx) => {
+          filas.push({ "N° Pedido": idx === 0 ? shortId(p.id) : "", Fecha: idx === 0 ? fecha : "", Cliente: idx === 0 ? cliente : "", Teléfono: idx === 0 ? telefono : "", Empresa: idx === 0 ? empresa : "", Vendedor: idx === 0 ? (p.vendedor || "") : "", Estado: idx === 0 ? (p.estado || "") : "", Artículo: it.desc, Cantidad: it.qty, "Precio unit.": it.precio, Subtotal: (Number(it.qty) || 0) * (Number(it.precio) || 0), Notas: idx === 0 ? det.notas : "", Entrega: idx === 0 ? det.entrega : "", Dirección: idx === 0 ? det.direccion : "", Pago: idx === 0 ? det.pago : "", Total: idx === 0 ? (p.total || 0) : "" });
+        });
+      }
+    }
+    exportarCSV(filas, `pedidos-nm-${pDesde}-al-${pHasta}`);
+  };
+
+  const exportarPedidosPDF = () => {
+    if (!pedResult?.length) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFillColor(156, 27, 27);
+    doc.rect(0, 0, 297, 22, "F");
+    doc.setFillColor(212, 161, 58);
+    doc.rect(0, 19, 297, 3, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("Nuevo Munich — Reporte de Pedidos", 14, 13);
+    doc.setFontSize(9);
+    doc.text(`${pDesde} al ${pHasta} · ${pedResult.length} pedidos`, 14, 19.5);
+
+    const body = [];
+    for (const p of pedResult) {
+      const det = parseDet(p.detalle);
+      const cliente = p.contactos?.nombre || p.contactos?.telefono || "";
+      const tel = p.contactos?.telefono || "";
+      const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const articulos = det.items.map((i) => `${i.qty}x ${i.desc}`).join("\n") || "—";
+      body.push([shortId(p.id), fecha, cliente, tel, p.vendedor || "—", p.estado || "—", articulos, det.entrega, det.pago, fmtMoneda(p.total)]);
+    }
+
+    autoTable(doc, {
+      startY: 28,
+      head: [["N°", "Fecha", "Cliente", "Teléfono", "Vendedor", "Estado", "Artículos", "Entrega", "Pago", "Total"]],
+      body,
+      headStyles: { fillColor: [156, 27, 27], fontSize: 8.5 },
+      styles: { fontSize: 8, cellPadding: 3, overflow: "linebreak" },
+      columnStyles: { 6: { cellWidth: 55 } },
+      alternateRowStyles: { fillColor: [252, 248, 240] },
+    });
+
+    const tot = pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0);
+    const y = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setTextColor(40, 30, 20);
+    doc.text(`Total facturado: ${fmtMoneda(tot)}`, 14, y);
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 132, 114);
+    doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, y + 6);
+    doc.save(`pedidos-nm-${pDesde}-al-${pHasta}.pdf`);
+  };
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -599,6 +699,123 @@ export default function Reportes() {
           <div style={{ height: 40 }} />
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════
+          REPORTE DE PEDIDOS POR RANGO DE FECHAS
+      ══════════════════════════════════════════════ */}
+      <div style={{ padding: "0 28px 40px" }}>
+        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
+
+          {/* Título */}
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: C.charcoal, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18 }}>
+            📦 Pedidos por rango de fechas
+          </div>
+
+          {/* Controles */}
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Desde</div>
+              <input type="date" value={pDesde} onChange={(e) => setPDesde(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Hasta</div>
+              <input type="date" value={pHasta} onChange={(e) => setPHasta(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+            </div>
+            <button onClick={buscarPedidos} disabled={loadingPed}
+              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+              {loadingPed ? "Buscando…" : "🔍 Buscar"}
+            </button>
+            {pedResult && pedResult.length > 0 && (
+              <>
+                <button onClick={exportarPedidosPDF}
+                  style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ PDF
+                </button>
+                <button onClick={exportarPedidosCSV}
+                  style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ CSV
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Resultados */}
+          {pedResult === null && (
+            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>Elegí las fechas y hacé clic en Buscar.</div>
+          )}
+          {pedResult !== null && pedResult.length === 0 && (
+            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>No hay pedidos en ese período.</div>
+          )}
+          {pedResult && pedResult.length > 0 && (
+            <>
+              {/* Resumen rápido */}
+              <div style={{ display: "flex", gap: 24, marginBottom: 16, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 13, color: C.muted }}>
+                  <strong style={{ color: C.charcoal, fontSize: 16 }}>{pedResult.length}</strong> pedidos
+                </div>
+                <div style={{ fontSize: 13, color: C.muted }}>
+                  Total: <strong style={{ color: C.sage }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: C.muted }}>
+                  Ticket prom.: <strong style={{ color: C.charcoal }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0) / pedResult.length)}</strong>
+                </div>
+              </div>
+
+              {/* Tabla */}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C.border}`, background: "#f8fafc" }}>
+                      {["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Artículos","Notas","Entrega","Dirección","Pago","Total"].map((h) => (
+                        <th key={h} style={{ padding: "9px 10px", fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pedResult.map((p, i) => {
+                      const det = parseDet(p.detalle);
+                      const cliente = p.contactos?.nombre || p.contactos?.telefono || "—";
+                      const tel = p.contactos?.telefono || "—";
+                      const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                      const estadoColor = { pendiente: "#92400E", confirmado: "#1D4ED8", preparando: "#7C3AED", listo: "#15803D", entregado: "#374151", cancelado: "#B91C1C" }[p.estado] || C.muted;
+                      const estadoBg   = { pendiente: "#FEF3C7", confirmado: "#DBEAFE", preparando: "#EDE9FE", listo: "#DCFCE7", entregado: "#F3F4F6", cancelado: "#FEE2E2" }[p.estado] || "#f1f5f9";
+                      return (
+                        <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                          <td style={{ padding: "9px 10px", fontWeight: 700, color: C.charcoal, whiteSpace: "nowrap" }}>{shortId(p.id)}</td>
+                          <td style={{ padding: "9px 10px", whiteSpace: "nowrap", color: C.muted, fontSize: 12 }}>{fecha}</td>
+                          <td style={{ padding: "9px 10px", fontWeight: 600, color: C.charcoal, whiteSpace: "nowrap" }}>{cliente}</td>
+                          <td style={{ padding: "9px 10px", color: C.muted, whiteSpace: "nowrap", fontSize: 12 }}>{tel}</td>
+                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{p.vendedor || "—"}</td>
+                          <td style={{ padding: "9px 10px", whiteSpace: "nowrap" }}>
+                            <span style={{ background: estadoBg, color: estadoColor, padding: "2px 9px", borderRadius: 20, fontWeight: 700, fontSize: 11 }}>{p.estado || "—"}</span>
+                          </td>
+                          <td style={{ padding: "9px 10px", color: C.charcoal, minWidth: 160 }}>
+                            {det.items.length > 0
+                              ? det.items.map((it, k) => <div key={k} style={{ fontSize: 12, lineHeight: 1.5 }}>{it.qty}× {it.desc}{it.precio ? ` — ${fmtMoneda(it.precio)}` : ""}</div>)
+                              : "—"}
+                          </td>
+                          <td style={{ padding: "9px 10px", color: C.muted, fontSize: 12, maxWidth: 140 }}>{det.notas || "—"}</td>
+                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{det.entrega || "—"}</td>
+                          <td style={{ padding: "9px 10px", color: C.muted, fontSize: 12, maxWidth: 130 }}>{det.direccion || "—"}</td>
+                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{det.pago || "—"}</td>
+                          <td style={{ padding: "9px 10px", fontWeight: 700, color: C.sage, whiteSpace: "nowrap" }}>{fmtMoneda(p.total)}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Total */}
+                    <tr style={{ borderTop: `2px solid ${C.border}`, background: "#f1f5f9", fontWeight: 700 }}>
+                      <td colSpan={11} style={{ padding: "10px 10px", color: C.charcoal }}>TOTAL ({pedResult.length} pedidos)</td>
+                      <td style={{ padding: "10px 10px", color: C.sage, fontWeight: 800 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
