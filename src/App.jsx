@@ -353,7 +353,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 // ============================================================
 // ASISTENTE IA
 // ============================================================
-function AIAsistente({ contactoActivo }) {
+function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const isMobile = useIsMobile();
   const [open, setOpen]         = useState(false);
   const [msgs, setMsgs]         = useState([
@@ -403,19 +403,29 @@ function AIAsistente({ contactoActivo }) {
 Fecha hoy: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
 
 DATOS EN TIEMPO REAL DEL CRM:
-• Total contactos en el sistema: ${contactos.length}
-• Nuevos contactos hoy: ${nuevosHoy}
-• Nuevos esta semana: ${nuevosSemana}
+• Total contactos: ${contactos.length}
+• Nuevos hoy: ${nuevosHoy} | Esta semana: ${nuevosSemana}
 • En estado "vendido": ${vendidos}
 • Pedidos esta semana: ${pedidos.length}
 • Facturación esta semana: $${facturacion.toLocaleString("es-AR")}
 • Mensajes recibidos esta semana: ${mensajes.filter((m) => m.direccion === "in").length}
-• Mensajes enviados esta semana: ${mensajes.filter((m) => m.direccion === "out").length}
-• Rendimiento por vendedor esta semana:
+• Rendimiento por vendedor:
 ${porVendedor.filter((v) => v.pedidos > 0).map((v) => `  - ${v.vendedor}: ${v.pedidos} pedidos / $${v.total.toLocaleString("es-AR")}`).join("\n") || "  Sin pedidos esta semana"}
-${contactoActivo ? `• Contacto abierto ahora: ${contactoActivo.nombre || contactoActivo.telefono} (${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado}${contactoActivo.vendedor ? `, vendedor: ${contactoActivo.vendedor}` : ""})` : ""}
+${contactoActivo ? `• CONTACTO ABIERTO AHORA: ${contactoActivo.nombre || contactoActivo.telefono} | Estado: ${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado} | Vendedor: ${contactoActivo.vendedor || "sin asignar"} | Tel: ${contactoActivo.telefono}` : "• No hay contacto abierto actualmente"}
 
-Respondé siempre en español, de forma concisa y clara. Si te piden reportes, dá los números reales de arriba. Si te piden crear o modificar algo, indicá los pasos en el CRM.`;
+ACCIONES QUE PODÉS EJECUTAR (usá exactamente este formato al final de tu respuesta):
+- Cambiar estado del contacto actual: [ACCION:ESTADO:nombre_estado]
+  Estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido, pedido
+- Asignar vendedor al contacto actual: [ACCION:VENDEDOR:nombre]
+  Vendedores disponibles: Boris, Cristian, Luis, Marcelino, Pablo, Sandra
+- Crear pedido del contacto actual: [ACCION:PEDIDO:descripcion del pedido]
+- Agregar nota de seguimiento: [ACCION:NOTA:texto de la nota]
+
+REGLAS:
+- Solo ejecutás acciones sobre el contacto abierto actualmente
+- Si no hay contacto abierto, indicá que el usuario debe abrir uno primero
+- Siempre confirmá lo que vas a hacer antes del marcador de acción
+- Respondé en español, claro y conciso`;
 
       const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
       historial.push({ role: "user", content: q });
@@ -434,7 +444,31 @@ Respondé siempre en español, de forma concisa y clara. Si te piden reportes, d
       if (json.error) {
         setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error: ${json.error.message || json.error.type}` }]);
       } else {
-        const texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
+        let texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
+
+        // Parsear y ejecutar acciones
+        const accionRegex = /\[ACCION:([A-Z]+):([^\]]+)\]/g;
+        const acciones = [...texto.matchAll(accionRegex)].map((m) => ({ tipo: m[1], valor: m[2].trim() }));
+        texto = texto.replace(accionRegex, "").trim();
+
+        for (const accion of acciones) {
+          try {
+            if (accion.tipo === "ESTADO" && contactoActivo) {
+              await supabase.from("contactos").update({ estado: accion.valor }).eq("id", contactoActivo.id);
+              onActualizarContacto?.({ ...contactoActivo, estado: accion.valor });
+            } else if (accion.tipo === "VENDEDOR" && contactoActivo) {
+              await supabase.from("contactos").update({ vendedor: accion.valor }).eq("id", contactoActivo.id);
+              onActualizarContacto?.({ ...contactoActivo, vendedor: accion.valor });
+            } else if (accion.tipo === "PEDIDO" && contactoActivo) {
+              const det = JSON.stringify({ items: [{ desc: accion.valor, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: contactoActivo.direccion || "", pago: "Efectivo" });
+              await supabase.from("pedidos").insert({ contacto_id: contactoActivo.id, vendedor: contactoActivo.vendedor || "", detalle: det, total: 0, estado: "pendiente" });
+            } else if (accion.tipo === "NOTA" && contactoActivo) {
+              await supabase.from("contactos").update({ nota_seguimiento: accion.valor }).eq("id", contactoActivo.id);
+              onActualizarContacto?.({ ...contactoActivo, nota_seguimiento: accion.valor });
+            }
+          } catch { /* acción falló, igual mostramos la respuesta */ }
+        }
+
         setMsgs((p) => [...p, { from: "ai", text: texto }]);
       }
     } catch (e) {
@@ -1078,7 +1112,7 @@ export default function App() {
         )}
       </div>
 
-      <AIAsistente contactoActivo={activo} />
+      <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />
     </div>
   );
 }
