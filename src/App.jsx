@@ -737,6 +737,15 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const upd = async (campos) => {
     await supabase.from("contactos").update(campos).eq("id", contacto.id);
     onUpdateContacto({ ...contacto, ...campos });
+    // Si cambia estado a "pedido", crear pedido automático con los últimos mensajes del cliente
+    if (campos.estado === "pedido") {
+      const ultimosMsgs = mensajes.filter((m) => m.direccion === "in").slice(-3);
+      if (ultimosMsgs.length > 0) {
+        const desc = ultimosMsgs.map((m) => m.contenido).join("\n");
+        const detalle = JSON.stringify({ items: [{ desc, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: contacto.direccion || "", pago: "Efectivo" });
+        await supabase.from("pedidos").insert({ contacto_id: contacto.id, vendedor: contacto.vendedor || campos.vendedor || "", detalle, total: 0, estado: "pendiente" });
+      }
+    }
   };
 
   const est = ESTADOS[contacto.estado] || ESTADOS.nuevo;
