@@ -138,6 +138,7 @@ function parseDet(det) {
 }
 
 export default function Reportes() {
+  const [vista, setVista]     = useState("stats"); // "stats" | "pedidos"
   const [periodo, setPeriodo] = useState("semana");
   const [loading, setLoading] = useState(true);
   const [data, setData]       = useState(null);
@@ -521,38 +522,172 @@ export default function Reportes() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
           <div>
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: C.charcoal, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              📊 Reportes y Estadísticas
+              {vista === "stats" ? "📊 Reportes y Estadísticas" : "📦 Reporte de Pedidos"}
             </div>
-            {data && !loading && (
+            {vista === "stats" && data && !loading && (
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
                 {etiqueta(periodo)} · {fmtFechaLarga(data.inicio)} — {fmtFechaLarga(data.fin)}
               </div>
             )}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            {/* Selector período */}
+            {/* Pestañas principales */}
             <div style={{ display: "flex", gap: 3, background: "#f1f5f9", padding: 4, borderRadius: 10, border: `1px solid ${C.border}` }}>
-              {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anio","Año"]].map(([k,l]) => (
-                <button key={k} onClick={() => setPeriodo(k)}
-                  style={{ border: "none", borderRadius: 7, padding: "7px 16px", fontSize: 13, cursor: "pointer", fontWeight: 700, fontFamily: FONT_BODY, transition: "all .15s",
-                    background: periodo === k ? C.red : "transparent", color: periodo === k ? "#fff" : C.muted }}>
-                  {l}
-                </button>
-              ))}
+              <button onClick={() => setVista("stats")}
+                style={{ border: "none", borderRadius: 7, padding: "7px 18px", fontSize: 13, cursor: "pointer", fontWeight: 700, fontFamily: FONT_BODY, transition: "all .15s",
+                  background: vista === "stats" ? C.charcoal : "transparent", color: vista === "stats" ? "#fff" : C.muted }}>
+                Estadísticas
+              </button>
+              <button onClick={() => setVista("pedidos")}
+                style={{ border: "none", borderRadius: 7, padding: "7px 18px", fontSize: 13, cursor: "pointer", fontWeight: 700, fontFamily: FONT_BODY, transition: "all .15s",
+                  background: vista === "pedidos" ? C.red : "transparent", color: vista === "pedidos" ? "#fff" : C.muted }}>
+                📦 Pedidos
+              </button>
             </div>
-            <button onClick={exportarPDF}
-              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 6 }}>
-              ↓ PDF
-            </button>
-            <button onClick={exportarCSVBtn}
-              style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 6 }}>
-              ↓ CSV
-            </button>
+            {/* Controles de estadísticas */}
+            {vista === "stats" && (
+              <>
+                <div style={{ display: "flex", gap: 3, background: "#f1f5f9", padding: 4, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                  {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anio","Año"]].map(([k,l]) => (
+                    <button key={k} onClick={() => setPeriodo(k)}
+                      style={{ border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 13, cursor: "pointer", fontWeight: 700, fontFamily: FONT_BODY, transition: "all .15s",
+                        background: periodo === k ? C.red : "transparent", color: periodo === k ? "#fff" : C.muted }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={exportarPDF}
+                  style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ PDF
+                </button>
+                <button onClick={exportarCSVBtn}
+                  style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ CSV
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {loading || !data ? (
+      {/* ══════════════════════════════════════════════
+          VISTA: PEDIDOS POR FECHA
+      ══════════════════════════════════════════════ */}
+      {vista === "pedidos" && (
+        <div style={{ padding: "28px 28px" }}>
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: "28px 28px", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
+
+            {/* Selectores de fecha */}
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 28 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>Desde</div>
+                <input type="date" value={pDesde} onChange={(e) => setPDesde(e.target.value)}
+                  style={{ padding: "11px 14px", borderRadius: 9, border: `2px solid ${C.border}`, fontSize: 15, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>Hasta</div>
+                <input type="date" value={pHasta} onChange={(e) => setPHasta(e.target.value)}
+                  style={{ padding: "11px 14px", borderRadius: 9, border: `2px solid ${C.border}`, fontSize: 15, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+              </div>
+              <button onClick={buscarPedidos} disabled={loadingPed}
+                style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "12px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, minWidth: 130 }}>
+                {loadingPed ? "Buscando…" : "🔍 Buscar"}
+              </button>
+              {pedResult && pedResult.length > 0 && (
+                <>
+                  <button onClick={exportarPedidosPDF}
+                    style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "12px 24px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                    ↓ Imprimir PDF
+                  </button>
+                  <button onClick={exportarPedidosCSV}
+                    style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 9, padding: "12px 24px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                    ↓ Descargar CSV
+                  </button>
+                </>
+              )}
+            </div>
+
+            {pedResult === null && (
+              <div style={{ color: C.muted, fontSize: 15, padding: "40px 0", textAlign: "center" }}>
+                Elegí un rango de fechas y hacé clic en <strong>Buscar</strong>.
+              </div>
+            )}
+            {pedResult !== null && pedResult.length === 0 && (
+              <div style={{ color: C.muted, fontSize: 15, padding: "40px 0", textAlign: "center" }}>
+                No hay pedidos entre esas fechas.
+              </div>
+            )}
+            {pedResult && pedResult.length > 0 && (
+              <>
+                {/* Resumen */}
+                <div style={{ display: "flex", gap: 32, marginBottom: 20, padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 13, color: C.muted }}>Pedidos: <strong style={{ color: C.charcoal, fontSize: 18 }}>{pedResult.length}</strong></div>
+                  <div style={{ fontSize: 13, color: C.muted }}>Total: <strong style={{ color: C.sage, fontSize: 18 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</strong></div>
+                  <div style={{ fontSize: 13, color: C.muted }}>Ticket promedio: <strong style={{ color: C.charcoal, fontSize: 18 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0) / pedResult.length)}</strong></div>
+                </div>
+
+                {/* Tabla */}
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `2px solid ${C.border}`, background: "#f8fafc" }}>
+                        {["N°","Fecha y hora","Cliente","Teléfono","Vendedor","Estado","Productos","Notas","Entrega","Dirección","Pago","Total"].map((h) => (
+                          <th key={h} style={{ padding: "10px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pedResult.map((p, i) => {
+                        const det = parseDet(p.detalle);
+                        const cliente = p.contactos?.nombre || p.contactos?.telefono || "—";
+                        const tel = p.contactos?.telefono || "—";
+                        const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                        const eColor = { pendiente: "#92400E", confirmado: "#1D4ED8", preparando: "#7C3AED", listo: "#15803D", entregado: "#374151", cancelado: "#B91C1C" }[p.estado] || C.muted;
+                        const eBg   = { pendiente: "#FEF3C7", confirmado: "#DBEAFE", preparando: "#EDE9FE", listo: "#DCFCE7", entregado: "#F3F4F6", cancelado: "#FEE2E2" }[p.estado] || "#f1f5f9";
+                        return (
+                          <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                            <td style={{ padding: "10px 12px", fontWeight: 700, color: C.charcoal, whiteSpace: "nowrap", fontSize: 12 }}>{shortId(p.id)}</td>
+                            <td style={{ padding: "10px 12px", whiteSpace: "nowrap", color: C.muted, fontSize: 12 }}>{fecha}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 600, color: C.charcoal, whiteSpace: "nowrap" }}>{cliente}</td>
+                            <td style={{ padding: "10px 12px", color: C.muted, whiteSpace: "nowrap", fontSize: 12 }}>{tel}</td>
+                            <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{p.vendedor || "—"}</td>
+                            <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                              <span style={{ background: eBg, color: eColor, padding: "3px 10px", borderRadius: 20, fontWeight: 700, fontSize: 11 }}>{p.estado || "—"}</span>
+                            </td>
+                            <td style={{ padding: "10px 12px", minWidth: 180 }}>
+                              {det.items.length > 0
+                                ? det.items.map((it, k) => (
+                                    <div key={k} style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+                                      <strong>{it.qty}×</strong> {it.desc}{it.precio ? <span style={{ color: C.muted }}> — {fmtMoneda(it.precio)}</span> : ""}
+                                    </div>
+                                  ))
+                                : "—"}
+                            </td>
+                            <td style={{ padding: "10px 12px", color: C.muted, fontSize: 12, maxWidth: 150 }}>{det.notas || "—"}</td>
+                            <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{det.entrega || "—"}</td>
+                            <td style={{ padding: "10px 12px", color: C.muted, fontSize: 12, maxWidth: 140 }}>{det.direccion || "—"}</td>
+                            <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{det.pago || "—"}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 800, color: C.sage, whiteSpace: "nowrap", fontSize: 14 }}>{fmtMoneda(p.total)}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{ borderTop: `2px solid ${C.border}`, background: "#f1f5f9", fontWeight: 700 }}>
+                        <td colSpan={11} style={{ padding: "12px 12px", color: C.charcoal, fontSize: 13 }}>TOTAL — {pedResult.length} pedidos</td>
+                        <td style={{ padding: "12px 12px", color: C.sage, fontWeight: 800, fontSize: 15 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          VISTA: ESTADÍSTICAS
+      ══════════════════════════════════════════════ */}
+      {vista === "stats" && (loading || !data ? (
         <div style={{ padding: 80, textAlign: "center", color: C.muted, fontSize: 15 }}>
           Cargando estadísticas…
         </div>
@@ -766,210 +901,8 @@ export default function Reportes() {
 
           <div style={{ height: 40 }} />
         </div>
-      )}
+      ))}
 
-      {/* ══════════════════════════════════════════════
-          REPORTE DE MENSAJES POR RANGO DE FECHAS
-      ══════════════════════════════════════════════ */}
-      <div style={{ padding: "0 28px 24px" }}>
-        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: C.charcoal, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18 }}>
-            💬 Mensajes por rango de fechas
-          </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Desde</div>
-              <input type="date" value={mDesde} onChange={(e) => setMDesde(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Hasta</div>
-              <input type="date" value={mHasta} onChange={(e) => setMHasta(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
-            </div>
-            <button onClick={buscarMensajes} disabled={loadingMsg}
-              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-              {loadingMsg ? "Buscando…" : "🔍 Buscar"}
-            </button>
-            {msgResult && msgResult.length > 0 && (
-              <>
-                <button onClick={exportarMsgPDF}
-                  style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-                  ↓ PDF
-                </button>
-                <button onClick={exportarMsgCSV}
-                  style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-                  ↓ CSV
-                </button>
-              </>
-            )}
-          </div>
-          {msgResult === null && (
-            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>Elegí las fechas y hacé clic en Buscar.</div>
-          )}
-          {msgResult !== null && msgResult.length === 0 && (
-            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>No hay mensajes en ese período.</div>
-          )}
-          {msgResult && msgResult.length > 0 && (
-            <>
-              <div style={{ marginBottom: 14, fontSize: 13, color: C.muted }}>
-                <strong style={{ color: C.charcoal, fontSize: 16 }}>{msgResult.length}</strong> mensajes ·{" "}
-                <strong style={{ color: C.red }}>{msgResult.filter((m) => m.direccion === "in").length}</strong> de clientes ·{" "}
-                <strong style={{ color: C.sage }}>{msgResult.filter((m) => m.direccion === "out").length}</strong> enviados
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ borderBottom: `2px solid ${C.border}`, background: "#f8fafc" }}>
-                      {["Fecha y hora","Dir.","Origen","Agente","Cliente","Teléfono","Mensaje"].map((h) => (
-                        <th key={h} style={{ padding: "9px 10px", fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {msgResult.map((m, i) => {
-                      const esIn = m.direccion === "in";
-                      const fecha = new Date(m.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-                      return (
-                        <tr key={m.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: C.muted, fontSize: 12 }}>{fecha}</td>
-                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                            <span style={{ background: esIn ? "#DBEAFE" : "#DCFCE7", color: esIn ? "#1D4ED8" : "#15803D", padding: "2px 8px", borderRadius: 20, fontWeight: 700, fontSize: 11 }}>
-                              {esIn ? "↙ Cliente" : "↗ Agente"}
-                            </span>
-                          </td>
-                          <td style={{ padding: "8px 10px", color: C.muted, fontSize: 12 }}>{m.origen || "—"}</td>
-                          <td style={{ padding: "8px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{m.agente || "—"}</td>
-                          <td style={{ padding: "8px 10px", fontWeight: 600, color: C.charcoal, whiteSpace: "nowrap" }}>{m.contactos?.nombre || m.contactos?.telefono || "—"}</td>
-                          <td style={{ padding: "8px 10px", color: C.muted, fontSize: 12, whiteSpace: "nowrap" }}>{m.contactos?.telefono || "—"}</td>
-                          <td style={{ padding: "8px 10px", color: C.charcoal, maxWidth: 380, wordBreak: "break-word" }}>{m.contenido || "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════
-          REPORTE DE PEDIDOS POR RANGO DE FECHAS
-      ══════════════════════════════════════════════ */}
-      <div style={{ padding: "0 28px 40px" }}>
-        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
-
-          {/* Título */}
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: C.charcoal, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18 }}>
-            📦 Pedidos por rango de fechas
-          </div>
-
-          {/* Controles */}
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Desde</div>
-              <input type="date" value={pDesde} onChange={(e) => setPDesde(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Hasta</div>
-              <input type="date" value={pHasta} onChange={(e) => setPHasta(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
-            </div>
-            <button onClick={buscarPedidos} disabled={loadingPed}
-              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-              {loadingPed ? "Buscando…" : "🔍 Buscar"}
-            </button>
-            {pedResult && pedResult.length > 0 && (
-              <>
-                <button onClick={exportarPedidosPDF}
-                  style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-                  ↓ PDF
-                </button>
-                <button onClick={exportarPedidosCSV}
-                  style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
-                  ↓ CSV
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Resultados */}
-          {pedResult === null && (
-            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>Elegí las fechas y hacé clic en Buscar.</div>
-          )}
-          {pedResult !== null && pedResult.length === 0 && (
-            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>No hay pedidos en ese período.</div>
-          )}
-          {pedResult && pedResult.length > 0 && (
-            <>
-              {/* Resumen rápido */}
-              <div style={{ display: "flex", gap: 24, marginBottom: 16, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 13, color: C.muted }}>
-                  <strong style={{ color: C.charcoal, fontSize: 16 }}>{pedResult.length}</strong> pedidos
-                </div>
-                <div style={{ fontSize: 13, color: C.muted }}>
-                  Total: <strong style={{ color: C.sage }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</strong>
-                </div>
-                <div style={{ fontSize: 13, color: C.muted }}>
-                  Ticket prom.: <strong style={{ color: C.charcoal }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0) / pedResult.length)}</strong>
-                </div>
-              </div>
-
-              {/* Tabla */}
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ borderBottom: `2px solid ${C.border}`, background: "#f8fafc" }}>
-                      {["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Artículos","Notas","Entrega","Dirección","Pago","Total"].map((h) => (
-                        <th key={h} style={{ padding: "9px 10px", fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pedResult.map((p, i) => {
-                      const det = parseDet(p.detalle);
-                      const cliente = p.contactos?.nombre || p.contactos?.telefono || "—";
-                      const tel = p.contactos?.telefono || "—";
-                      const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-                      const estadoColor = { pendiente: "#92400E", confirmado: "#1D4ED8", preparando: "#7C3AED", listo: "#15803D", entregado: "#374151", cancelado: "#B91C1C" }[p.estado] || C.muted;
-                      const estadoBg   = { pendiente: "#FEF3C7", confirmado: "#DBEAFE", preparando: "#EDE9FE", listo: "#DCFCE7", entregado: "#F3F4F6", cancelado: "#FEE2E2" }[p.estado] || "#f1f5f9";
-                      return (
-                        <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ padding: "9px 10px", fontWeight: 700, color: C.charcoal, whiteSpace: "nowrap" }}>{shortId(p.id)}</td>
-                          <td style={{ padding: "9px 10px", whiteSpace: "nowrap", color: C.muted, fontSize: 12 }}>{fecha}</td>
-                          <td style={{ padding: "9px 10px", fontWeight: 600, color: C.charcoal, whiteSpace: "nowrap" }}>{cliente}</td>
-                          <td style={{ padding: "9px 10px", color: C.muted, whiteSpace: "nowrap", fontSize: 12 }}>{tel}</td>
-                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{p.vendedor || "—"}</td>
-                          <td style={{ padding: "9px 10px", whiteSpace: "nowrap" }}>
-                            <span style={{ background: estadoBg, color: estadoColor, padding: "2px 9px", borderRadius: 20, fontWeight: 700, fontSize: 11 }}>{p.estado || "—"}</span>
-                          </td>
-                          <td style={{ padding: "9px 10px", color: C.charcoal, minWidth: 160 }}>
-                            {det.items.length > 0
-                              ? det.items.map((it, k) => <div key={k} style={{ fontSize: 12, lineHeight: 1.5 }}>{it.qty}× {it.desc}{it.precio ? ` — ${fmtMoneda(it.precio)}` : ""}</div>)
-                              : "—"}
-                          </td>
-                          <td style={{ padding: "9px 10px", color: C.muted, fontSize: 12, maxWidth: 140 }}>{det.notas || "—"}</td>
-                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{det.entrega || "—"}</td>
-                          <td style={{ padding: "9px 10px", color: C.muted, fontSize: 12, maxWidth: 130 }}>{det.direccion || "—"}</td>
-                          <td style={{ padding: "9px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{det.pago || "—"}</td>
-                          <td style={{ padding: "9px 10px", fontWeight: 700, color: C.sage, whiteSpace: "nowrap" }}>{fmtMoneda(p.total)}</td>
-                        </tr>
-                      );
-                    })}
-                    {/* Total */}
-                    <tr style={{ borderTop: `2px solid ${C.border}`, background: "#f1f5f9", fontWeight: 700 }}>
-                      <td colSpan={11} style={{ padding: "10px 10px", color: C.charcoal }}>TOTAL ({pedResult.length} pedidos)</td>
-                      <td style={{ padding: "10px 10px", color: C.sage, fontWeight: 800 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
