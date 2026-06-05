@@ -704,7 +704,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 // ============================================================
 // CHAT PANEL
 // ============================================================
-function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
+function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onEliminar }) {
   const [mensajes, setMensajes] = useState([]);
   const [texto, setTexto]       = useState("");
   const [enviando, setEnviando]   = useState(false);
@@ -777,6 +777,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
     setEnviando(false);
   };
 
+  const eliminarChat = async () => {
+    if (!window.confirm(`¿Eliminar el chat de ${contacto.nombre || contacto.telefono} y todos sus mensajes? Esta acción no se puede deshacer.`)) return;
+    await supabase.from("mensajes").delete().eq("contacto_id", contacto.id);
+    await supabase.from("pedidos").delete().eq("contacto_id", contacto.id);
+    await supabase.from("contactos").delete().eq("id", contacto.id);
+    onEliminar?.();
+  };
+
   const upd = async (campos) => {
     await supabase.from("contactos").update(campos).eq("id", contacto.id);
     onUpdateContacto({ ...contacto, ...campos });
@@ -824,6 +832,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
                 <Pencil size={14} /> Editar
+              </button>
+              <button onClick={eliminarChat} title="Eliminar chat completo"
+                style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: "#EF4444", borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#EF4444"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; }}>
+                <Trash2 size={14} /> Eliminar
               </button>
               <button onClick={() => setPedido(true)}
                 style={{ background: C.red, border: "none", color: "#fff", borderRadius: 9, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)", transition: "all .15s", flexShrink: 0 }}
@@ -1091,7 +1105,8 @@ export default function App() {
         ) : activo ? (
           <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
             onBack={isMobile ? () => setActivo(null) : undefined}
-            isMobile={isMobile} />
+            isMobile={isMobile}
+            onEliminar={() => { setActivo(null); setContactos((prev) => prev.filter((c) => c.id !== activo.id)); }} />
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20 }}>
             <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 200, objectFit: "contain" }} />
