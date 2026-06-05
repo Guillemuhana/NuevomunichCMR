@@ -420,14 +420,21 @@ Respondé siempre en español, de forma concisa y clara. Si te piden reportes, d
       const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "model", parts: [{ text: m.text }] }));
       historial.push({ role: "user", parts: [{ text: q }] });
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ system_instruction: { parts: [{ text: ctx }] }, contents: historial }) }
-      );
+      // Soporta keys AQ. (Bearer) y AIzaSy (query param)
+      const esBearer = geminiKey.startsWith("AQ.");
+      const url = esBearer
+        ? "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const headers = { "Content-Type": "application/json" };
+      if (esBearer) headers["Authorization"] = `Bearer ${geminiKey}`;
+
+      const res = await fetch(url, {
+        method: "POST", headers,
+        body: JSON.stringify({ system_instruction: { parts: [{ text: ctx }] }, contents: historial })
+      });
       const json = await res.json();
       if (json.error) {
-        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error de API: ${json.error.message || json.error.status}\n\nVerificá que la API key sea válida (debe empezar con AIzaSy...).` }]);
+        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error Gemini: ${json.error.message || json.error.status}` }]);
       } else {
         const texto = json.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta de Gemini.";
         setMsgs((p) => [...p, { from: "ai", text: texto }]);
