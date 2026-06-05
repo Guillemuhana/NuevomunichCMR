@@ -3,7 +3,7 @@ import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
-  AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield,
+  AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -540,7 +540,15 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
             {lista.map((c) => {
               const est  = ESTADOS[c.estado] || ESTADOS.nuevo;
               const sel  = activo?.id === c.id;
-              const hora = c.updated_at ? new Date(c.updated_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
+              const hora = c.updated_at ? (() => {
+                const d = new Date(c.updated_at);
+                const hoy = new Date();
+                const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
+                const mismoAnio = d.getFullYear() === hoy.getFullYear();
+                if (d.toDateString() === hoy.toDateString()) return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+                if (d.toDateString() === ayer.toDateString()) return "Ayer";
+                return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", ...(mismoAnio ? {} : { year: "2-digit" }) });
+              })() : "";
               return (
                 <div key={c.id} onClick={() => onSelect(c)}
                   style={{ padding: "13px 14px", borderBottom: `1px solid ${L.border}`, cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start", background: sel ? L.active : "transparent", borderLeft: sel ? `3px solid ${C.red}` : "3px solid transparent", transition: "background .12s" }}
@@ -612,7 +620,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const [panelSeg, setPanelSeg]   = useState(false);
   const [drawer, setDrawer]       = useState(false);
   const [pedidoModal, setPedido]  = useState(false);
+  const [hoverMsg, setHoverMsg]   = useState(null);
   const endRef = useRef(null);
+
+  const eliminarMensaje = async (id) => {
+    if (!window.confirm("¿Eliminar este mensaje del CRM?")) return;
+    await supabase.from("mensajes").delete().eq("id", id);
+    setMensajes((prev) => prev.filter((m) => m.id !== id));
+  };
 
   const cargar = useCallback(async () => {
     const { data } = await supabase.from("mensajes").select("*").eq("contacto_id", contacto.id).order("created_at", { ascending: true });
@@ -766,9 +781,19 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
           const esCliente = m.direccion === "in";
           const esBot     = m.origen === "bot";
           const esAgente  = m.origen === "agente";
-          const hora      = new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+          const hora      = (() => {
+            const d = new Date(m.created_at);
+            const hoy = new Date();
+            const mismoAnio = d.getFullYear() === hoy.getFullYear();
+            const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+            if (d.toDateString() === hoy.toDateString()) return time;
+            return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", ...(mismoAnio ? {} : { year: "2-digit" }) }) + " · " + time;
+          })();
           return (
-            <div key={m.id} style={{ alignSelf: esCliente ? "flex-start" : "flex-end", maxWidth: "70%", display: "flex", flexDirection: "column", gap: 4 }}>
+            <div key={m.id}
+              onMouseEnter={() => setHoverMsg(m.id)}
+              onMouseLeave={() => setHoverMsg(null)}
+              style={{ alignSelf: esCliente ? "flex-start" : "flex-end", maxWidth: "70%", display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
               {/* Remitente */}
               {esCliente && (
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -794,8 +819,18 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
               <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2F2" : "#FFFBEB", borderRadius: esCliente ? "3px 14px 14px 14px" : "14px 3px 14px 14px", borderLeft: esCliente ? `3px solid ${L.border}` : "none", borderRight: !esCliente ? `3px solid ${esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {m.contenido}
               </div>
-              {/* Hora */}
-              <div style={{ fontSize: 10.5, color: L.light, textAlign: esCliente ? "left" : "right" }}>{hora}</div>
+              {/* Hora + eliminar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: esCliente ? "flex-start" : "flex-end" }}>
+                <div style={{ fontSize: 10.5, color: L.light }}>{hora}</div>
+                {hoverMsg === m.id && (
+                  <button onClick={() => eliminarMensaje(m.id)} title="Eliminar mensaje"
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#EF4444", display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
