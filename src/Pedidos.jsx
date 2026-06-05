@@ -200,8 +200,8 @@ export function imprimirPedido(pedido, contacto) {
 // ═══════════════════════════════════════════════
 // MODAL — Nuevo / Editar Pedido
 // ═══════════════════════════════════════════════
-export function NuevoPedidoModal({ contacto, vendedorActual, onClose, onGuardado }) {
-  const [items, setItems]         = useState([{ desc: "", qty: 1, precio: "" }]);
+export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onClose, onGuardado }) {
+  const [items, setItems]         = useState(mensajeInicial ? [{ desc: mensajeInicial, qty: 1, precio: "" }] : [{ desc: "", qty: 1, precio: "" }]);
   const [notas, setNotas]         = useState("");
   const [entrega, setEntrega]     = useState("Retiro en local");
   const [direccion, setDireccion] = useState(contacto?.direccion || "");

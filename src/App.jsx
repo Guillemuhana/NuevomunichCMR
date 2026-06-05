@@ -620,6 +620,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
   const [panelSeg, setPanelSeg]   = useState(false);
   const [drawer, setDrawer]       = useState(false);
   const [pedidoModal, setPedido]  = useState(false);
+  const [msgParaPedido, setMsgParaPedido] = useState(null);
   const [hoverMsg, setHoverMsg]   = useState(null);
   const endRef = useRef(null);
 
@@ -833,12 +834,20 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: esCliente ? "flex-start" : "flex-end" }}>
                 <div style={{ fontSize: 10.5, color: L.light }}>{hora}</div>
                 {hoverMsg === m.id && (
-                  <button onClick={() => eliminarMensaje(m.id)} title="Eliminar mensaje"
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#EF4444", display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                    onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
-                    <Trash2 size={12} />
-                  </button>
+                  <>
+                    <button onClick={() => { setMsgParaPedido(m.contenido); setPedido(true); }} title="Convertir en pedido"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: C.red, display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
+                      <ShoppingBag size={12} />
+                    </button>
+                    <button onClick={() => eliminarMensaje(m.id)} title="Eliminar mensaje"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#EF4444", display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
+                      <Trash2 size={12} />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -868,7 +877,8 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile }) {
         <NuevoPedidoModal
           contacto={contacto}
           vendedorActual={contacto.vendedor}
-          onClose={() => setPedido(false)}
+          mensajeInicial={msgParaPedido}
+          onClose={() => { setPedido(false); setMsgParaPedido(null); }}
           onGuardado={() => {}}
         />
       )}
