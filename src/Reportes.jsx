@@ -148,6 +148,74 @@ export default function Reportes() {
   const [pedResult, setPedResult] = useState(null);
   const [loadingPed, setLoadingPed] = useState(false);
 
+  // ── Reporte mensajes ──
+  const [mDesde, setMDesde]         = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
+  const [mHasta, setMHasta]         = useState(hoyISO);
+  const [msgResult, setMsgResult]   = useState(null);
+  const [loadingMsg, setLoadingMsg] = useState(false);
+
+  const buscarMensajes = async () => {
+    setLoadingMsg(true);
+    const { data: rows, error } = await supabase
+      .from("mensajes")
+      .select("*, contactos(nombre, telefono, empresa)")
+      .gte("created_at", mDesde + "T00:00:00")
+      .lte("created_at", mHasta + "T23:59:59")
+      .order("created_at", { ascending: true });
+    setLoadingMsg(false);
+    if (!error) setMsgResult(rows || []);
+  };
+
+  const exportarMsgCSV = () => {
+    if (!msgResult?.length) return;
+    const filas = msgResult.map((m) => ({
+      Fecha: new Date(m.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+      Dirección: m.direccion === "in" ? "Cliente → CRM" : "CRM → Cliente",
+      Origen: m.origen || "",
+      Agente: m.agente || "",
+      Cliente: m.contactos?.nombre || m.contactos?.telefono || "",
+      Teléfono: m.contactos?.telefono || "",
+      Empresa: m.contactos?.empresa || "",
+      Mensaje: m.contenido || "",
+    }));
+    exportarCSV(filas, `mensajes-nm-${mDesde}-al-${mHasta}`);
+  };
+
+  const exportarMsgPDF = () => {
+    if (!msgResult?.length) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFillColor(156, 27, 27);
+    doc.rect(0, 0, 297, 22, "F");
+    doc.setFillColor(212, 161, 58);
+    doc.rect(0, 19, 297, 3, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("Nuevo Munich — Historial de Mensajes", 14, 13);
+    doc.setFontSize(9);
+    doc.text(`${mDesde} al ${mHasta} · ${msgResult.length} mensajes`, 14, 19.5);
+    autoTable(doc, {
+      startY: 28,
+      head: [["Fecha", "Dir.", "Origen", "Agente", "Cliente", "Teléfono", "Mensaje"]],
+      body: msgResult.map((m) => [
+        new Date(m.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+        m.direccion === "in" ? "↙ Cliente" : "↗ Agente",
+        m.origen || "—",
+        m.agente || "—",
+        m.contactos?.nombre || m.contactos?.telefono || "—",
+        m.contactos?.telefono || "—",
+        m.contenido || "",
+      ]),
+      headStyles: { fillColor: [156, 27, 27], fontSize: 8.5 },
+      styles: { fontSize: 8, cellPadding: 3, overflow: "linebreak" },
+      columnStyles: { 6: { cellWidth: 90 } },
+      alternateRowStyles: { fillColor: [252, 248, 240] },
+    });
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 132, 114);
+    doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, doc.lastAutoTable.finalY + 8);
+    doc.save(`mensajes-nm-${mDesde}-al-${mHasta}.pdf`);
+  };
+
   const buscarPedidos = async () => {
     setLoadingPed(true);
     const { data: rows, error } = await supabase
@@ -699,6 +767,92 @@ export default function Reportes() {
           <div style={{ height: 40 }} />
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════
+          REPORTE DE MENSAJES POR RANGO DE FECHAS
+      ══════════════════════════════════════════════ */}
+      <div style={{ padding: "0 28px 24px" }}>
+        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: C.charcoal, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18 }}>
+            💬 Mensajes por rango de fechas
+          </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Desde</div>
+              <input type="date" value={mDesde} onChange={(e) => setMDesde(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Hasta</div>
+              <input type="date" value={mHasta} onChange={(e) => setMHasta(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: C.charcoal, outline: "none", background: "#f8fafc" }} />
+            </div>
+            <button onClick={buscarMensajes} disabled={loadingMsg}
+              style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+              {loadingMsg ? "Buscando…" : "🔍 Buscar"}
+            </button>
+            {msgResult && msgResult.length > 0 && (
+              <>
+                <button onClick={exportarMsgPDF}
+                  style={{ background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ PDF
+                </button>
+                <button onClick={exportarMsgCSV}
+                  style={{ background: C.sage, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  ↓ CSV
+                </button>
+              </>
+            )}
+          </div>
+          {msgResult === null && (
+            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>Elegí las fechas y hacé clic en Buscar.</div>
+          )}
+          {msgResult !== null && msgResult.length === 0 && (
+            <div style={{ color: C.muted, fontSize: 13.5, padding: "20px 0" }}>No hay mensajes en ese período.</div>
+          )}
+          {msgResult && msgResult.length > 0 && (
+            <>
+              <div style={{ marginBottom: 14, fontSize: 13, color: C.muted }}>
+                <strong style={{ color: C.charcoal, fontSize: 16 }}>{msgResult.length}</strong> mensajes ·{" "}
+                <strong style={{ color: C.red }}>{msgResult.filter((m) => m.direccion === "in").length}</strong> de clientes ·{" "}
+                <strong style={{ color: C.sage }}>{msgResult.filter((m) => m.direccion === "out").length}</strong> enviados
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C.border}`, background: "#f8fafc" }}>
+                      {["Fecha y hora","Dir.","Origen","Agente","Cliente","Teléfono","Mensaje"].map((h) => (
+                        <th key={h} style={{ padding: "9px 10px", fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {msgResult.map((m, i) => {
+                      const esIn = m.direccion === "in";
+                      const fecha = new Date(m.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                      return (
+                        <tr key={m.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: C.muted, fontSize: 12 }}>{fecha}</td>
+                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                            <span style={{ background: esIn ? "#DBEAFE" : "#DCFCE7", color: esIn ? "#1D4ED8" : "#15803D", padding: "2px 8px", borderRadius: 20, fontWeight: 700, fontSize: 11 }}>
+                              {esIn ? "↙ Cliente" : "↗ Agente"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "8px 10px", color: C.muted, fontSize: 12 }}>{m.origen || "—"}</td>
+                          <td style={{ padding: "8px 10px", color: C.charcoal, whiteSpace: "nowrap" }}>{m.agente || "—"}</td>
+                          <td style={{ padding: "8px 10px", fontWeight: 600, color: C.charcoal, whiteSpace: "nowrap" }}>{m.contactos?.nombre || m.contactos?.telefono || "—"}</td>
+                          <td style={{ padding: "8px 10px", color: C.muted, fontSize: 12, whiteSpace: "nowrap" }}>{m.contactos?.telefono || "—"}</td>
+                          <td style={{ padding: "8px 10px", color: C.charcoal, maxWidth: 380, wordBreak: "break-word" }}>{m.contenido || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* ══════════════════════════════════════════════
           REPORTE DE PEDIDOS POR RANGO DE FECHAS
