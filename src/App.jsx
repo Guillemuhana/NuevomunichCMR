@@ -328,18 +328,43 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const isMobile = useIsMobile();
   const [open, setOpen]       = useState(false);
   const [msgs, setMsgs]       = useState([
-    { from: "ai", text: `¡Hola! Soy el asistente de Nuevo Munich.\n\nPuedo ayudarte con:\n• Ver métricas y reportes en tiempo real\n• Redactar mensajes de WhatsApp listos para enviar\n• Cambiar estados, asignar vendedores y agendar seguimientos\n• Consejos para cerrar ventas en gastronomía\n\n¿Qué necesitás?` },
+    { from: "ai", text: `¡Hola! Soy tu asistente de Nuevo Munich, estoy acá para lo que necesites.\n\nPuedo ayudarte con:\n• **Métricas y reportes** en tiempo real\n• **Redactar mensajes** de WhatsApp listos para enviar\n• **Cambiar estados**, asignar vendedores y agendar seguimientos\n• **Consejos para cerrar ventas** en gastronomía y delivery\n\nPodés escribirme o hablarme directamente. ¿Con qué arrancamos?` },
   ]);
   const [input, setInput]     = useState("");
   const [typing, setTyping]   = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
   const voiceOnRef = useRef(false);
+  const voiceRef   = useRef(null);
   const recogRef   = useRef(null);
   const bottomRef  = useRef(null);
 
   useEffect(() => { voiceOnRef.current = voiceOn; }, [voiceOn]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
+
+  // Cargar la mejor voz disponible (async — los navegadores las cargan tarde)
+  useEffect(() => {
+    const pickVoice = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      const priority = [
+        (v) => /latinoam[eé]rica/i.test(v.name),
+        (v) => /sabina|helena|monica|jorge|pablo/i.test(v.name) && v.lang.startsWith("es"),
+        (v) => v.lang === "es-AR",
+        (v) => v.lang === "es-419",
+        (v) => v.lang === "es-MX",
+        (v) => v.lang === "es-US",
+        (v) => v.lang.startsWith("es-"),
+        (v) => v.lang.startsWith("es"),
+      ];
+      for (const fn of priority) {
+        const found = voices.find(fn);
+        if (found) { voiceRef.current = found; break; }
+      }
+    };
+    pickVoice();
+    window.speechSynthesis?.addEventListener("voiceschanged", pickVoice);
+    return () => window.speechSynthesis?.removeEventListener("voiceschanged", pickVoice);
+  }, []);
 
   // Inyectar animación de pulso para el micrófono
   useEffect(() => {
@@ -355,12 +380,13 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const speak = useCallback((text) => {
     if (!voiceOnRef.current || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const clean = text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/[*•#]/g, "").slice(0, 500);
+    const clean = text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/[*•#\[\]]/g, "").slice(0, 600);
     const utt = new SpeechSynthesisUtterance(clean);
-    utt.lang = "es-AR"; utt.rate = 1.05; utt.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const v = voices.find((vv) => vv.lang === "es-AR") || voices.find((vv) => vv.lang.startsWith("es"));
-    if (v) utt.voice = v;
+    utt.lang = "es-AR";
+    utt.rate = 1.0;
+    utt.pitch = 1.08;
+    utt.volume = 1;
+    if (voiceRef.current) utt.voice = voiceRef.current;
     window.speechSynthesis.speak(utt);
   }, []);
 
@@ -402,7 +428,8 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
       for (const c of contactos) estadosCounts[c.estado] = (estadosCounts[c.estado] || 0) + 1;
       const sinResponder = contactos.filter((c) => !c.bot_activo && c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))).length;
 
-      const ctx = `Sos el asistente IA del CRM de **Nuevo Munich**, hamburguesería artesanal premium de Buenos Aires.
+      const ctx = `Sos "Muni", el asistente IA del equipo de ventas de **Nuevo Munich**, hamburguesería artesanal premium de Buenos Aires.
+Actuás como un empleado experimentado, amable y proactivo que conoce el negocio de memoria. Tu misión es hacer que el equipo venda más y mejor.
 El negocio vende principalmente por WhatsApp: los clientes consultan, eligen y coordinan entregas/retiros por ahí.
 
 HOY ES: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
@@ -423,19 +450,23 @@ CONTACTO ABIERTO AHORA:
 ${contactoActivo.nota_seguimiento ? `• Nota: ${contactoActivo.nota_seguimiento}` : ""}
 ${contactoActivo.direccion ? `• Dirección: ${contactoActivo.direccion}` : ""}` : "\nNo hay contacto abierto actualmente."}
 
-ACCIONES DISPONIBLES (ponelas al final de tu respuesta, solo si el usuario lo pide):
+ACCIONES DISPONIBLES (ponelas al final de tu respuesta, solo si el usuario lo pide o tiene sentido ejecutarlas):
 [ACCION:ESTADO:estado]       → estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido
 [ACCION:VENDEDOR:nombre]     → vendedores: ${VENDEDORES.join(", ")}
 [ACCION:PEDIDO:descripcion]  → crear pedido para el contacto abierto
 [ACCION:NOTA:texto]          → guardar nota de seguimiento
 [ACCION:SEGUIMIENTO:días|motivo] → ej: [ACCION:SEGUIMIENTO:2|Llamar para confirmar pedido]
 
-CÓMO COMPORTARTE:
-- Español rioplatense (vos/ustedes), directo y sin vueltas — los vendedores están ocupados
+CÓMO COMPORTARTE (MUY IMPORTANTE):
+- Español rioplatense natural (vos/ustedes), cálido y cercano — como un compañero de trabajo que sabe mucho
+- Siempre mostrá disposición para ayudar más: terminá cada respuesta con una oferta concreta de siguiente paso o preguntá si necesitan algo más
+- Sé proactivo: si ves métricas preocupantes o oportunidades, mencionálas aunque no te las pidan
 - Si piden un mensaje para enviarle al cliente, escribilo ya listo para copiar y pegar, usando *negrita* como WhatsApp
-- Para consejos de venta, contextualizalos en gastronomía/delivery de hamburguesas
-- Confirmá siempre antes de ejecutar una acción sobre el contacto
-- Si no hay contacto abierto y se pide ejecutar una acción, deciles que abran uno primero`;
+- Contextualizá los consejos de venta en gastronomía/delivery de hamburguesas artesanales
+- Confirmá siempre antes de ejecutar una acción sobre el contacto (a menos que el usuario lo pida explícitamente)
+- Si no hay contacto abierto y se pide ejecutar una acción, sugerí cuál abrir según el contexto
+- Nunca respondas con listas largas y frías — preferí respuestas conversacionales, cálidas y accionables
+- Tratá a los vendedores como si fueran tus colegas — con respeto, buen humor y ganas de ayudar`;
 
       const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
       historial.push({ role: "user", content: q });
@@ -540,13 +571,13 @@ CÓMO COMPORTARTE:
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 420 }), height: isMobile ? "75dvh" : 560, maxHeight: isMobile ? "calc(100% - 120px)" : 560, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
 
           {/* Header minimalista */}
           <div style={{ background: "#fff", padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
-            <img src={LOGO_URL} alt="NM" style={{ height: 32, objectFit: "contain", flexShrink: 0 }} />
+            <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Asistente IA</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Muni · Asistente IA</div>
               <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{typing ? "Escribiendo…" : "Nuevo Munich · Online"}</div>
             </div>
             {/* Toggle voz */}
