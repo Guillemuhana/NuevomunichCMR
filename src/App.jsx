@@ -618,6 +618,9 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           const transcript = json.text?.trim();
           if (transcript) {
             setInput(transcript);
+            // Si el usuario mandó audio, la respuesta también sale con voz
+            setVoiceOn(true);
+            voiceOnRef.current = true;
             setTimeout(() => enviar(transcript), 50);
           }
         } catch (err) {
