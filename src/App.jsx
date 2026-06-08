@@ -332,12 +332,14 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   ]);
   const [input, setInput]     = useState("");
   const [typing, setTyping]   = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [voiceOn, setVoiceOn] = useState(false);
-  const voiceOnRef = useRef(false);
-  const voiceRef   = useRef(null);
-  const recogRef   = useRef(null);
-  const bottomRef  = useRef(null);
+  const [recording, setRecording]     = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceOn, setVoiceOn]         = useState(false);
+  const voiceOnRef        = useRef(false);
+  const voiceRef          = useRef(null);
+  const mediaRecorderRef  = useRef(null);
+  const chunksRef         = useRef([]);
+  const bottomRef         = useRef(null);
 
   useEffect(() => { voiceOnRef.current = voiceOn; }, [voiceOn]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
@@ -529,30 +531,67 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
   }, [input, typing, msgs, contactoActivo, onActualizarContacto, speak]);
 
   const toggleMic = useCallback(() => {
+    // Detener grabación en curso
     if (recording) {
-      recogRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       setRecording(false);
       return;
     }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Tu navegador no soporta reconocimiento de voz."); return; }
-    const recog = new SR();
-    recog.lang = "es-AR";
-    recog.continuous = false;
-    recog.interimResults = false;
-    recog.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(transcript);
-      setRecording(false);
-      recogRef.current = null;
-      // Pequeño delay para que el estado se actualice antes de enviar
-      setTimeout(() => enviar(transcript), 50);
-    };
-    recog.onerror = () => { setRecording(false); recogRef.current = null; };
-    recog.onend = () => { setRecording(false); recogRef.current = null; };
-    recogRef.current = recog;
-    recog.start();
-    setRecording(true);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert("Tu navegador no soporta grabación de audio.");
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      chunksRef.current = [];
+
+      // Elegir el mejor formato soportado por el dispositivo
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(
+        (t) => MediaRecorder.isTypeSupported(t)
+      ) || "";
+
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (chunksRef.current.length === 0) return;
+
+        setTranscribing(true);
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        const ext = (mr.mimeType || "").includes("mp4") ? "m4a" : "webm";
+
+        try {
+          const formData = new FormData();
+          formData.append("file", blob, `audio.${ext}`);
+          formData.append("model", "whisper-large-v3");
+          formData.append("language", "es");
+          formData.append("response_format", "json");
+
+          const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${import.meta.env.VITE_GEMINI_API_KEY}` },
+            body: formData,
+          });
+          const json = await res.json();
+          const transcript = json.text?.trim();
+          if (transcript) {
+            setInput(transcript);
+            setTimeout(() => enviar(transcript), 50);
+          }
+        } catch (err) {
+          console.error("Whisper error:", err);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+    }).catch(() => {
+      alert("No se pudo acceder al micrófono. Verificá los permisos del navegador.");
+    });
   }, [recording, enviar]);
 
   const sugerencias = contactoActivo
@@ -633,13 +672,17 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           {/* Input */}
           <div style={{ padding: "12px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff" }}>
             {/* Botón micrófono */}
-            <button onClick={toggleMic} title={recording ? "Detener grabación" : "Hablar"}
-              style={{ background: recording ? "#fef2f2" : "#f8fafc", border: `1.5px solid ${recording ? C.red : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
-              {recording ? <MicOff size={16} color={C.red} /> : <Mic size={16} color="#64748b" />}
+            <button onClick={toggleMic} disabled={transcribing} title={recording ? "Detener grabación" : "Hablar"}
+              style={{ background: recording ? "#fef2f2" : transcribing ? "#fff7ed" : "#f8fafc", border: `1.5px solid ${recording ? C.red : transcribing ? "#f97316" : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
+              {transcribing
+                ? <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316", letterSpacing: 2 }}>···</span>
+                : recording
+                  ? <MicOff size={16} color={C.red} />
+                  : <Mic size={16} color="#64748b" />}
             </button>
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") enviar(); }}
-              placeholder={recording ? "Escuchando…" : "Preguntame algo…"}
+              placeholder={transcribing ? "Procesando audio…" : recording ? "Grabando… tocá para detener" : "Preguntame algo…"}
               style={{ flex: 1, padding: "9px 14px", borderRadius: 10, border: "1.5px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc" }} />
             <button onClick={() => enviar()} disabled={typing}
               style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, padding: "9px 14px", cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center" }}>
