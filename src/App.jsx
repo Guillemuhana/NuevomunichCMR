@@ -350,6 +350,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
     const pickVoice = () => {
       const voices = window.speechSynthesis?.getVoices() || [];
       const priority = [
+        (v) => /elena/i.test(v.name) && v.lang.startsWith("es"),   // Microsoft Elena (Edge)
         (v) => /latinoam[eé]rica/i.test(v.name),
         (v) => /sabina|helena|monica|jorge|pablo/i.test(v.name) && v.lang.startsWith("es"),
         (v) => v.lang === "es-AR",
