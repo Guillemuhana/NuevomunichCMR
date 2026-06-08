@@ -661,7 +661,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           <div style={{ background: "#fff", padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
             <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Muni · Asistente IA</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Asistente IA</div>
               <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{typing ? "Escribiendo…" : "Nuevo Munich · Online"}</div>
             </div>
             {/* Toggle voz */}
@@ -702,17 +702,6 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
             <div ref={bottomRef} />
           </div>
 
-          {/* Sugerencias */}
-          {msgs.length <= 1 && !typing && (
-            <div style={{ padding: "8px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 6, flexWrap: "wrap", background: "#fff" }}>
-              {sugerencias.map((s) => (
-                <button key={s} onClick={() => setInput(s)}
-                  style={{ fontSize: 11, padding: "5px 11px", borderRadius: 20, border: `1.5px solid #E2E8F0`, background: "#f8fafc", color: C.red, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Input */}
           <div style={{ padding: "12px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff" }}>
@@ -757,8 +746,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
     <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
 
       {/* ── Brand bar ── */}
-      <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 140, objectFit: "contain" }} />
+      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 80, objectFit: "contain" }} />
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
