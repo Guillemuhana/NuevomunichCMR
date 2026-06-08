@@ -4,6 +4,7 @@ import {
   Pencil, Bot, User, Calendar, Send, X, Check,
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
+  Mic, MicOff, Volume2, VolumeX,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -325,33 +326,61 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 // ============================================================
 function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const isMobile = useIsMobile();
-  const [open, setOpen]         = useState(false);
-  const [msgs, setMsgs]         = useState([
+  const [open, setOpen]       = useState(false);
+  const [msgs, setMsgs]       = useState([
     { from: "ai", text: `¡Hola! Soy el asistente de Nuevo Munich.\n\nPuedo ayudarte con:\n• Ver métricas y reportes en tiempo real\n• Redactar mensajes de WhatsApp listos para enviar\n• Cambiar estados, asignar vendedores y agendar seguimientos\n• Consejos para cerrar ventas en gastronomía\n\n¿Qué necesitás?` },
   ]);
-  const [input, setInput]       = useState("");
-  const [typing, setTyping]     = useState(false);
-  const bottomRef = useRef(null);
+  const [input, setInput]     = useState("");
+  const [typing, setTyping]   = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
+  const voiceOnRef = useRef(false);
+  const recogRef   = useRef(null);
+  const bottomRef  = useRef(null);
 
+  useEffect(() => { voiceOnRef.current = voiceOn; }, [voiceOn]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
 
-  const enviar = async () => {
-    const q = input.trim();
+  // Inyectar animación de pulso para el micrófono
+  useEffect(() => {
+    const id = "mic-pulse-style";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("style");
+      s.id = id;
+      s.textContent = `@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(156,27,27,.5)}50%{box-shadow:0 0 0 8px rgba(156,27,27,0)}}`;
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  const speak = useCallback((text) => {
+    if (!voiceOnRef.current || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const clean = text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/[*•#]/g, "").slice(0, 500);
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.lang = "es-AR"; utt.rate = 1.05; utt.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const v = voices.find((vv) => vv.lang === "es-AR") || voices.find((vv) => vv.lang.startsWith("es"));
+    if (v) utt.voice = v;
+    window.speechSynthesis.speak(utt);
+  }, []);
+
+  const enviar = useCallback(async (textoOverride) => {
+    const q = (textoOverride ?? input).trim();
     if (!q || typing) return;
     setMsgs((p) => [...p, { from: "user", text: q }]);
-    setInput(""); setTyping(true);
+    if (!textoOverride) setInput("");
+    setTyping(true);
 
     const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!geminiKey) {
-      setMsgs((p) => [...p, { from: "ai", text: "⚠️ Falta configurar VITE_GEMINI_API_KEY en las variables de entorno de Vercel." }]);
+      const err = "⚠️ Falta configurar VITE_GEMINI_API_KEY en las variables de entorno de Vercel.";
+      setMsgs((p) => [...p, { from: "ai", text: err }]);
       setTyping(false); return;
     }
 
     try {
-      // Contexto real de Supabase
       const hoy = new Date();
       const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - 6); inicioSemana.setHours(0,0,0,0);
-      const inicioMes    = new Date(hoy); inicioMes.setDate(hoy.getDate() - 29);   inicioMes.setHours(0,0,0,0);
 
       const [contRes, pedRes, msgRes] = await Promise.all([
         supabase.from("contactos").select("id,nombre,telefono,estado,vendedor,created_at"),
@@ -363,11 +392,11 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
       const pedidos   = pedRes.data  || [];
       const mensajes  = msgRes.data  || [];
 
-      const nuevosHoy     = contactos.filter((c) => new Date(c.created_at).toDateString() === hoy.toDateString()).length;
-      const nuevosSemana  = contactos.filter((c) => new Date(c.created_at) >= inicioSemana).length;
-      const vendidos      = contactos.filter((c) => c.estado === "vendido").length;
-      const facturacion   = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
-      const porVendedor   = VENDEDORES.map((v) => ({ vendedor: v, pedidos: pedidos.filter((p) => p.vendedor === v).length, total: pedidos.filter((p) => p.vendedor === v).reduce((s, p) => s + (Number(p.total) || 0), 0) }));
+      const nuevosHoy    = contactos.filter((c) => new Date(c.created_at).toDateString() === hoy.toDateString()).length;
+      const nuevosSemana = contactos.filter((c) => new Date(c.created_at) >= inicioSemana).length;
+      const vendidos     = contactos.filter((c) => c.estado === "vendido").length;
+      const facturacion  = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const porVendedor  = VENDEDORES.map((v) => ({ vendedor: v, pedidos: pedidos.filter((p) => p.vendedor === v).length, total: pedidos.filter((p) => p.vendedor === v).reduce((s, p) => s + (Number(p.total) || 0), 0) }));
 
       const estadosCounts = {};
       for (const c of contactos) estadosCounts[c.estado] = (estadosCounts[c.estado] || 0) + 1;
@@ -423,11 +452,12 @@ CÓMO COMPORTARTE:
       });
       const json = await res.json();
       if (json.error) {
-        setMsgs((p) => [...p, { from: "ai", text: `⚠️ Error: ${json.error.message || json.error.type}` }]);
+        const err = `⚠️ Error: ${json.error.message || json.error.type}`;
+        setMsgs((p) => [...p, { from: "ai", text: err }]);
+        speak(err);
       } else {
         let texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
 
-        // Parsear y ejecutar acciones
         const accionRegex = /\[ACCION:([A-Z]+):([^\]]+)\]/g;
         const acciones = [...texto.matchAll(accionRegex)].map((m) => ({ tipo: m[1], valor: m[2].trim() }));
         texto = texto.replace(accionRegex, "").trim();
@@ -459,12 +489,40 @@ CÓMO COMPORTARTE:
         }
 
         setMsgs((p) => [...p, { from: "ai", text: texto }]);
+        speak(texto);
       }
     } catch (e) {
       setMsgs((p) => [...p, { from: "ai", text: `Error de conexión: ${e.message}` }]);
     }
     setTyping(false);
-  };
+  }, [input, typing, msgs, contactoActivo, onActualizarContacto, speak]);
+
+  const toggleMic = useCallback(() => {
+    if (recording) {
+      recogRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Tu navegador no soporta reconocimiento de voz."); return; }
+    const recog = new SR();
+    recog.lang = "es-AR";
+    recog.continuous = false;
+    recog.interimResults = false;
+    recog.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      setRecording(false);
+      recogRef.current = null;
+      // Pequeño delay para que el estado se actualice antes de enviar
+      setTimeout(() => enviar(transcript), 50);
+    };
+    recog.onerror = () => { setRecording(false); recogRef.current = null; };
+    recog.onend = () => { setRecording(false); recogRef.current = null; };
+    recogRef.current = recog;
+    recog.start();
+    setRecording(true);
+  }, [recording, enviar]);
 
   const sugerencias = contactoActivo
     ? [`Mensaje para ${contactoActivo.nombre || "este cliente"}`, "Agendar seguimiento para mañana", "Cambiar estado a vendido"]
@@ -474,7 +532,7 @@ CÓMO COMPORTARTE:
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 88, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? L.muted : C.red, border: "none", color: "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(185,28,28,.45)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 88, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -482,23 +540,28 @@ CÓMO COMPORTARTE:
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
-          {/* Header */}
-          <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <img src={LOGO_URL} alt="NM" style={{ height: 48, objectFit: "contain" }} />
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+
+          {/* Header minimalista */}
+          <div style={{ background: "#fff", padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
+            <img src={LOGO_URL} alt="NM" style={{ height: 32, objectFit: "contain", flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Asistente IA</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{typing ? "Escribiendo…" : "Nuevo Munich · Online"}</div>
             </div>
-            <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, letterSpacing: 0.3, lineHeight: 1.2 }}>Asistente IA</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,.65)", marginTop: 2 }}>Nuevo Munich · {typing ? "Escribiendo…" : "Online"}</div>
-            </div>
-            <button onClick={() => setOpen(false)} style={{ marginLeft: "auto", background: "rgba(255,255,255,.15)", border: "none", color: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <X size={16} />
+            {/* Toggle voz */}
+            <button onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "Silenciar voz" : "Activar voz"}
+              style={{ background: voiceOn ? "#fef2f2" : "#f8fafc", border: `1.5px solid ${voiceOn ? C.red : "#E2E8F0"}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {voiceOn ? <Volume2 size={15} color={C.red} /> : <VolumeX size={15} color="#94a3b8" />}
+            </button>
+            <button onClick={() => setOpen(false)} title="Cerrar"
+              style={{ background: "#f8fafc", border: "1.5px solid #E2E8F0", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <X size={15} color="#64748b" />
             </button>
           </div>
 
           {/* Mensajes */}
-          <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: L.bg }}>
+          <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: "#f8fafc" }}>
             {msgs.map((m, i) => (
               <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start" }}>
                 {m.from === "ai" && (
@@ -506,7 +569,7 @@ CÓMO COMPORTARTE:
                     <Sparkles size={14} color="#fff" />
                   </div>
                 )}
-                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: m.from === "user" ? C.red : L.white, color: m.from === "user" ? "#fff" : L.text, fontSize: 13.5, lineHeight: 1.55, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: m.from === "user" ? "none" : `1px solid ${L.border}` }}>
+                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: m.from === "user" ? C.red : "#fff", color: m.from === "user" ? "#fff" : "#1e293b", fontSize: 13.5, lineHeight: 1.55, boxShadow: "0 1px 4px rgba(0,0,0,.06)", border: m.from === "user" ? "none" : "1px solid #E2E8F0" }}>
                   {renderMd(m.text)}
                 </div>
               </div>
@@ -516,7 +579,7 @@ CÓMO COMPORTARTE:
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: C.red, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Sparkles size={14} color="#fff" />
                 </div>
-                <div style={{ padding: "10px 16px", background: L.white, borderRadius: "3px 14px 14px 14px", border: `1px solid ${L.border}` }}>
+                <div style={{ padding: "10px 16px", background: "#fff", borderRadius: "3px 14px 14px 14px", border: "1px solid #E2E8F0" }}>
                   <span style={{ color: C.red, fontWeight: 700, letterSpacing: 3, fontSize: 16 }}>···</span>
                 </div>
               </div>
@@ -526,10 +589,10 @@ CÓMO COMPORTARTE:
 
           {/* Sugerencias */}
           {msgs.length <= 1 && !typing && (
-            <div style={{ padding: "8px 14px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 6, flexWrap: "wrap", background: L.white }}>
+            <div style={{ padding: "8px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 6, flexWrap: "wrap", background: "#fff" }}>
               {sugerencias.map((s) => (
                 <button key={s} onClick={() => setInput(s)}
-                  style={{ fontSize: 11, padding: "5px 11px", borderRadius: 20, border: `1.5px solid ${L.border}`, background: L.soft, color: C.red, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>
+                  style={{ fontSize: 11, padding: "5px 11px", borderRadius: 20, border: `1.5px solid #E2E8F0`, background: "#f8fafc", color: C.red, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>
                   {s}
                 </button>
               ))}
@@ -537,13 +600,18 @@ CÓMO COMPORTARTE:
           )}
 
           {/* Input */}
-          <div style={{ padding: "12px 14px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 8, background: L.white }}>
+          <div style={{ padding: "12px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff" }}>
+            {/* Botón micrófono */}
+            <button onClick={toggleMic} title={recording ? "Detener grabación" : "Hablar"}
+              style={{ background: recording ? "#fef2f2" : "#f8fafc", border: `1.5px solid ${recording ? C.red : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
+              {recording ? <MicOff size={16} color={C.red} /> : <Mic size={16} color="#64748b" />}
+            </button>
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") enviar(); }}
-              placeholder="Preguntame algo…"
-              style={{ flex: 1, padding: "9px 14px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: L.text, background: L.soft }} />
-            <button onClick={enviar} disabled={typing}
-              style={{ background: typing ? L.light : C.red, border: "none", color: "#fff", borderRadius: 10, padding: "9px 14px", cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center" }}>
+              placeholder={recording ? "Escuchando…" : "Preguntame algo…"}
+              style={{ flex: 1, padding: "9px 14px", borderRadius: 10, border: "1.5px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc" }} />
+            <button onClick={() => enviar()} disabled={typing}
+              style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, padding: "9px 14px", cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center" }}>
               <Send size={16} />
             </button>
           </div>
