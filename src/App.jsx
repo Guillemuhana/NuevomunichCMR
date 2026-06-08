@@ -49,49 +49,19 @@ function useIsMobile(bp = 768) {
   return v;
 }
 
-// Base de conocimiento del asistente
-const IA_KB = [
-  {
-    tags: ["hola","ayuda","help","empezar","que podes","inicio","buen"],
-    r: `Soy el asistente de IA de **Nuevo Munich**.\n\nPuedo ayudarte con:\n• Asignar vendedores y cambiar estados del pipeline\n• Configurar seguimientos y recordatorios\n• Gestionar el bot de WhatsApp\n• Guardar datos completos de contactos\n• Entender los reportes y métricas\n\n¿Sobre qué necesitás ayuda?`,
-  },
-  {
-    tags: ["estado","mover","pipeline","cambiar estado","embudo","conversion"],
-    r: `**Cambiar estado de un contacto:**\n1. Abrí la conversación\n2. Usá el selector "Estado" en el encabezado\n3. Opciones: Nuevo → En conversación → Pedido → Cerrado\n\nFilterá la lista lateral por estado para ver grupos específicos.`,
-  },
-  {
-    tags: ["vendedor","asignar","asignacion","quien","responsable"],
-    r: `**Asignar un vendedor:**\n1. Abrí la conversación\n2. Usá el selector "Vendedor" en el encabezado\n3. Se guarda automáticamente\n\nVendedores disponibles: ${VENDEDORES.join(", ")}`,
-  },
-  {
-    tags: ["seguimiento","recordatorio","agendar","proxima llamada","cuando"],
-    r: `**Configurar seguimiento:**\n1. Clic en el botón de calendario 📅 en el chat\n2. Elegí fecha y hora del próximo contacto\n3. Agregá una nota opcional\n\nRecibirás una alerta 🔔 cuando venza el seguimiento.`,
-  },
-  {
-    tags: ["bot","automatico","pausar","activar","inteligencia"],
-    r: `**El bot de WhatsApp:**\n🤖 **Bot activo** = responde automáticamente\n✋ **Yo atiendo** = vos manejás la conversación\n\nCuando tomás el control, tus mensajes se envían con tu nombre: "*Boris · Nuevo Munich*"`,
-  },
-  {
-    tags: ["alerta","notificacion","campana","urgente","pendiente"],
-    r: `**Alertas 🔔** — te avisan sobre:\n\n⏰ Clientes esperando respuesta hace +1h (bot pausado)\n👤 Leads sin vendedor asignado hace +2h\n📌 Seguimientos vencidos\n\nHacé clic en la alerta para ir directamente al contacto.`,
-  },
-  {
-    tags: ["reporte","estadistica","grafico","metrica","analitica","factura"],
-    r: `**Reportes** — pestaña 📊 del panel.\n\nVer:\n• Mensajes de clientes por período\n• Contactos activos y nuevos\n• Tasa de conversión del pipeline\n• Horas pico de actividad\n• Performance de cada vendedor\n\nExportá a **PDF o CSV**.`,
-  },
-  {
-    tags: ["contacto","guardar","editar","datos","informacion","email","empresa"],
-    r: `**Guardar datos del contacto:**\n1. Abrí la conversación\n2. Clic en ✏️ "Editar"\n3. Completá: nombre, email, empresa, dirección, notas\n4. Guardá\n\nToda la información queda en el perfil del cliente.`,
-  },
-  {
-    tags: ["buscar","filtrar","encontrar","search","listar"],
-    r: `**Buscar y filtrar:**\n• Barra de búsqueda del sidebar → buscar por nombre o número\n• Botones de filtro → filtrar por estado (Nuevo, En conversación, Pedido...)\n\nCombinás búsqueda + filtro para encontrar contactos específicos.`,
-  },
-  {
-    tags: ["whatsapp","mensaje","enviar","comunicar","firma"],
-    r: `**Enviar mensajes:**\n1. Seleccioná un contacto\n2. Escribí en el campo de texto\n3. Enter o clic en "Enviar"\n\nEl mensaje va con tu firma: **"Boris · Nuevo Munich"** visible para el cliente. Shift+Enter = nueva línea sin enviar.`,
-  },
-];
+// Renderiza **negrita** y saltos de línea de las respuestas IA
+function renderMd(text) {
+  return text.split("\n").map((line, li) => (
+    <span key={li}>
+      {li > 0 && <br />}
+      {line.split(/(\*\*[^*]+\*\*)/g).map((p, pi) =>
+        p.startsWith("**") && p.endsWith("**")
+          ? <strong key={pi}>{p.slice(2, -2)}</strong>
+          : p
+      )}
+    </span>
+  ));
+}
 
 // ============================================================
 // FONT LOADER
@@ -357,7 +327,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const isMobile = useIsMobile();
   const [open, setOpen]         = useState(false);
   const [msgs, setMsgs]         = useState([
-    { from: "ai", text: `¡Hola! Soy el asistente de IA de **Nuevo Munich**.\n\nEstoy aquí para ayudarte a gestionar contactos, conversaciones y ventas de forma más eficiente.\n\n¿En qué puedo ayudarte hoy?` },
+    { from: "ai", text: `¡Hola! Soy el asistente de Nuevo Munich.\n\nPuedo ayudarte con:\n• Ver métricas y reportes en tiempo real\n• Redactar mensajes de WhatsApp listos para enviar\n• Cambiar estados, asignar vendedores y agendar seguimientos\n• Consejos para cerrar ventas en gastronomía\n\n¿Qué necesitás?` },
   ]);
   const [input, setInput]       = useState("");
   const [typing, setTyping]     = useState(false);
@@ -399,33 +369,44 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
       const facturacion   = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
       const porVendedor   = VENDEDORES.map((v) => ({ vendedor: v, pedidos: pedidos.filter((p) => p.vendedor === v).length, total: pedidos.filter((p) => p.vendedor === v).reduce((s, p) => s + (Number(p.total) || 0), 0) }));
 
-      const ctx = `Sos el asistente IA del CRM de Nuevo Munich, una hamburguesería/gastronomía argentina.
-Fecha hoy: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
+      const estadosCounts = {};
+      for (const c of contactos) estadosCounts[c.estado] = (estadosCounts[c.estado] || 0) + 1;
+      const sinResponder = contactos.filter((c) => !c.bot_activo && c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))).length;
 
-DATOS EN TIEMPO REAL DEL CRM:
-• Total contactos: ${contactos.length}
-• Nuevos hoy: ${nuevosHoy} | Esta semana: ${nuevosSemana}
-• En estado "vendido": ${vendidos}
-• Pedidos esta semana: ${pedidos.length}
+      const ctx = `Sos el asistente IA del CRM de **Nuevo Munich**, hamburguesería artesanal premium de Buenos Aires.
+El negocio vende principalmente por WhatsApp: los clientes consultan, eligen y coordinan entregas/retiros por ahí.
+
+HOY ES: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
+
+MÉTRICAS EN TIEMPO REAL:
+• Contactos totales: ${contactos.length} | Nuevos hoy: ${nuevosHoy} | Esta semana: ${nuevosSemana}
+• Pipeline: ${Object.entries(estadosCounts).map(([e, n]) => `${ESTADOS[e]?.label || e} (${n})`).join(" · ")}
+• Sin responder (bot pausado): ${sinResponder}
+• Vendidos: ${vendidos} | Pedidos esta semana: ${pedidos.length}
 • Facturación esta semana: $${facturacion.toLocaleString("es-AR")}
 • Mensajes recibidos esta semana: ${mensajes.filter((m) => m.direccion === "in").length}
-• Rendimiento por vendedor:
-${porVendedor.filter((v) => v.pedidos > 0).map((v) => `  - ${v.vendedor}: ${v.pedidos} pedidos / $${v.total.toLocaleString("es-AR")}`).join("\n") || "  Sin pedidos esta semana"}
-${contactoActivo ? `• CONTACTO ABIERTO AHORA: ${contactoActivo.nombre || contactoActivo.telefono} | Estado: ${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado} | Vendedor: ${contactoActivo.vendedor || "sin asignar"} | Tel: ${contactoActivo.telefono}` : "• No hay contacto abierto actualmente"}
+• Por vendedor esta semana:
+${porVendedor.filter((v) => v.pedidos > 0).map((v) => `  ${v.vendedor}: ${v.pedidos} pedidos · $${v.total.toLocaleString("es-AR")}`).join("\n") || "  Sin pedidos registrados esta semana"}
+${contactoActivo ? `
+CONTACTO ABIERTO AHORA:
+• Nombre: ${contactoActivo.nombre || "(sin nombre)"}  Tel: ${contactoActivo.telefono}
+• Estado: ${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado}  Vendedor: ${contactoActivo.vendedor || "sin asignar"}
+${contactoActivo.nota_seguimiento ? `• Nota: ${contactoActivo.nota_seguimiento}` : ""}
+${contactoActivo.direccion ? `• Dirección: ${contactoActivo.direccion}` : ""}` : "\nNo hay contacto abierto actualmente."}
 
-ACCIONES QUE PODÉS EJECUTAR (usá exactamente este formato al final de tu respuesta):
-- Cambiar estado del contacto actual: [ACCION:ESTADO:nombre_estado]
-  Estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido, pedido
-- Asignar vendedor al contacto actual: [ACCION:VENDEDOR:nombre]
-  Vendedores disponibles: Boris, Cristian, Luis, Marcelino, Pablo, Sandra
-- Crear pedido del contacto actual: [ACCION:PEDIDO:descripcion del pedido]
-- Agregar nota de seguimiento: [ACCION:NOTA:texto de la nota]
+ACCIONES DISPONIBLES (ponelas al final de tu respuesta, solo si el usuario lo pide):
+[ACCION:ESTADO:estado]       → estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido
+[ACCION:VENDEDOR:nombre]     → vendedores: ${VENDEDORES.join(", ")}
+[ACCION:PEDIDO:descripcion]  → crear pedido para el contacto abierto
+[ACCION:NOTA:texto]          → guardar nota de seguimiento
+[ACCION:SEGUIMIENTO:días|motivo] → ej: [ACCION:SEGUIMIENTO:2|Llamar para confirmar pedido]
 
-REGLAS:
-- Solo ejecutás acciones sobre el contacto abierto actualmente
-- Si no hay contacto abierto, indicá que el usuario debe abrir uno primero
-- Siempre confirmá lo que vas a hacer antes del marcador de acción
-- Respondé en español, claro y conciso`;
+CÓMO COMPORTARTE:
+- Español rioplatense (vos/ustedes), directo y sin vueltas — los vendedores están ocupados
+- Si piden un mensaje para enviarle al cliente, escribilo ya listo para copiar y pegar, usando *negrita* como WhatsApp
+- Para consejos de venta, contextualizalos en gastronomía/delivery de hamburguesas
+- Confirmá siempre antes de ejecutar una acción sobre el contacto
+- Si no hay contacto abierto y se pide ejecutar una acción, deciles que abran uno primero`;
 
       const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
       historial.push({ role: "user", content: q });
@@ -465,6 +446,14 @@ REGLAS:
             } else if (accion.tipo === "NOTA" && contactoActivo) {
               await supabase.from("contactos").update({ nota_seguimiento: accion.valor }).eq("id", contactoActivo.id);
               onActualizarContacto?.({ ...contactoActivo, nota_seguimiento: accion.valor });
+            } else if (accion.tipo === "SEGUIMIENTO" && contactoActivo) {
+              const [diasStr, motivo] = accion.valor.split("|");
+              const dias = Math.max(1, parseInt(diasStr) || 1);
+              const fecha = new Date();
+              fecha.setDate(fecha.getDate() + dias);
+              fecha.setHours(10, 0, 0, 0);
+              await supabase.from("contactos").update({ seguimiento_at: fecha.toISOString(), nota_seguimiento: motivo?.trim() || "Seguimiento" }).eq("id", contactoActivo.id);
+              onActualizarContacto?.({ ...contactoActivo, seguimiento_at: fecha.toISOString(), nota_seguimiento: motivo?.trim() || "Seguimiento" });
             }
           } catch { /* acción falló, igual mostramos la respuesta */ }
         }
@@ -477,13 +466,15 @@ REGLAS:
     setTyping(false);
   };
 
-  const sugerencias = ["Reporte de esta semana", "¿Cuántos pedidos hoy?", "¿Cómo creo un contacto?"];
+  const sugerencias = contactoActivo
+    ? [`Mensaje para ${contactoActivo.nombre || "este cliente"}`, "Agendar seguimiento para mañana", "Cambiar estado a vendido"]
+    : ["Resumen de ventas de hoy", "¿Quién vendió más esta semana?", "Clientes sin responder"];
 
   return (
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 24, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? L.muted : C.red, border: "none", color: "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(185,28,28,.45)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 88, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? L.muted : C.red, border: "none", color: "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(185,28,28,.45)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -491,7 +482,7 @@ REGLAS:
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : 90, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 350 }), height: isMobile ? "72dvh" : 490, maxHeight: isMobile ? "calc(100% - 120px)" : 490, background: L.white, borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 16px 60px rgba(0,0,0,.22)", border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header */}
           <div style={{ background: C.red, color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `3px solid ${C.gold}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -515,8 +506,8 @@ REGLAS:
                     <Sparkles size={14} color="#fff" />
                   </div>
                 )}
-                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: m.from === "user" ? C.red : L.white, color: m.from === "user" ? "#fff" : L.text, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: m.from === "user" ? "none" : `1px solid ${L.border}` }}>
-                  {m.text}
+                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: m.from === "user" ? C.red : L.white, color: m.from === "user" ? "#fff" : L.text, fontSize: 13.5, lineHeight: 1.55, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: m.from === "user" ? "none" : `1px solid ${L.border}` }}>
+                  {renderMd(m.text)}
                 </div>
               </div>
             ))}
