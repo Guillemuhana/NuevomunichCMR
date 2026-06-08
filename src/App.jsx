@@ -5,6 +5,7 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -335,6 +336,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const [recording, setRecording]     = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceOn, setVoiceOn]         = useState(false);
+  const [copiedId, setCopiedId]       = useState(null);
   const voiceOnRef        = useRef(false);
   const voiceRef          = useRef(null);
   const currentAudioRef   = useRef(null);
@@ -678,23 +680,55 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           {/* Mensajes */}
           <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: "#f8fafc" }}>
             {msgs.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start" }}>
-                {m.from === "ai" && (
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 8, marginTop: 2 }}>
-                    <Sparkles size={14} color="#fff" />
+              <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start", flexDirection: "column", alignItems: m.from === "user" ? "flex-end" : "flex-start", gap: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, maxWidth: "85%" }}>
+                  {m.from === "ai" && (
+                    <div style={{ width: 30, height: 30, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                      <Sparkles size={14} color="#fff" />
+                    </div>
+                  )}
+                  <div style={{ padding: "10px 14px", borderRadius: m.from === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: m.from === "user" ? C.red : "#fff", color: m.from === "user" ? "#fff" : "#1e293b", fontSize: 13.5, lineHeight: 1.6, boxShadow: "0 1px 4px rgba(0,0,0,.06)", border: m.from === "user" ? "none" : "1px solid #E2E8F0" }}>
+                    {renderMd(m.text)}
+                    {m.from === "ai" && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, borderTop: "1px solid #f1f5f9", paddingTop: 5 }}>
+                        <button onClick={() => { navigator.clipboard?.writeText(m.text.replace(/\*\*([^*]+)\*\*/g, "$1")); setCopiedId(i); setTimeout(() => setCopiedId(null), 1500); }}
+                          title="Copiar respuesta"
+                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, color: copiedId === i ? "#22c55e" : "#94a3b8", fontSize: 11, padding: "2px 4px", borderRadius: 6 }}>
+                          {copiedId === i ? <Check size={12} /> : <Copy size={12} />}
+                          <span>{copiedId === i ? "Copiado" : "Copiar"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Acciones rápidas debajo del primer mensaje de la IA */}
+                {m.from === "ai" && i === 0 && msgs.length <= 1 && !typing && (
+                  <div style={{ marginTop: 10, marginLeft: 38, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%" }}>
+                    {[
+                      { icon: <TrendingUp size={16} color={C.red} />, label: "Métricas de hoy",       q: "Dame un resumen de las métricas de hoy" },
+                      { icon: <MessageSquare size={16} color={C.red} />, label: "Redactar WhatsApp", q: contactoActivo ? `Redactá un mensaje de WhatsApp para ${contactoActivo.nombre || "este cliente"}` : "¿Cómo redacto un buen mensaje de WhatsApp de ventas?" },
+                      { icon: <CalendarCheck size={16} color={C.red} />, label: "Agendar seguimiento", q: contactoActivo ? "Agendá un seguimiento para mañana para este contacto" : "¿Cómo gestiono los seguimientos?" },
+                      { icon: <Users size={16} color={C.red} />,         label: "Leads sin responder", q: "¿Cuántos leads están sin responder ahora y quiénes son?" },
+                    ].map(({ icon, label, q }) => (
+                      <button key={label} onClick={() => enviar(q)}
+                        style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "10px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 7, textAlign: "left", fontFamily: FONT_BODY, transition: "border-color .15s, box-shadow .15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(156,27,27,.08)`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.boxShadow = "none"; }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 9, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: "#1e293b", lineHeight: 1.3 }}>{label}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
-                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: m.from === "user" ? C.red : "#fff", color: m.from === "user" ? "#fff" : "#1e293b", fontSize: 13.5, lineHeight: 1.55, boxShadow: "0 1px 4px rgba(0,0,0,.06)", border: m.from === "user" ? "none" : "1px solid #E2E8F0" }}>
-                  {renderMd(m.text)}
-                </div>
               </div>
             ))}
             {typing && (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: C.red, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Sparkles size={14} color="#fff" />
                 </div>
-                <div style={{ padding: "10px 16px", background: "#fff", borderRadius: "3px 14px 14px 14px", border: "1px solid #E2E8F0" }}>
+                <div style={{ padding: "10px 16px", background: "#fff", borderRadius: "4px 16px 16px 16px", border: "1px solid #E2E8F0" }}>
                   <span style={{ color: C.red, fontWeight: 700, letterSpacing: 3, fontSize: 16 }}>···</span>
                 </div>
               </div>
@@ -702,26 +736,32 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
             <div ref={bottomRef} />
           </div>
 
-
           {/* Input */}
-          <div style={{ padding: "12px 14px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff" }}>
+          <div style={{ padding: "10px 12px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff", alignItems: "flex-end" }}>
             {/* Botón micrófono */}
             <button onClick={toggleMic} disabled={transcribing} title={recording ? "Detener grabación" : "Hablar"}
               style={{ background: recording ? "#fef2f2" : transcribing ? "#fff7ed" : "#f8fafc", border: `1.5px solid ${recording ? C.red : transcribing ? "#f97316" : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
               {transcribing
                 ? <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316", letterSpacing: 2 }}>···</span>
-                : recording
-                  ? <MicOff size={16} color={C.red} />
-                  : <Mic size={16} color="#64748b" />}
+                : recording ? <MicOff size={16} color={C.red} /> : <Mic size={16} color="#64748b" />}
             </button>
-            <input value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") enviar(); }}
-              placeholder={transcribing ? "Procesando audio…" : recording ? "Grabando… tocá para detener" : "Preguntame algo…"}
-              style={{ flex: 1, padding: "9px 14px", borderRadius: 10, border: "1.5px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc" }} />
-            <button onClick={() => enviar()} disabled={typing}
-              style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, padding: "9px 14px", cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center" }}>
-              <Send size={16} />
-            </button>
+            <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+              placeholder={transcribing ? "Procesando audio…" : recording ? "Grabando… tocá para detener" : "Preguntame algo… (Enter para enviar)"}
+              rows={1}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1.5px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc", resize: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={() => enviar()} disabled={typing}
+                style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, width: 40, height: 40, cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Send size={16} />
+              </button>
+              {msgs.length > 1 && (
+                <button onClick={() => { setMsgs([msgs[0]]); setInput(""); }} title="Limpiar conversación"
+                  style={{ background: "#f8fafc", border: "1.5px solid #E2E8F0", color: "#94a3b8", borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <RotateCcw size={14} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
