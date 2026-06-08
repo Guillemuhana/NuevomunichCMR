@@ -337,6 +337,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const [voiceOn, setVoiceOn]         = useState(false);
   const voiceOnRef        = useRef(false);
   const voiceRef          = useRef(null);
+  const currentAudioRef   = useRef(null);
   const mediaRecorderRef  = useRef(null);
   const chunksRef         = useRef([]);
   const bottomRef         = useRef(null);
@@ -379,15 +380,55 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
     }
   }, []);
 
-  const speak = useCallback((text) => {
-    if (!voiceOnRef.current || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const clean = text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/[*•#\[\]]/g, "").slice(0, 600);
+  const speak = useCallback(async (text) => {
+    if (!voiceOnRef.current) return;
+
+    // Detener cualquier audio previo
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+
+    const clean = text
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/[*•#\[\]]/g, "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .slice(0, 700);
+
+    const azureKey    = import.meta.env.VITE_AZURE_SPEECH_KEY;
+    const azureRegion = import.meta.env.VITE_AZURE_SPEECH_REGION || "brazilsouth";
+
+    if (azureKey) {
+      try {
+        const ssml = `<speak version='1.0' xml:lang='es-AR'><voice name='es-AR-ElenaNeural'><prosody rate='0%' pitch='+3%'>${clean}</prosody></voice></speak>`;
+        const res = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+          method: "POST",
+          headers: {
+            "Ocp-Apim-Subscription-Key": azureKey,
+            "Content-Type": "application/ssml+xml",
+            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+          },
+          body: ssml,
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url  = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          currentAudioRef.current = audio;
+          audio.play();
+          audio.onended = () => { URL.revokeObjectURL(url); currentAudioRef.current = null; };
+          return;
+        }
+      } catch (e) {
+        console.error("Azure TTS:", e);
+      }
+    }
+
+    // Fallback: SpeechSynthesis del browser
+    if (!window.speechSynthesis) return;
     const utt = new SpeechSynthesisUtterance(clean);
-    utt.lang = "es-AR";
-    utt.rate = 1.0;
-    utt.pitch = 1.08;
-    utt.volume = 1;
+    utt.lang = "es-AR"; utt.rate = 1.0; utt.pitch = 1.08; utt.volume = 1;
     if (voiceRef.current) utt.voice = voiceRef.current;
     window.speechSynthesis.speak(utt);
   }, []);
