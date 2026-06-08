@@ -892,7 +892,21 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
   const [pedidoModal, setPedido]  = useState(false);
   const [msgParaPedido, setMsgParaPedido] = useState(null);
   const [hoverMsg, setHoverMsg]   = useState(null);
+  const [newMsgIds, setNewMsgIds] = useState(new Set());
   const endRef = useRef(null);
+
+  useEffect(() => {
+    const id = "msg-new-style";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("style");
+      s.id = id;
+      s.textContent = `
+        @keyframes msgSlideIn{0%{opacity:0;transform:translateX(-14px)}70%{transform:translateX(3px)}100%{opacity:1;transform:translateX(0)}}
+        @keyframes msgGlow{0%{box-shadow:0 0 0 0 rgba(156,27,27,.45),0 1px 4px rgba(0,0,0,.07)}65%{box-shadow:0 0 0 8px rgba(156,27,27,0),0 1px 4px rgba(0,0,0,.07)}100%{box-shadow:0 1px 4px rgba(0,0,0,.07)}}
+      `;
+      document.head.appendChild(s);
+    }
+  }, []);
 
   const eliminarMensaje = async (id) => {
     if (!window.confirm("¿Eliminar este mensaje del CRM?")) return;
@@ -915,7 +929,13 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     cargar();
     const ch = supabase.channel(`msg-${contacto.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes", filter: `contacto_id=eq.${contacto.id}` },
-        (p) => setMensajes((m) => m.some((x) => x.id === p.new.id) ? m : [...m, p.new]))
+        (p) => {
+          setMensajes((m) => m.some((x) => x.id === p.new.id) ? m : [...m, p.new]);
+          if (p.new.direccion === "in") {
+            setNewMsgIds((s) => new Set([...s, p.new.id]));
+            setTimeout(() => setNewMsgIds((s) => { const n = new Set(s); n.delete(p.new.id); return n; }), 2500);
+          }
+        })
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [contacto.id, cargar]);
@@ -1098,11 +1118,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             if (d.toDateString() === hoy.toDateString()) return time;
             return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", ...(mismoAnio ? {} : { year: "2-digit" }) }) + " · " + time;
           })();
+          const isNew = newMsgIds.has(m.id);
           return (
             <div key={m.id}
               onMouseEnter={() => setHoverMsg(m.id)}
               onMouseLeave={() => setHoverMsg(null)}
-              style={{ alignSelf: esCliente ? "flex-start" : "flex-end", maxWidth: "70%", display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
+              style={{ alignSelf: esCliente ? "flex-start" : "flex-end", maxWidth: "70%", display: "flex", flexDirection: "column", gap: 4, position: "relative", animation: isNew ? "msgSlideIn 0.38s ease-out" : "none" }}>
               {/* Remitente */}
               {esCliente && (
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -1125,7 +1146,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 </div>
               )}
               {/* Burbuja */}
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2F2" : "#FFFBEB", borderRadius: esCliente ? "3px 14px 14px 14px" : "14px 3px 14px 14px", borderLeft: esCliente ? `3px solid ${L.border}` : "none", borderRight: !esCliente ? `3px solid ${esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2F2" : "#FFFBEB", borderRadius: esCliente ? "3px 14px 14px 14px" : "14px 3px 14px 14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
                 {m.contenido}
               </div>
               {/* Hora + eliminar */}
