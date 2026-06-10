@@ -113,8 +113,10 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
 }
 
 // ── Panel Principal del Vendedor ─────────────────────────────
-export default function VendedorDashboard({ userEmail, onLogout }) {
-  const vendorInfo = getVendorInfo(userEmail);
+export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOverride }) {
+  const vendorInfo = vendorAliasOverride
+    ? (VENDEDORES_INFO.find(v => v.alias === vendorAliasOverride) || { nombre: vendorAliasOverride, alias: vendorAliasOverride })
+    : getVendorInfo(userEmail);
   const [pedidos, setPedidos] = useState([]);
   const [contactos, setContactos] = useState({});
   const [loading, setLoading] = useState(true);
