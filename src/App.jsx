@@ -791,8 +791,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
     <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
 
       {/* ── Brand bar ── */}
-      <div style={{ padding: "6px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 80, objectFit: "contain" }} />
+      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 96, objectFit: "contain", maxWidth: 220 }} />
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
@@ -965,7 +965,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes", filter: `contacto_id=eq.${contacto.id}` },
         (p) => {
           setMensajes((m) => m.some((x) => x.id === p.new.id) ? m : [...m, p.new]);
-          if (p.new.direccion === "in") {
+          if (p.new.direccion === "in" || p.new.origen === "bot" || p.new.origen === "n8n") {
             setNewMsgIds((s) => new Set([...s, p.new.id]));
             setTimeout(() => setNewMsgIds((s) => { const n = new Set(s); n.delete(p.new.id); return n; }), 2500);
           }
