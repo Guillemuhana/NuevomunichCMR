@@ -5,7 +5,7 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
-  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -1238,9 +1238,17 @@ function AjustesPanel({ userName, userEmail, rol }) {
 }
 
 function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
-  const [filtro, setFiltro]         = useState("todos");
-  const [busqueda, setBusqueda]     = useState("");
+  const [filtro, setFiltro]           = useState("todos");
+  const [busqueda, setBusqueda]       = useState("");
   const [showImportar, setShowImportar] = useState(false);
+  const [menuOpen, setMenuOpen]       = useState(false);
+  const menuRef                       = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   const esVendedorContacto = (c) =>
     VENDEDORES_INFO.some(v => {
@@ -1271,22 +1279,49 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="strip" style={{ display: "flex", borderBottom: `1px solid ${L.border}`, overflowX: "auto" }}>
+      {/* ── Tabs principales + menú hamburguesa ── */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${L.border}`, background: L.white, flexShrink: 0 }}>
+        {/* 3 tabs principales */}
         {[
-          ["chat",       <MessageSquare size={13} />, "Chats"],
-          ["contactos",  <Users size={13} />,       "Contactos"],
-          ["vendedores", <UserCheck size={13} />,   "Vendedores"],
-          ["pedidos",    <Package size={13} />,     "Pedidos"],
-          ["reportes",   <BarChart2 size={13} />,   "Reportes"],
-          ["ajustes",    <Settings size={13} />,    "Ajustes"],
-          ...(rol === "admin" ? [["admin", <Shield size={13} />, "Admin"]] : []),
+          ["chat",       <MessageSquare size={14} />, "Chats"],
+          ["vendedores", <UserCheck size={14} />,     "Vendedores"],
+          ["pedidos",    <Package size={14} />,       "Pedidos"],
         ].map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
-            style={{ flex: 1, border: "none", cursor: "pointer", padding: "11px 0", fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: "nowrap", minWidth: 60, color: vista === k ? C.red : L.muted, background: vista === k ? "#FFF5F5" : "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
+            style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0 10px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: "transparent", borderBottom: vista === k ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
             {icon} {l}
           </button>
         ))}
+
+        {/* Separador */}
+        <div style={{ width: 1, background: L.border, margin: "8px 0" }} />
+
+        {/* Hamburguesa */}
+        <div ref={menuRef} style={{ position: "relative" }}>
+          <button onClick={() => setMenuOpen(v => !v)}
+            style={{ width: 46, height: "100%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: menuOpen ? "#FFF5F5" : "transparent", color: ["contactos","reportes","ajustes","admin"].includes(vista) ? C.red : L.muted, transition: "all .15s", borderBottom: ["contactos","reportes","ajustes","admin"].includes(vista) ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
+            <Menu size={17} />
+          </button>
+
+          {/* Dropdown */}
+          {menuOpen && (
+            <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", width: 180, background: L.white, borderRadius: 12, boxShadow: "0 8px 30px rgba(0,0,0,.14)", border: `1px solid ${L.border}`, zIndex: 200, overflow: "hidden" }}>
+              {[
+                ["contactos",  <Users size={14} />,    "Contactos"],
+                ["reportes",   <BarChart2 size={14} />, "Reportes"],
+                ["ajustes",    <Settings size={14} />,  "Ajustes"],
+                ...(rol === "admin" ? [["admin", <Shield size={14} />, "Admin"]] : []),
+              ].map(([k, icon, l]) => (
+                <button key={k} onClick={() => { setVista(k); setMenuOpen(false); }}
+                  style={{ width: "100%", border: "none", cursor: "pointer", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, background: vista === k ? "#FFF5F5" : "transparent", color: vista === k ? C.red : L.text, borderLeft: vista === k ? `3px solid ${C.red}` : "3px solid transparent", transition: "background .12s" }}
+                  onMouseEnter={e => { if (vista !== k) e.currentTarget.style.background = L.soft; }}
+                  onMouseLeave={e => { if (vista !== k) e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ color: vista === k ? C.red : L.muted }}>{icon}</span> {l}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {(vista === "chat" || vista === "contactos" || vista === "vendedores") && (
