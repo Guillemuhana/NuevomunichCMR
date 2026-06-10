@@ -5,7 +5,7 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
-  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -1078,6 +1078,79 @@ function ImportarContactosModal({ onClose }) {
 // ============================================================
 // SIDEBAR
 // ============================================================
+// ============================================================
+// AJUSTES PANEL
+// ============================================================
+function AjustesPanel({ userName, userEmail, rol }) {
+  const [showImportar, setShowImportar] = useState(false);
+
+  const card = { background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.04)" };
+  const sTitle = { fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18, display: "flex", alignItems: "center", gap: 8 };
+
+  return (
+    <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "28px 32px", background: L.bg, maxWidth: 660, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+      <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: L.text, margin: "0 0 24px", letterSpacing: 0.3 }}>Ajustes</h1>
+
+      {/* ── Perfil ── */}
+      <div style={card}>
+        <div style={sTitle}><User size={15} color={C.red} /> Mi Perfil</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <div style={{ width: 54, height: 54, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: "#fff", flexShrink: 0 }}>
+            {(userName || "U")[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: L.text, marginBottom: 4 }}>{userName}</div>
+            <div style={{ fontSize: 13, color: L.muted, marginBottom: 6 }}>{userEmail}</div>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, background: rol === "admin" ? "#FEF2F2" : "#EFF6FF", color: rol === "admin" ? C.red : "#1D4ED8", textTransform: "uppercase", letterSpacing: 0.4 }}>
+              {rol === "admin" ? "Administrador" : "Vendedor"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Importar Contactos ── */}
+      <div style={card}>
+        <div style={sTitle}><Upload size={15} color={C.red} /> Importar Contactos</div>
+        <p style={{ fontSize: 13.5, color: L.muted, margin: "0 0 18px", lineHeight: 1.6 }}>
+          Cargá contactos masivamente desde un archivo exportado de tu celular o de una planilla.
+          Formatos soportados: <strong>CSV</strong>, <strong>TSV</strong>, <strong>VCF</strong> (vCard).
+        </p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+          {[["📱 VCF", "Exportá contactos de tu celular (Android/iPhone)"],
+            ["📊 CSV", "Planilla con columnas: teléfono, nombre, empresa, email, vendedor"],
+          ].map(([fmt, desc]) => (
+            <div key={fmt} style={{ flex: 1, minWidth: 200, background: L.soft, border: `1px solid ${L.border}`, borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: L.text, marginBottom: 4 }}>{fmt}</div>
+              <div style={{ fontSize: 12, color: L.muted }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setShowImportar(true)}
+          style={{ display: "flex", alignItems: "center", gap: 8, background: C.red, color: "#fff", border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, fontFamily: FONT_DISPLAY, cursor: "pointer", letterSpacing: 0.3, transition: "all .15s" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#7a1212"}
+          onMouseLeave={e => e.currentTarget.style.background = C.red}>
+          <Upload size={17} /> Seleccionar archivo e importar
+        </button>
+      </div>
+
+      {/* ── Info app ── */}
+      <div style={card}>
+        <div style={sTitle}><Shield size={15} color={C.red} /> Acerca de</div>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          {[["CRM", "Nuevo Munich CRM"], ["Base de datos", "Supabase"], ["Mensajería", "WhatsApp vía n8n"]].map(([k, v]) => (
+            <div key={k}>
+              <div style={{ fontSize: 11, color: L.light, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 }}>{k}</div>
+              <div style={{ fontSize: 13.5, color: L.text, fontWeight: 600 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
+    </div>
+  );
+}
+
 function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
   const [filtro, setFiltro]         = useState("todos");
   const [busqueda, setBusqueda]     = useState("");
@@ -1104,6 +1177,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           ["chat",     <MessageSquare size={13} />, "Chats"],
           ["pedidos",  <Package size={13} />,       "Pedidos"],
           ["reportes", <BarChart2 size={13} />,     "Reportes"],
+          ["ajustes",  <Settings size={13} />,      "Ajustes"],
           ...(rol === "admin" ? [["admin", <Shield size={13} />, "Admin"]] : []),
         ].map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
@@ -1124,11 +1198,11 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                   placeholder="Buscar contacto o número…"
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
-              <button onClick={() => setShowImportar(true)} title="Importar contactos desde archivo"
-                style={{ flexShrink: 0, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s" }}
+              <button onClick={() => setShowImportar(true)} title="Importar contactos desde CSV o VCF"
+                style={{ flexShrink: 0, height: 38, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s", padding: "0 11px", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#93C5FD"; e.currentTarget.style.color = "#1D4ED8"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
-                <Upload size={16} />
+                <Upload size={14} /> Importar
               </button>
             </div>
           </div>
@@ -1634,7 +1708,7 @@ export default function App() {
   const alertas   = calcularAlertas(contactos);
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes" || vista === "admin");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes" || vista === "admin" || vista === "ajustes");
 
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
@@ -1655,7 +1729,12 @@ export default function App() {
 
       {/* Panel principal — CSS lo muestra en mobile sólo con .in-panel */}
       <div className="app-main">
-        {vista === "admin" && rol === "admin" ? (
+        {vista === "ajustes" ? (
+          <>
+            {isMobile && <MobileBack title="Ajustes" onBack={() => setVista("chat")} />}
+            <AjustesPanel userName={userName} userEmail={userEmail} rol={rol} isMobile={isMobile} />
+          </>
+        ) : vista === "admin" && rol === "admin" ? (
           <>
             {isMobile && <MobileBack title="Admin" onBack={() => setVista("chat")} />}
             <AdminPanel userName={userName} isMobile={isMobile} />
