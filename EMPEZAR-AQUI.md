@@ -27,6 +27,10 @@ Abrí el archivo  .env  (ya está en la carpeta) y reemplazá:
 - VITE_SUPABASE_URL        → la URL de tu proyecto Supabase
 - VITE_SUPABASE_ANON_KEY   → tu "anon public key" de Supabase
 - VITE_N8N_SEND_WEBHOOK    → la URL del webhook de n8n
+- VITE_GROK_API_KEY        → clave para el asistente IA en la app
+- VITE_GEMINI_API_KEY       → alias compatible si ya tenés la variable antigua
+- VITE_AZURE_SPEECH_KEY     → clave para el reconocimiento/voz (opcional)
+- VITE_AZURE_SPEECH_REGION  → región de Azure Speech (opcional, default: brazilsouth)
 
 (Las dos de Supabase están en: Supabase → Settings → API)
 

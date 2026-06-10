@@ -49,7 +49,14 @@ y un nodo IF: si `bot_activo=false`, no responde (el vendedor atiende).
 ## 4. Vercel
 1. Subí la carpeta a GitHub.
 2. New Project → importá el repo → framework **Vite**.
-3. Environment Variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_N8N_SEND_WEBHOOK`.
+3. Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_N8N_SEND_WEBHOOK`
+   - `VITE_GROK_API_KEY` (recomendado)
+   - `VITE_GEMINI_API_KEY` (seguirá funcionando como alias)
+   - `VITE_AZURE_SPEECH_KEY` (opcional, para voz)
+   - `VITE_AZURE_SPEECH_REGION` (opcional, si usás Azure Speech fuera de brazil south)
 4. Deploy.
 
 ## Pedidos y facturación

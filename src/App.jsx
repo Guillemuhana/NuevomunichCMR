@@ -329,7 +329,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const isMobile = useIsMobile();
   const [open, setOpen]       = useState(false);
   const [msgs, setMsgs]       = useState([
-    { from: "ai", text: `¡Hola! Soy tu asistente de Nuevo Munich, estoy acá para lo que necesites.\n\nPuedo ayudarte con:\n• **Métricas y reportes** en tiempo real\n• **Redactar mensajes** de WhatsApp listos para enviar\n• **Cambiar estados**, asignar vendedores y agendar seguimientos\n• **Consejos para cerrar ventas** en gastronomía y delivery\n\nPodés escribirme o hablarme directamente. ¿Con qué arrancamos?` },
+    { from: "ai", text: `¡Hola! Soy tu asistente de Nuevo Munich, estoy acá para lo que necesites.\n\nPuedo ayudarte con:\n• **Métricas y reportes** en tiempo real\n• **Redactar mensajes** de WhatsApp listos para enviar\n• **Cambiar estados**, asignar vendedores y agendar seguimientos\n• **Consejos para cerrar ventas** en gastronomía y delivery\n\nPodés escribirme o hablarme directamente. ¿Con qué arrancamos?`, time: new Date().toISOString() },
   ]);
   const [input, setInput]     = useState("");
   const [typing, setTyping]   = useState(false);
@@ -439,13 +439,14 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const enviar = useCallback(async (textoOverride) => {
     const q = (textoOverride ?? input).trim();
     if (!q || typing) return;
-    setMsgs((p) => [...p, { from: "user", text: q }]);
+    setMsgs((p) => [...p, { from: "user", text: q, time: new Date().toISOString() }]);
     if (!textoOverride) setInput("");
     setTyping(true);
+    const startTime = Date.now();
 
-    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!geminiKey) {
-      const err = "⚠️ Falta configurar VITE_GEMINI_API_KEY en las variables de entorno de Vercel.";
+    const grokKey = import.meta.env.VITE_GROK_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!grokKey) {
+      const err = "⚠️ Falta configurar VITE_GROK_API_KEY en las variables de entorno de Vercel.";
       setMsgs((p) => [...p, { from: "ai", text: err }]);
       setTyping(false); return;
     }
@@ -498,7 +499,7 @@ ${contactoActivo.direccion ? `• Dirección: ${contactoActivo.direccion}` : ""}
 
 ACCIONES DISPONIBLES (ponelas al final de tu respuesta, solo si el usuario lo pide o tiene sentido ejecutarlas):
 [ACCION:ESTADO:estado]       → estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido
-[ACCION:VENDEDOR:nombre]     → vendedores: ${VENDEDORES.join(", ")}
+[ACCION:VENDEDOR:nombre]     → asignar o crear un vendedor nuevo para el contacto abierto. Podés usar cualquier nombre válido, aunque no esté en la lista.
 [ACCION:PEDIDO:descripcion]  → crear pedido para el contacto abierto
 [ACCION:NOTA:texto]          → guardar nota de seguimiento
 [ACCION:SEGUIMIENTO:días|motivo] → ej: [ACCION:SEGUIMIENTO:2|Llamar para confirmar pedido]
@@ -519,7 +520,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${geminiKey}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "system", content: ctx }, ...historial],
@@ -530,7 +531,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
       const json = await res.json();
       if (json.error) {
         const err = `⚠️ Error: ${json.error.message || json.error.type}`;
-        setMsgs((p) => [...p, { from: "ai", text: err }]);
+        setMsgs((p) => [...p, { from: "ai", text: err, time: new Date().toISOString() }]);
         speak(err);
       } else {
         let texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
@@ -565,11 +566,12 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           } catch { /* acción falló, igual mostramos la respuesta */ }
         }
 
-        setMsgs((p) => [...p, { from: "ai", text: texto }]);
+        const responseTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        setMsgs((p) => [...p, { from: "ai", text: texto, time: new Date().toISOString(), responseTime }]);
         speak(texto);
       }
     } catch (e) {
-      setMsgs((p) => [...p, { from: "ai", text: `Error de conexión: ${e.message}` }]);
+      setMsgs((p) => [...p, { from: "ai", text: `Error de conexión: ${e.message}`, time: new Date().toISOString() }]);
     }
     setTyping(false);
   }, [input, typing, msgs, contactoActivo, onActualizarContacto, speak]);
@@ -614,7 +616,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
           const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${import.meta.env.VITE_GEMINI_API_KEY}` },
+            headers: { "Authorization": `Bearer ${import.meta.env.VITE_GROK_API_KEY || import.meta.env.VITE_GEMINI_API_KEY}` },
             body: formData,
           });
           const json = await res.json();
@@ -657,8 +659,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 420 }), height: isMobile ? "75dvh" : 560, maxHeight: isMobile ? "calc(100% - 120px)" : 560, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
-
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : 620, maxHeight: isMobile ? "calc(100% - 120px)" : 620, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header minimalista */}
           <div style={{ background: "#fff", padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
             <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
@@ -689,8 +690,12 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
                   )}
                   <div style={{ padding: "10px 14px", borderRadius: m.from === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: m.from === "user" ? C.red : "#fff", color: m.from === "user" ? "#fff" : "#1e293b", fontSize: 13.5, lineHeight: 1.6, boxShadow: "0 1px 4px rgba(0,0,0,.06)", border: m.from === "user" ? "none" : "1px solid #E2E8F0" }}>
                     {renderMd(m.text)}
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, fontSize: 11, color: "#64748b" }}>
+                      <span>{m.time ? new Date(m.time).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                      {m.responseTime && <span>Respondió en {m.responseTime}s</span>}
+                    </div>
                     {m.from === "ai" && (
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, borderTop: "1px solid #f1f5f9", paddingTop: 5 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8, borderTop: "1px solid #f1f5f9", paddingTop: 5 }}>
                         <button onClick={() => { navigator.clipboard?.writeText(m.text.replace(/\*\*([^*]+)\*\*/g, "$1")); setCopiedId(i); setTimeout(() => setCopiedId(null), 1500); }}
                           title="Copiar respuesta"
                           style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, color: copiedId === i ? "#22c55e" : "#94a3b8", fontSize: 11, padding: "2px 4px", borderRadius: 6 }}>
@@ -977,14 +982,17 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     setEnviando(true); setErr(""); setTexto("");
 
     // 1) Guardar en CRM (Supabase)
-    const { error } = await supabase.from("mensajes").insert({
+    const { data, error } = await supabase.from("mensajes").insert({
       contacto_id: contacto.id, direccion: "out", origen: "agente", agente: userName, contenido: cuerpo,
-    });
+    }).select().single();
     if (error) {
       setErr("Error al guardar el mensaje: " + error.message);
       setTexto(cuerpo);
       setEnviando(false);
       return;
+    }
+    if (data) {
+      setMensajes((prev) => [...prev, data]);
     }
 
     // 2) Enviar por WhatsApp vía n8n (no bloquea si falla)
@@ -995,7 +1003,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWA, agente: userName }),
         });
-        if (!res.ok) setErr("Mensaje guardado en CRM, pero falló el envío por WhatsApp.");
+        if (!res.ok) {
+          setErr("Mensaje guardado en CRM, pero falló el envío por WhatsApp.");
+        } else {
+          setMensajes((prev) => [...prev, {
+            id: `n8n-${Date.now()}`, contacto_id: contacto.id, direccion: "out", origen: "n8n", agente: userName,
+            contenido: "Mensaje enviado por WhatsApp vía n8n.", created_at: new Date().toISOString(),
+          }] );
+        }
       } catch {
         setErr("Mensaje guardado en CRM, pero no se pudo conectar con WhatsApp.");
       }
@@ -1139,6 +1154,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
           const esCliente = m.direccion === "in";
           const esBot     = m.origen === "bot";
           const esAgente  = m.origen === "agente";
+          const esN8n     = m.origen === "n8n";
           const hora      = (() => {
             const d = new Date(m.created_at);
             const hoy = new Date();
@@ -1167,6 +1183,13 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                   </span>
                 </div>
               )}
+              {esN8n && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 10.5, background: "#DBEAFE", color: "#1D4ED8", padding: "2px 9px", borderRadius: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Send size={11} /> WhatsApp enviado · n8n
+                  </span>
+                </div>
+              )}
               {esAgente && (
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5 }}>
                   <span style={{ fontSize: 10.5, background: "#FEE2E2", color: C.red, padding: "2px 9px", borderRadius: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
@@ -1175,10 +1198,15 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 </div>
               )}
               {/* Burbuja */}
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2F2" : "#FFFBEB", borderRadius: esCliente ? "3px 14px 14px 14px" : "14px 3px 14px 14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
                 {m.contenido}
               </div>
               {/* Hora + eliminar */}
+              {isNew && esCliente && (
+                <div style={{ alignSelf: "flex-start", fontSize: 10.5, color: C.red, fontWeight: 700, background: "#FEF2F2", padding: "2px 8px", borderRadius: 999, marginBottom: 2 }}>
+                  Nuevo mensaje
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: esCliente ? "flex-start" : "flex-end" }}>
                 <div style={{ fontSize: 10.5, color: L.light }}>{hora}</div>
                 {hoverMsg === m.id && (
