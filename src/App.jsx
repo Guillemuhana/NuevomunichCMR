@@ -792,7 +792,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 96, objectFit: "contain", maxWidth: 220 }} />
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 118, objectFit: "contain", maxWidth: 240 }} />
         <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
       </div>
 
@@ -1152,9 +1152,9 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
         )}
         {mensajes.map((m) => {
           const esCliente = m.direccion === "in";
-          const esBot     = m.origen === "bot";
+          const esBot     = m.origen === "bot" || (m.direccion === "out" && !m.origen && !m.agente);
           const esAgente  = m.origen === "agente";
-          const esN8n     = m.origen === "n8n";
+          const esN8n     = m.origen === "n8n" || m.origen === "webhook" || m.origen === "ia" || m.origen === "agent";
           const hora      = (() => {
             const d = new Date(m.created_at);
             const hoy = new Date();
@@ -1198,8 +1198,8 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 </div>
               )}
               {/* Burbuja */}
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
-                {m.contenido}
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
+                {m.contenido || m.body || m.message || m.texto || <span style={{ color: L.light, fontStyle: "italic", fontSize: 12 }}>(mensaje vacío)</span>}
               </div>
               {/* Hora + eliminar */}
               {isNew && esCliente && (
