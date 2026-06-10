@@ -10,7 +10,7 @@ import {
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, calcularAlertas, getRol,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol,
 } from "./lib";
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
@@ -209,12 +209,23 @@ function Login() {
         ) : (
           <div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>Tu nombre</label>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>Vendedores</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {VENDEDORES_INFO.map(v => (
                   <button key={v.emailPrefix} onClick={() => onSelectVendedor(v.emailPrefix)}
                     style={{ padding: "10px 12px", borderRadius: 10, border: `2px solid ${vendedorSel === v.emailPrefix ? C.red : L.border}`, cursor: "pointer", background: vendedorSel === v.emailPrefix ? "#FEF2F2" : L.soft, fontFamily: FONT_BODY, fontSize: 13, fontWeight: 700, color: vendedorSel === v.emailPrefix ? C.red : L.text, display: "flex", alignItems: "center", gap: 7, transition: "all .15s" }}>
                     <UserCheck size={14} /> {v.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>Administración</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {ADMINISTRACION_INFO.map(a => (
+                  <button key={a.emailPrefix} onClick={() => onSelectVendedor(a.emailPrefix)}
+                    style={{ padding: "10px 12px", borderRadius: 10, border: `2px solid ${vendedorSel === a.emailPrefix ? C.red : L.border}`, cursor: "pointer", background: vendedorSel === a.emailPrefix ? "#FEF2F2" : L.soft, fontFamily: FONT_BODY, fontSize: 13, fontWeight: 700, color: vendedorSel === a.emailPrefix ? C.red : L.text, display: "flex", alignItems: "center", gap: 7, transition: "all .15s" }}>
+                    <Shield size={14} /> {a.nombre}
                   </button>
                 ))}
               </div>
@@ -737,7 +748,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 88, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -745,7 +756,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(144px + env(safe-area-inset-bottom))" : 154, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : 620, maxHeight: isMobile ? "calc(100% - 120px)" : 620, background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 86, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : "min(600px, calc(100vh - 120px))", maxHeight: isMobile ? "calc(100% - 80px)" : "calc(100vh - 120px)", background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header minimalista */}
           <div style={{ background: "#fff", padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
             <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
@@ -979,24 +990,31 @@ function ImportarContactosModal({ onClose }) {
     setCargando(true);
     setError("");
     try {
-      const { data: existentes } = await supabase.from("contactos").select("telefono");
-      const existentesSet = new Set((existentes || []).map(c => c.telefono));
-      const nuevos = contactosParsed.filter(c => !existentesSet.has(c.telefono));
-      const omitidos = contactosParsed.length - nuevos.length;
-      for (let i = 0; i < nuevos.length; i += 50) {
-        const { error: e } = await supabase.from("contactos").insert(
-          nuevos.slice(i, i + 50).map(c => ({
+      // Deduplicar dentro del archivo (mismo teléfono en múltiples filas)
+      const seen = new Set();
+      const deduped = contactosParsed.filter(c => {
+        if (seen.has(c.telefono)) return false;
+        seen.add(c.telefono);
+        return true;
+      });
+      const omitidosDup = contactosParsed.length - deduped.length;
+
+      // Upsert: si el teléfono ya existe en DB, ignorar (no sobreescribir)
+      for (let i = 0; i < deduped.length; i += 50) {
+        const { error: e } = await supabase.from("contactos").upsert(
+          deduped.slice(i, i + 50).map(c => ({
             telefono: c.telefono,
             nombre:   c.nombre   || null,
             empresa:  c.empresa  || null,
             email:    c.email    || null,
             vendedor: c.vendedor || null,
             estado: "nuevo", bot_activo: false, no_leidos: 0,
-          }))
+          })),
+          { onConflict: "telefono", ignoreDuplicates: true }
         );
         if (e) throw e;
       }
-      setResultado({ creados: nuevos.length, omitidos });
+      setResultado({ creados: deduped.length, omitidos: omitidosDup });
       setFase("done");
     } catch (e) {
       setError("Error al importar: " + (e.message || String(e)));
@@ -1915,7 +1933,7 @@ export default function App() {
             <div style={{ textAlign: "center" }}>
               <div style={{ color: L.text, fontSize: 20, fontFamily: FONT_DISPLAY, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700 }}>Nuevo Munich CRM</div>
               <div style={{ color: L.muted, fontSize: 14, marginTop: 8 }}>
-                {rol === "admin" ? `Bienvenido, ${userName} · Panel de administración disponible` : `Seleccioná una conversación para comenzar`}
+                {rol === "admin" ? `Bienvenido, ${userName} · Panel de administración disponible` : rol === "administracion" ? `Bienvenido, ${userName} · Seguimiento de pedidos` : `Seleccioná una conversación para comenzar`}
               </div>
             </div>
 
@@ -1930,7 +1948,7 @@ export default function App() {
         )}
       </div>
 
-      <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />
+      {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />}
       {showImportarApp && <ImportarContactosModal onClose={() => setShowImportarApp(false)} />}
     </div>
   );

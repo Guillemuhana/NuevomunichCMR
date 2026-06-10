@@ -29,12 +29,21 @@ export const VENDEDORES_INFO = [
   { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
 ];
 
+// Personal de administración (reciben y ven pedidos de vendedores)
+export const ADMINISTRACION_INFO = [
+  { nombre: "Administración 1", emailPrefix: "admin1" },
+  { nombre: "Administración 2", emailPrefix: "admin2" },
+  { nombre: "Administración",   emailPrefix: "administracion" },
+];
+
 // ─── Roles de usuario ───────────────────────────────────────
-// "cristian" → admin; vendedores conocidos → vendedor_panel; resto → vendedor
+// "cristian" → admin; vendedores conocidos → vendedor_panel
+// personal admin → administracion; resto → vendedor
 export function getRol(userEmail) {
   const prefix = (userEmail || "").split("@")[0].toLowerCase();
   if (prefix === "cristian") return "admin";
   if (VENDEDORES_INFO.some(v => v.emailPrefix === prefix)) return "vendedor_panel";
+  if (ADMINISTRACION_INFO.some(a => a.emailPrefix === prefix)) return "administracion";
   return "vendedor";
 }
 
@@ -155,8 +164,9 @@ export function calcularAlertas(contactos) {
         prioridad: 1,
       });
     }
-    // 2) Lead nuevo sin vendedor asignado hace > 2h
-    if (c.estado === "nuevo" && !c.vendedor && ahora - new Date(c.created_at).getTime() > 2 * HORA) {
+    // 2) Lead nuevo sin vendedor asignado hace > 2h — solo si tuvo actividad WhatsApp
+    if (c.estado === "nuevo" && !c.vendedor && ahora - new Date(c.created_at).getTime() > 2 * HORA
+        && (c.ultimo_in_at || c.ultimo_out_at)) {
       alertas.push({
         id: `lead-${c.id}`,
         tipo: "lead_sin_asignar",
