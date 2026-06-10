@@ -150,23 +150,30 @@ export default function AdminPanel({ userName, isMobile }) {
   });
 
   // ── CRUD vendedor ───────────────────────────────────────────
-  const abrirNuevoV = () => { setModalV("nuevo"); setFormV({ nombre: "", email: "" }); setErrorV(""); };
-  const abrirEditarV = (v) => { setModalV(v); setFormV({ nombre: v.nombre, email: v.email || "" }); setErrorV(""); };
+  const abrirNuevoV = () => { setModalV("nuevo"); setFormV({ nombre: "", email: "", telefono_whatsapp: "" }); setErrorV(""); };
+  const abrirEditarV = (v) => { setModalV(v); setFormV({ nombre: v.nombre, email: v.email || "", telefono_whatsapp: v.telefono_whatsapp || "" }); setErrorV(""); };
 
   const guardarVendedor = async () => {
     if (!formV.nombre.trim()) { setErrorV("El nombre es obligatorio."); return; }
     setGuardandoV(true); setErrorV("");
     try {
+      const payload = {
+        nombre: formV.nombre.trim(),
+        email: formV.email.trim() || null,
+        telefono_whatsapp: formV.telefono_whatsapp.replace(/\D/g, "") || null,
+      };
       if (modalV === "nuevo") {
-        const { error } = await supabase.from("vendedores").insert({
-          nombre: formV.nombre.trim(), email: formV.email.trim() || null, activo: true,
-        });
+        const { error } = await supabase.from("vendedores").insert({ ...payload, activo: true });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("vendedores")
-          .update({ nombre: formV.nombre.trim(), email: formV.email.trim() || null })
-          .eq("id", modalV.id);
+        const { error } = await supabase.from("vendedores").update(payload).eq("id", modalV.id);
         if (error) throw error;
+      }
+      // Si el vendedor tiene teléfono, marcar su contacto como es_vendedor automáticamente
+      if (payload.telefono_whatsapp) {
+        await supabase.from("contactos")
+          .update({ es_vendedor: true })
+          .ilike("telefono", `%${payload.telefono_whatsapp.slice(-8)}`);
       }
       await cargar();
       setModalV(null);
@@ -338,7 +345,12 @@ export default function AdminPanel({ userName, isMobile }) {
                         <div style={{ flex: 1, minWidth: 80 }}>
                           <div style={{ fontWeight: 700, color: L.text, fontSize: 15 }}>{v.nombre}</div>
                           {v.email && <div style={{ fontSize: 11.5, color: L.muted, marginTop: 1 }}>{v.email}</div>}
-                          <div style={{ fontSize: 11, color: L.light, marginTop: 3 }}>
+                          <div style={{ fontSize: 11, color: L.light, marginTop: 2, display: "flex", gap: 8, alignItems: "center" }}>
+                            {v.telefono_whatsapp
+                              ? <span style={{ color: "#15803D", fontWeight: 600 }}>📱 {v.telefono_whatsapp}</span>
+                              : <span style={{ color: C.red }}>⚠ Sin teléfono — no se auto-detecta</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: L.light, marginTop: 2 }}>
                             {sv.total || 0} clientes · {sv.vendidos || 0} vendidos · {sv.conv || 0}% conv.
                           </div>
                         </div>
@@ -526,10 +538,20 @@ export default function AdminPanel({ userName, isMobile }) {
                 <input value={formV.nombre} onChange={e => setFormV(f => ({ ...f, nombre: e.target.value }))}
                   placeholder="Ej: María García" style={inputSt} autoFocus />
               </div>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>Email (opcional)</label>
                 <input value={formV.email} onChange={e => setFormV(f => ({ ...f, email: e.target.value }))}
                   placeholder="maria@nuevomunich.com.ar" type="email" style={inputSt} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>
+                  📱 Teléfono WhatsApp (para auto-detectar)
+                </label>
+                <input value={formV.telefono_whatsapp} onChange={e => setFormV(f => ({ ...f, telefono_whatsapp: e.target.value }))}
+                  placeholder="5491112345678" type="tel" style={inputSt} />
+                <div style={{ fontSize: 11, color: L.light, marginTop: 4 }}>
+                  Con el número registrado, sus mensajes se detectan automáticamente.
+                </div>
               </div>
               {errorV && (
                 <div style={{ padding: "9px 13px", background: "#FEF2F2", borderRadius: 8, color: C.red, fontSize: 13, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}>

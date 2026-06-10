@@ -1789,16 +1789,33 @@ export default function App() {
     if (!session) return;
     const rolActual  = getRol(session.user.email);
     const userNombre = session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase());
+
     const cargar = async () => {
-      if (rolActual === "vendedor_panel") return; // VendedorDashboard carga sus propios datos
+      if (rolActual === "vendedor_panel" || rolActual === "administracion") return;
       let query = supabase.from("contactos").select("*").order("updated_at", { ascending: false });
-      // Vendedor interno solo ve los contactos que tiene asignados
-      if (rolActual === "vendedor") {
-        query = query.eq("vendedor", userNombre);
+      if (rolActual === "vendedor") query = query.eq("vendedor", userNombre);
+      const { data: contactosData } = await query;
+      const lista = contactosData || [];
+
+      // Auto-detectar vendedores por teléfono registrado en la tabla vendedores
+      const { data: vendDB } = await supabase
+        .from("vendedores").select("telefono_whatsapp").not("telefono_whatsapp", "is", null);
+      if (vendDB && vendDB.length > 0) {
+        const vendPhones = vendDB.map(v => v.telefono_whatsapp.replace(/\D/g, "")).filter(Boolean);
+        const sinMarcar = lista.filter(c => {
+          if (c.es_vendedor) return false;
+          const cPhone = (c.telefono || "").replace(/\D/g, "");
+          return vendPhones.some(vp => cPhone === vp || cPhone.endsWith(vp.slice(-8)) || vp.endsWith(cPhone.slice(-8)));
+        });
+        if (sinMarcar.length > 0) {
+          await supabase.from("contactos").update({ es_vendedor: true }).in("id", sinMarcar.map(c => c.id));
+          sinMarcar.forEach(c => { c.es_vendedor = true; });
+        }
       }
-      const { data } = await query;
-      setContactos(data || []);
+
+      setContactos(lista);
     };
+
     cargar();
     const ch = supabase.channel("contactos-feed")
       .on("postgres_changes", { event: "*", schema: "public", table: "contactos" }, cargar).subscribe();
