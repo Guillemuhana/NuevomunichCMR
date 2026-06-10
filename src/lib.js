@@ -20,27 +20,42 @@ export const LOGO_URL = "/logo.png";
 
 export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra"];
 
+// Vendedores externos con panel propio
+export const VENDEDORES_INFO = [
+  { nombre: "Boris Arredondo",   alias: "Boris",     emailPrefix: "boris" },
+  { nombre: "Pablo Castillo",    alias: "Pablo",     emailPrefix: "pablo" },
+  { nombre: "Marcelino Allende", alias: "Marcelino", emailPrefix: "marcelino" },
+  { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },
+  { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
+];
+
 // ─── Roles de usuario ───────────────────────────────────────
-// "cristian" (por email) es admin/dueño; el resto son vendedores
+// "cristian" → admin; vendedores conocidos → vendedor_panel; resto → vendedor
 export function getRol(userEmail) {
   const prefix = (userEmail || "").split("@")[0].toLowerCase();
-  return prefix === "cristian" ? "admin" : "vendedor";
+  if (prefix === "cristian") return "admin";
+  if (VENDEDORES_INFO.some(v => v.emailPrefix === prefix)) return "vendedor_panel";
+  return "vendedor";
 }
 
 // ─── Estados del pipeline CRM ───────────────────────────────
 export const ESTADOS = {
-  // Estados CRM nuevos (pipeline principal)
+  // Estados activos del pipeline
   nuevo:       { label: "Nuevo",        color: "#8a6a1e", bg: "#f5e6c8" },
   contactado:  { label: "Contactado",   color: "#1D4ED8", bg: "#DBEAFE" },
   interesado:  { label: "Interesado",   color: "#7C3AED", bg: "#EDE9FE" },
   pendiente:   { label: "Pendiente",    color: "#92400E", bg: "#FEF3C7" },
   vendido:     { label: "Vendido",      color: "#15803D", bg: "#DCFCE7" },
-  perdido:     { label: "Perdido",      color: "#7a3a2a", bg: "#ecd5cf" },
+  finalizado:  { label: "Finalizado",   color: "#374151", bg: "#E2E8F0" },
   // Legacy — backward compat para datos existentes
+  perdido:     { label: "Perdido",      color: "#7a3a2a", bg: "#ecd5cf" },
   en_conversacion: { label: "En conversación", color: "#7a1212", bg: "#e7d4d4" },
   pedido:      { label: "Pedido",       color: "#46571f", bg: "#dde7cf" },
   cerrado:     { label: "Cerrado",      color: "#4a4a4a", bg: "#e3e3e3" },
 };
+
+// Estados mostrados en dropdowns (sin estados legacy ni perdido)
+export const ESTADOS_ACTIVOS = ["nuevo", "contactado", "interesado", "pendiente", "vendido", "finalizado"];
 
 // Paleta de marca (rojo bávaro / dorado / crema)
 export const C = {

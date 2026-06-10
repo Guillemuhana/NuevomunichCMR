@@ -5,15 +5,16 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
-  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, calcularAlertas, getRol,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, calcularAlertas, getRol,
 } from "./lib";
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
+import VendedorDashboard from "./VendedorPanel";
 
 // ============================================================
 // PALETA LIGHT — tema claro profesional
@@ -107,9 +108,14 @@ function Avatar({ nombre, foto, size = 40, border }) {
 // LOGIN
 // ============================================================
 function Login() {
+  const [tab, setTab]       = useState("ingresar"); // "ingresar" | "registrarse"
   const [email, setEmail]   = useState("");
   const [pass, setPass]     = useState("");
+  const [pass2, setPass2]   = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [vendedorSel, setVendedorSel] = useState("");
   const [err, setErr]       = useState("");
+  const [ok, setOk]         = useState("");
   const [loading, setLoad]  = useState(false);
 
   const handleLogin = async () => {
@@ -119,15 +125,34 @@ function Login() {
     setLoad(false);
   };
 
+  const handleRegister = async () => {
+    setErr(""); setOk("");
+    if (!vendedorSel) { setErr("Seleccioná tu nombre."); return; }
+    if (pass.length < 6) { setErr("La contraseña debe tener al menos 6 caracteres."); return; }
+    if (pass !== pass2) { setErr("Las contraseñas no coinciden."); return; }
+    setLoad(true);
+    const regEmail = `${vendedorSel}@nuevomunich.com.ar`;
+    const { error } = await supabase.auth.signUp({ email: regEmail, password: pass });
+    setLoad(false);
+    if (error) { setErr(error.message); return; }
+    setOk("Cuenta creada. Ya podés ingresar con tu email y contraseña.");
+    setTab("ingresar");
+    setEmail(regEmail);
+    setPass(""); setPass2("");
+  };
+
+  const onSelectVendedor = (prefix) => {
+    setVendedorSel(prefix);
+    setEmail(`${prefix}@nuevomunich.com.ar`);
+  };
+
+  const inp = { width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" };
+
   return (
     <div className="login-scroll" style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", background: "#fff", fontFamily: FONT_BODY, padding: "56px 20px 48px" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-          <img
-            src={LOGO_URL}
-            alt="Nuevo Munich"
-            style={{ width: "100%", maxWidth: 380, height: "auto", display: "block" }}
-          />
+          <img src={LOGO_URL} alt="Nuevo Munich" style={{ width: "100%", maxWidth: 380, height: "auto", display: "block" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
             <div style={{ height: 1, width: 28, background: L.border }} />
             <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
@@ -135,28 +160,89 @@ function Login() {
           </div>
         </div>
 
-        <div>
-          {[
-            { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
-            { label: "Contraseña", type: "password", val: pass, set: setPass, ph: "••••••••" },
-          ].map(({ label, type, val, set, ph }) => (
-            <div key={label} style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
-              <input type={type} value={val} onChange={(e) => set(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()} placeholder={ph}
-                style={{ width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" }} />
-            </div>
+        {/* Tabs */}
+        <div style={{ display: "flex", borderRadius: 12, border: `1.5px solid ${L.border}`, overflow: "hidden", marginBottom: 24 }}>
+          {[["ingresar", "Ingresar"], ["registrarse", "Registrarse (vendedores)"]].map(([k, l]) => (
+            <button key={k} onClick={() => { setTab(k); setErr(""); setOk(""); }}
+              style={{ flex: 1, padding: "11px 8px", border: "none", cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, background: tab === k ? C.red : "transparent", color: tab === k ? "#fff" : L.muted, transition: "all .15s" }}>
+              {l}
+            </button>
           ))}
-          {err && (
-            <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
-              <AlertCircle size={15} /> {err}
-            </div>
-          )}
-          <button onClick={handleLogin} disabled={loading}
-            style={{ width: "100%", marginTop: 8, background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
-            {loading ? "Entrando…" : "ENTRAR"}
-          </button>
         </div>
+
+        {ok && (
+          <div style={{ color: "#15803D", fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#DCFCE7", borderRadius: 10, border: "1px solid #86EFAC", display: "flex", alignItems: "center", gap: 8 }}>
+            <Check size={15} /> {ok}
+          </div>
+        )}
+        {err && (
+          <div style={{ color: C.red, fontSize: 13, marginBottom: 14, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
+            <AlertCircle size={15} /> {err}
+          </div>
+        )}
+
+        {tab === "ingresar" ? (
+          <div>
+            {[
+              { label: "Email", type: "email", val: email, set: setEmail, ph: "tu@nuevomunich.com.ar" },
+              { label: "Contraseña", type: showPass ? "text" : "password", val: pass, set: setPass, ph: "••••••••" },
+            ].map(({ label, type, val, set, ph }) => (
+              <div key={label} style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
+                <div style={{ position: "relative" }}>
+                  <input type={type} value={val} onChange={(e) => set(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()} placeholder={ph}
+                    style={{ ...inp, paddingRight: label === "Contraseña" ? 46 : 16 }} />
+                  {label === "Contraseña" && (
+                    <button onClick={() => setShowPass(v => !v)} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: L.muted, display: "flex" }}>
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            <button onClick={handleLogin} disabled={loading}
+              style={{ width: "100%", marginTop: 8, background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
+              {loading ? "Entrando…" : "ENTRAR"}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>Tu nombre</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {VENDEDORES_INFO.map(v => (
+                  <button key={v.emailPrefix} onClick={() => onSelectVendedor(v.emailPrefix)}
+                    style={{ padding: "10px 12px", borderRadius: 10, border: `2px solid ${vendedorSel === v.emailPrefix ? C.red : L.border}`, cursor: "pointer", background: vendedorSel === v.emailPrefix ? "#FEF2F2" : L.soft, fontFamily: FONT_BODY, fontSize: 13, fontWeight: 700, color: vendedorSel === v.emailPrefix ? C.red : L.text, display: "flex", alignItems: "center", gap: 7, transition: "all .15s" }}>
+                    <UserCheck size={14} /> {v.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>Email (automático)</label>
+              <input type="email" value={email} readOnly
+                style={{ ...inp, background: L.border, color: L.muted, cursor: "not-allowed" }} />
+            </div>
+            {[
+              { label: "Contraseña (mín. 6 caracteres)", val: pass, set: setPass },
+              { label: "Confirmar contraseña", val: pass2, set: setPass2 },
+            ].map(({ label, val, set }) => (
+              <div key={label} style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</label>
+                <input type={showPass ? "text" : "password"} value={val} onChange={e => set(e.target.value)}
+                  placeholder="••••••••" style={inp} />
+              </div>
+            ))}
+            <button onClick={() => setShowPass(v => !v)} style={{ background: "none", border: "none", cursor: "pointer", color: L.muted, fontSize: 12.5, display: "flex", alignItems: "center", gap: 5, marginBottom: 16, fontFamily: FONT_BODY }}>
+              {showPass ? <EyeOff size={14} /> : <Eye size={14} />} {showPass ? "Ocultar contraseñas" : "Mostrar contraseñas"}
+            </button>
+            <button onClick={handleRegister} disabled={loading}
+              style={{ width: "100%", background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
+              {loading ? "Creando cuenta…" : "CREAR CUENTA"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1156,7 +1242,15 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
   const [busqueda, setBusqueda]     = useState("");
   const [showImportar, setShowImportar] = useState(false);
 
-  const lista = contactos.filter((c) => {
+  const esVendedorContacto = (c) =>
+    VENDEDORES_INFO.some(v => {
+      const n = (c.nombre || "").toLowerCase().trim();
+      return n === v.alias.toLowerCase() || n === v.nombre.toLowerCase() || n.startsWith(v.alias.toLowerCase() + " ");
+    });
+
+  const baseContactos = vista === "vendedores" ? contactos.filter(esVendedorContacto) : contactos;
+
+  const lista = baseContactos.filter((c) => {
     const porEstado = filtro === "todos" || c.estado === filtro;
     const porBusq   = !busqueda || (c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || c.telefono.includes(busqueda);
     return porEstado && porBusq;
@@ -1174,10 +1268,11 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
       {/* ── Tabs ── */}
       <div className="strip" style={{ display: "flex", borderBottom: `1px solid ${L.border}`, overflowX: "auto" }}>
         {[
-          ["chat",     <MessageSquare size={13} />, "Chats"],
-          ["pedidos",  <Package size={13} />,       "Pedidos"],
-          ["reportes", <BarChart2 size={13} />,     "Reportes"],
-          ["ajustes",  <Settings size={13} />,      "Ajustes"],
+          ["chat",       <MessageSquare size={13} />, "Chats"],
+          ["vendedores", <UserCheck size={13} />,   "Vendedores"],
+          ["pedidos",    <Package size={13} />,     "Pedidos"],
+          ["reportes",   <BarChart2 size={13} />,   "Reportes"],
+          ["ajustes",    <Settings size={13} />,    "Ajustes"],
           ...(rol === "admin" ? [["admin", <Shield size={13} />, "Admin"]] : []),
         ].map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
@@ -1187,7 +1282,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         ))}
       </div>
 
-      {vista === "chat" && (
+      {(vista === "chat" || vista === "vendedores") && (
         <>
           {/* ── Búsqueda ── */}
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${L.border}` }}>
@@ -1212,7 +1307,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
             <select value={filtro} onChange={(e) => setFiltro(e.target.value)}
               style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtro !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, color: filtro !== "todos" ? C.red : L.muted, background: L.white, cursor: "pointer", outline: "none" }}>
               <option value="todos">Todos los estados</option>
-              {["nuevo","contactado","interesado","pendiente","vendido","perdido"].map((f) => (
+              {ESTADOS_ACTIVOS.map((f) => (
                 <option key={f} value={f}>{ESTADOS[f]?.label || f}</option>
               ))}
             </select>
@@ -1495,7 +1590,10 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             {VENDEDORES.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
           <select value={contacto.estado} onChange={(e) => upd({ estado: e.target.value })} style={{ ...selSt, flexShrink: 0, fontSize: 12 }}>
-            {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {ESTADOS_ACTIVOS.map((k) => <option key={k} value={k}>{ESTADOS[k]?.label || k}</option>)}
+            {!ESTADOS_ACTIVOS.includes(contacto.estado) && (
+              <option value={contacto.estado}>{ESTADOS[contacto.estado]?.label || contacto.estado}</option>
+            )}
           </select>
           <button onClick={() => setPanelSeg((v) => !v)}
             style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: panelSeg ? C.gold : L.soft, color: panelSeg ? "#fff" : L.muted, borderColor: panelSeg ? C.gold : L.border }}>
@@ -1677,8 +1775,9 @@ export default function App() {
     const rolActual  = getRol(session.user.email);
     const userNombre = session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase());
     const cargar = async () => {
+      if (rolActual === "vendedor_panel") return; // VendedorDashboard carga sus propios datos
       let query = supabase.from("contactos").select("*").order("updated_at", { ascending: false });
-      // Vendedor solo ve los contactos que tiene asignados
+      // Vendedor interno solo ve los contactos que tiene asignados
       if (rolActual === "vendedor") {
         query = query.eq("vendedor", userNombre);
       }
@@ -1704,8 +1803,18 @@ export default function App() {
 
   const userEmail = session.user.email;
   const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
-  const rol       = getRol(userEmail); // "admin" solo para cristian, "vendedor" para el resto
+  const rol       = getRol(userEmail);
   const alertas   = calcularAlertas(contactos);
+
+  // Vendedores externos ven su propio panel, no el CRM completo
+  if (rol === "vendedor_panel") {
+    return (
+      <>
+        <FontLoader />
+        <VendedorDashboard userEmail={userEmail} onLogout={() => supabase.auth.signOut()} />
+      </>
+    );
+  }
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes" || vista === "admin" || vista === "ajustes");
