@@ -5,7 +5,7 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
-  Copy, Users, TrendingUp, CalendarCheck, RotateCcw,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -775,11 +775,313 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 }
 
 // ============================================================
+// IMPORTAR CONTACTOS MODAL
+// ============================================================
+function ImportarContactosModal({ onClose }) {
+  const [fase, setFase] = useState("drop");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [contactosParsed, setContactosParsed] = useState([]);
+  const [resultado, setResultado] = useState(null);
+  const fileRef = useRef(null);
+
+  function cleanPhone(p) {
+    return String(p).replace(/\D/g, "").replace(/^0/, "");
+  }
+
+  function detectDelimiter(line) {
+    const counts = { ",": 0, ";": 0, "\t": 0 };
+    for (const ch of line) if (ch in counts) counts[ch]++;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  function parseLine(line, delim) {
+    const result = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === delim && !inQ) {
+        result.push(cur.trim()); cur = "";
+      } else cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  function parseCSV(text) {
+    text = text.replace(/^﻿/, "");
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+    const delim = detectDelimiter(lines[0]);
+    const headers = parseLine(lines[0], delim).map(h => h.toLowerCase().replace(/['"]/g, "").trim());
+    const patterns = {
+      telefono: ["telefono","phone","tel","whatsapp","celular","movil","móvil","numero","número","nro","cel"],
+      nombre:   ["nombre","name","contacto","contact","cliente"],
+      empresa:  ["empresa","company","org","organización","organizacion","negocio","razon","razón"],
+      email:    ["email","correo","mail"],
+      vendedor: ["vendedor","seller","agente","asesor"],
+    };
+    const map = {};
+    headers.forEach((h, i) => {
+      for (const [field, ps] of Object.entries(patterns)) {
+        if (map[field] === undefined && ps.some(p => h.includes(p))) map[field] = i;
+      }
+    });
+    if (map.telefono === undefined) map.telefono = 0;
+    return lines.slice(1).map(line => {
+      const vals = parseLine(line, delim);
+      const phone = cleanPhone(vals[map.telefono] || "");
+      if (!phone || phone.length < 7) return null;
+      return {
+        telefono: phone,
+        nombre:   map.nombre   !== undefined ? (vals[map.nombre]   || "") : "",
+        empresa:  map.empresa  !== undefined ? (vals[map.empresa]  || "") : "",
+        email:    map.email    !== undefined ? (vals[map.email]    || "") : "",
+        vendedor: map.vendedor !== undefined ? (vals[map.vendedor] || "") : "",
+      };
+    }).filter(Boolean);
+  }
+
+  function parseVCF(text) {
+    const contacts = [];
+    for (const block of text.split(/BEGIN:VCARD/i).slice(1)) {
+      let nombre = "", telefono = "", empresa = "", email = "";
+      for (const line of block.split(/\r?\n/)) {
+        const sep = line.indexOf(":");
+        if (sep < 0) continue;
+        const key = line.slice(0, sep).toUpperCase();
+        const val = line.slice(sep + 1).trim();
+        if (key === "FN") nombre = val;
+        else if (key.startsWith("TEL") && !telefono) telefono = cleanPhone(val);
+        else if (key === "ORG" && !empresa) empresa = val.split(";")[0].trim();
+        else if (key.startsWith("EMAIL") && !email) email = val;
+        else if (key === "N" && !nombre) {
+          const p = val.split(";");
+          nombre = [p[1], p[0]].filter(Boolean).join(" ").trim();
+        }
+      }
+      if (telefono && telefono.length >= 7)
+        contacts.push({ telefono, nombre, empresa, email, vendedor: "" });
+    }
+    return contacts;
+  }
+
+  async function handleFile(file) {
+    setCargando(true);
+    setError("");
+    try {
+      const text = await file.text();
+      const ext = file.name.split(".").pop().toLowerCase();
+      let parsed = [];
+      if (ext === "vcf" || ext === "vcard") parsed = parseVCF(text);
+      else if (["csv","txt","tsv"].includes(ext)) parsed = parseCSV(text);
+      else { setError("Formato no soportado. Usá CSV o VCF."); setCargando(false); return; }
+      if (parsed.length === 0) { setError("No se encontraron contactos válidos en el archivo."); setCargando(false); return; }
+      setContactosParsed(parsed);
+      setFase("preview");
+    } catch (e) {
+      setError("Error al leer el archivo: " + e.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function importar() {
+    setCargando(true);
+    setError("");
+    try {
+      const { data: existentes } = await supabase.from("contactos").select("telefono");
+      const existentesSet = new Set((existentes || []).map(c => c.telefono));
+      const nuevos = contactosParsed.filter(c => !existentesSet.has(c.telefono));
+      const omitidos = contactosParsed.length - nuevos.length;
+      for (let i = 0; i < nuevos.length; i += 50) {
+        const { error: e } = await supabase.from("contactos").insert(
+          nuevos.slice(i, i + 50).map(c => ({
+            telefono: c.telefono,
+            nombre:   c.nombre   || null,
+            empresa:  c.empresa  || null,
+            email:    c.email    || null,
+            vendedor: c.vendedor || null,
+            estado: "nuevo", bot_activo: false, no_leidos: 0,
+          }))
+        );
+        if (e) throw e;
+      }
+      setResultado({ creados: nuevos.length, omitidos });
+      setFase("done");
+    } catch (e) {
+      setError("Error al importar: " + (e.message || String(e)));
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  function descargarPlantilla() {
+    const csv = "telefono,nombre,empresa,email\n5491112345678,Juan García,Restaurante El Comedor,juan@ejemplo.com\n5493512345678,María López,,\n";
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "plantilla_contactos.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 300 }} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(520px, 95vw)", maxHeight: "88vh", background: L.white, borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,.25)", zIndex: 301, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Upload size={20} color="#1D4ED8" />
+          </div>
+          <div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 17, color: L.text }}>Importar contactos</div>
+            <div style={{ fontSize: 12, color: L.muted, marginTop: 1 }}>CSV, TSV o VCF (exportación del celular)</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted }}>
+            <X size={17} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+          {fase === "drop" && (
+            <>
+              <div
+                onClick={() => fileRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                style={{ border: `2px dashed ${L.border}`, borderRadius: 12, padding: "40px 20px", textAlign: "center", cursor: "pointer", background: L.soft, transition: "border-color .15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = C.red}
+                onMouseLeave={e => e.currentTarget.style.borderColor = L.border}>
+                <Upload size={32} color={L.light} style={{ marginBottom: 12 }} />
+                <div style={{ fontWeight: 700, color: L.text, fontSize: 14.5, marginBottom: 6 }}>
+                  {cargando ? "Leyendo archivo…" : "Hacé clic o arrastrá el archivo acá"}
+                </div>
+                <div style={{ fontSize: 12.5, color: L.muted }}>CSV · TSV · VCF (contactos del celular)</div>
+                <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.vcf,.vcard" style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ""; }} />
+              </div>
+
+              {error && (
+                <div style={{ marginTop: 14, padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, color: "#DC2626", fontSize: 13 }}>{error}</div>
+              )}
+
+              <div style={{ marginTop: 18, padding: "14px 16px", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                <FileText size={18} color="#16A34A" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>¿No tenés el archivo listo?</div>
+                  <div style={{ fontSize: 12, color: "#4ADE80", marginTop: 2 }}>Descargá la plantilla, completala en Excel o Google Sheets e importala.</div>
+                </div>
+                <button onClick={descargarPlantilla} style={{ flexShrink: 0, padding: "7px 14px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                  Plantilla
+                </button>
+              </div>
+
+              <div style={{ marginTop: 14, fontSize: 12, color: L.light, lineHeight: 1.7 }}>
+                <strong style={{ color: L.muted }}>Columnas CSV reconocidas:</strong> telefono, nombre, empresa, email, vendedor.<br />
+                <strong style={{ color: L.muted }}>Exportar del celular (VCF):</strong> Contactos → Ajustes → Exportar → guardar como .vcf.<br />
+                <strong style={{ color: L.muted }}>Excel / Sheets:</strong> Archivo → Guardar como → CSV (.csv) antes de importar.
+              </div>
+            </>
+          )}
+
+          {fase === "preview" && (
+            <>
+              <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <span style={{ fontWeight: 700, color: L.text, fontSize: 15 }}>{contactosParsed.length}</span>
+                  <span style={{ color: L.muted, fontSize: 13.5 }}> contactos encontrados</span>
+                </div>
+                <button onClick={() => { setFase("drop"); setContactosParsed([]); setError(""); }}
+                  style={{ fontSize: 12.5, color: C.red, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                  Cambiar archivo
+                </button>
+              </div>
+
+              <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${L.border}`, marginBottom: 16 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: L.soft }}>
+                      {["Teléfono", "Nombre", "Empresa"].map(h => (
+                        <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 700, color: L.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `1px solid ${L.border}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contactosParsed.slice(0, 8).map((c, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${L.border}` }}>
+                        <td style={{ padding: "8px 12px", color: L.text, fontFamily: "monospace", fontSize: 12 }}>{c.telefono}</td>
+                        <td style={{ padding: "8px 12px", color: L.text }}>{c.nombre || <span style={{ color: L.light, fontStyle: "italic" }}>—</span>}</td>
+                        <td style={{ padding: "8px 12px", color: L.muted }}>{c.empresa || <span style={{ color: L.light, fontStyle: "italic" }}>—</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {contactosParsed.length > 8 && (
+                  <div style={{ padding: "8px 12px", fontSize: 12, color: L.light, textAlign: "center", borderTop: `1px solid ${L.border}` }}>
+                    +{contactosParsed.length - 8} más…
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div style={{ marginBottom: 12, padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, color: "#DC2626", fontSize: 13 }}>{error}</div>
+              )}
+
+              <div style={{ fontSize: 12.5, color: L.muted, padding: "10px 14px", background: "#FFFBEB", borderRadius: 8, border: "1px solid #FDE68A" }}>
+                Los contactos con el mismo número de teléfono serán omitidos automáticamente.
+              </div>
+            </>
+          )}
+
+          {fase === "done" && resultado && (
+            <div style={{ textAlign: "center", padding: "24px 0" }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#DCFCE7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <Check size={28} color="#16A34A" />
+              </div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, color: L.text, marginBottom: 8 }}>
+                ¡Importación completada!
+              </div>
+              <div style={{ fontSize: 14, color: L.muted, marginBottom: 24, lineHeight: 1.6 }}>
+                <span style={{ fontWeight: 700, color: "#16A34A", fontSize: 18 }}>{resultado.creados}</span> contactos nuevos importados
+                {resultado.omitidos > 0 && <><br /><span style={{ fontWeight: 600 }}>{resultado.omitidos}</span> omitidos (ya existían)</>}
+              </div>
+              <button onClick={onClose} style={{ padding: "11px 32px", background: C.red, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.4 }}>
+                Ver contactos
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {fase === "preview" && (
+          <div style={{ padding: "16px 24px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
+            <button onClick={onClose} style={{ padding: "10px 22px", background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, fontSize: 13.5, color: L.muted, cursor: "pointer", fontWeight: 600 }}>
+              Cancelar
+            </button>
+            <button onClick={importar} disabled={cargando}
+              style={{ padding: "10px 22px", background: cargando ? L.light : C.red, color: "#fff", border: "none", borderRadius: 9, fontSize: 13.5, fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.3 }}>
+              {cargando ? "Importando…" : `Importar ${contactosParsed.length} contactos`}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ============================================================
 // SIDEBAR
 // ============================================================
 function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
-  const [filtro, setFiltro]     = useState("todos");
-  const [busqueda, setBusqueda] = useState("");
+  const [filtro, setFiltro]         = useState("todos");
+  const [busqueda, setBusqueda]     = useState("");
+  const [showImportar, setShowImportar] = useState(false);
 
   const lista = contactos.filter((c) => {
     const porEstado = filtro === "todos" || c.estado === filtro;
@@ -815,11 +1117,19 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         <>
           {/* ── Búsqueda ── */}
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${L.border}` }}>
-            <div style={{ position: "relative" }}>
-              <Search size={15} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar contacto o número…"
-                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <Search size={15} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar contacto o número…"
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+              </div>
+              <button onClick={() => setShowImportar(true)} title="Importar contactos desde archivo"
+                style={{ flexShrink: 0, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#93C5FD"; e.currentTarget.style.color = "#1D4ED8"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
+                <Upload size={16} />
+              </button>
             </div>
           </div>
 
@@ -892,6 +1202,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         </>
       )}
       {vista === "reportes" && <div style={{ flex: 1 }} />}
+
+      {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
 
       {/* ── Pie usuario ── */}
       <div style={{ padding: "12px 14px", borderTop: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 11, background: L.white }}>
