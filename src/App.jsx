@@ -1248,7 +1248,13 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
       return n === v.alias.toLowerCase() || n === v.nombre.toLowerCase() || n.startsWith(v.alias.toLowerCase() + " ");
     });
 
-  const baseContactos = vista === "vendedores" ? contactos.filter(esVendedorContacto) : contactos;
+  // Chat solo muestra contactos que ya tuvieron actividad de WhatsApp
+  const tieneConversacion = (c) => !!(c.ultimo_msg || c.ultimo_in_at || c.ultimo_out_at);
+
+  const baseContactos =
+    vista === "vendedores" ? contactos.filter(esVendedorContacto) :
+    vista === "chat"       ? contactos.filter(tieneConversacion) :
+    contactos; // "contactos" muestra todos
 
   const lista = baseContactos.filter((c) => {
     const porEstado = filtro === "todos" || c.estado === filtro;
@@ -1269,6 +1275,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
       <div className="strip" style={{ display: "flex", borderBottom: `1px solid ${L.border}`, overflowX: "auto" }}>
         {[
           ["chat",       <MessageSquare size={13} />, "Chats"],
+          ["contactos",  <Users size={13} />,       "Contactos"],
           ["vendedores", <UserCheck size={13} />,   "Vendedores"],
           ["pedidos",    <Package size={13} />,     "Pedidos"],
           ["reportes",   <BarChart2 size={13} />,   "Reportes"],
@@ -1282,7 +1289,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         ))}
       </div>
 
-      {(vista === "chat" || vista === "vendedores") && (
+      {(vista === "chat" || vista === "contactos" || vista === "vendedores") && (
         <>
           {/* ── Búsqueda ── */}
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${L.border}` }}>
@@ -1290,15 +1297,18 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
               <div style={{ position: "relative", flex: 1 }}>
                 <Search size={15} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar contacto o número…"
+                  placeholder={vista === "contactos" ? "Buscar contacto…" : "Buscar conversación…"}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
-              <button onClick={() => setShowImportar(true)} title="Importar contactos desde CSV o VCF"
-                style={{ flexShrink: 0, height: 38, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s", padding: "0 11px", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#93C5FD"; e.currentTarget.style.color = "#1D4ED8"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
-                <Upload size={14} /> Importar
-              </button>
+              {/* Botón importar solo en pestaña Contactos */}
+              {vista === "contactos" && (
+                <button onClick={() => setShowImportar(true)} title="Importar contactos desde CSV o VCF"
+                  style={{ flexShrink: 0, height: 38, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s", padding: "0 11px", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#93C5FD"; e.currentTarget.style.color = "#1D4ED8"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
+                  <Upload size={14} /> Importar
+                </button>
+              )}
             </div>
           </div>
 
@@ -1317,7 +1327,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           <div className="scroll-y" style={{ overflowY: "auto", flex: 1 }}>
             {lista.length === 0 && (
               <div style={{ padding: 36, color: L.light, fontSize: 13.5, textAlign: "center" }}>
-                {busqueda ? "Sin resultados para la búsqueda" : "Sin conversaciones"}
+                {busqueda ? "Sin resultados" : vista === "chat" ? "Sin conversaciones activas" : "Sin contactos"}
               </div>
             )}
             {lista.map((c) => {
@@ -1356,7 +1366,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                       </div>
                     </div>
                     <div style={{ fontSize: 12.5, color: L.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 5 }}>
-                      {c.ultimo_msg || "—"}
+                      {c.ultimo_msg || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 9.5, padding: "2px 8px", borderRadius: 4, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{est.label}</span>
