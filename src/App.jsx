@@ -1884,17 +1884,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── Botón importar contactos ── */}
-            <button onClick={() => setShowImportarApp(true)}
-              style={{ display: "flex", alignItems: "center", gap: 10, background: C.red, color: "#fff", border: "none", borderRadius: 14, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.5, boxShadow: "0 4px 18px rgba(156,27,27,.35)", transition: "all .2s" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#7a1212"}
-              onMouseLeave={e => e.currentTarget.style.background = C.red}>
-              <Upload size={20} /> Importar Contactos
-            </button>
-            <div style={{ fontSize: 12.5, color: L.light, marginTop: -10 }}>
-              Cargá contactos desde CSV, VCF (celular) o planilla Excel
-            </div>
-
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
               {[[<MessageSquare size={16} />, "Chats en tiempo real"], [<Bot size={16} />, "Bot WhatsApp integrado"], [<BarChart2 size={16} />, "Reportes y métricas"]].map(([icon, txt]) => (
                 <div key={txt} style={{ padding: "10px 18px", background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, fontSize: 13, color: L.muted, display: "flex", alignItems: "center", gap: 8, fontWeight: 500, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
