@@ -4,7 +4,8 @@ import {
   X, AlertCircle, Plus, TrendingUp, UserCheck,
   ChevronDown, Check, RefreshCw,
 } from "lucide-react";
-import { supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS, fmtMoneda } from "./lib";
+import { supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, VENDEDORES_INFO, ESTADOS, fmtMoneda } from "./lib";
+import VendedorDashboard from "./VendedorPanel";
 
 const L = {
   bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
@@ -193,10 +194,13 @@ export default function AdminPanel({ userName, isMobile }) {
     cargar();
   };
 
+  const [vendedorPanel, setVendedorPanel] = useState(null);
+
   const TABS = [
     { k: "resumen",   label: "📊 Resumen" },
     { k: "vendedores",label: "👥 Vendedores" },
     { k: "clientes",  label: "📋 Clientes" },
+    { k: "paneles",   label: "👤 Paneles" },
   ];
 
   return (
@@ -423,6 +427,77 @@ export default function AdminPanel({ userName, isMobile }) {
                 )}
               </div>
             </>
+          )}
+
+          {/* ════════ PANELES ════════ */}
+          {tab === "paneles" && (
+            vendedorPanel ? (
+              <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <button
+                    onClick={() => setVendedorPanel(null)}
+                    style={{
+                      background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10,
+                      padding: "8px 16px", fontSize: 13, cursor: "pointer", color: L.muted,
+                      fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                    ← Volver
+                  </button>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: L.text }}>
+                    Panel de {vendedorPanel}
+                  </span>
+                </div>
+                <div style={{ flex: 1, background: L.white, borderRadius: 14, overflow: "hidden", border: `1px solid ${L.border}` }}>
+                  <VendedorDashboard
+                    userEmail={null}
+                    onLogout={null}
+                    vendorAliasOverride={vendedorPanel}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, color: L.text, marginBottom: 6 }}>
+                  Ver panel de vendedor
+                </div>
+                <div style={{ fontSize: 13, color: L.muted, marginBottom: 20 }}>
+                  Seleccioná un vendedor para ver sus pedidos y estadísticas.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+                  {VENDEDORES_INFO.map(v => (
+                    <button
+                      key={v.alias}
+                      onClick={() => setVendedorPanel(v.alias)}
+                      style={{
+                        background: L.white, border: `2px solid ${L.border}`, borderRadius: 16,
+                        padding: "20px 16px", cursor: "pointer", textAlign: "center",
+                        transition: "all .15s", fontFamily: FONT_BODY,
+                        boxShadow: "0 2px 8px rgba(0,0,0,.04)",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.boxShadow = "0 4px 16px rgba(156,27,27,.15)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.04)"; }}
+                    >
+                      <div style={{
+                        width: 52, height: 52, borderRadius: "50%", background: C.red,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontFamily: FONT_DISPLAY, fontWeight: 700, color: "#fff",
+                        fontSize: 22, margin: "0 auto 12px",
+                      }}>
+                        {v.alias[0]}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: L.text, lineHeight: 1.3 }}>{v.alias}</div>
+                      <div style={{ fontSize: 11, color: L.muted, marginTop: 3 }}>{v.nombre}</div>
+                      <div style={{
+                        marginTop: 10, padding: "4px 10px", background: `${C.red}15`,
+                        borderRadius: 8, fontSize: 11, color: C.red, fontWeight: 600,
+                      }}>
+                        Ver panel →
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )
           )}
         </div>
       )}
