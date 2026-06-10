@@ -243,7 +243,6 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           {[
             { icon: <ShoppingBag size={18} />, label: "Total pedidos", value: stats.total, color: "#1D4ED8", bg: "#EFF6FF" },
             { icon: <Clock size={18} />, label: "En proceso", value: stats.enProceso, color: "#D97706", bg: "#FFFBEB" },
-            { icon: <TrendingUp size={18} />, label: "Facturado", value: fmtMoneda(stats.monto), color: C.red, bg: "#FEF2F2" },
             { icon: <CheckCircle size={18} />, label: "Entregados", value: stats.entregados, color: "#15803D", bg: "#DCFCE7" },
           ].map(s => (
             <div key={s.label} style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
@@ -321,7 +320,6 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                         {det.items.filter(i => i.desc?.trim()).slice(0, 4).map((it, idx) => (
                           <span key={idx}>{idx > 0 ? " · " : ""}
                             <strong style={{ color: L.text }}>{it.qty}×</strong> {it.desc}
-                            {it.precio > 0 && <span style={{ color: L.light, fontSize: 11.5 }}> ({fmtMoneda(it.precio)})</span>}
                           </span>
                         ))}
                         {det.items.filter(i => i.desc?.trim()).length > 4 && (
@@ -353,7 +351,6 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
                     {/* Derecha */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.red }}>{fmtMoneda(ped.total)}</span>
                       <span style={{ fontSize: 11, color: L.light }}>
                         {new Date(ped.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -423,7 +420,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                           <span style={{ fontWeight: 700, color: L.text, fontSize: 13 }}>{cont.nombre || cont.telefono || "—"}</span>
                           <span style={{ padding: "1px 7px", borderRadius: 6, background: ep.bg, color: ep.color, fontSize: 10.5, fontWeight: 700 }}>{ep.label}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: L.muted, marginTop: 2 }}>{fmtMoneda(p.total)} · {parseDet(p.detalle).entrega}</div>
+                        <div style={{ fontSize: 12, color: L.muted, marginTop: 2 }}>{parseDet(p.detalle).entrega}</div>
                       </div>
                     );
                   })}
