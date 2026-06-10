@@ -242,9 +242,20 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
     empresa: contacto.empresa || "", direccion: contacto.direccion || "",
     nota_seguimiento: contacto.nota_seguimiento || "",
   });
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved]   = useState(false);
-  const [err, setErr]       = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [err, setErr]             = useState("");
+  const [esVend, setEsVend]       = useState(!!contacto.es_vendedor);
+  const [toggling, setToggling]   = useState(false);
+
+  const toggleVendedor = async () => {
+    setToggling(true);
+    const nuevoVal = !esVend;
+    await supabase.from("contactos").update({ es_vendedor: nuevoVal }).eq("id", contacto.id);
+    setEsVend(nuevoVal);
+    onSave({ ...contacto, ...form, es_vendedor: nuevoVal });
+    setToggling(false);
+  };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -307,6 +318,22 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
               placeholder="Notas, preferencias, observaciones sobre el contacto..."
               rows={4} style={{ ...inputSt, resize: "vertical", lineHeight: 1.55 }} />
           </div>
+          {/* Toggle Es Vendedor */}
+          <div style={{ marginBottom: 18, padding: "13px 16px", background: esVend ? "#DCFCE7" : L.soft, borderRadius: 10, border: `1.5px solid ${esVend ? "#86EFAC" : L.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, transition: "all .2s" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: esVend ? "#15803D" : L.muted, textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6 }}>
+                <UserCheck size={13} /> Es Vendedor / Interno
+              </div>
+              <div style={{ fontSize: 11, color: L.muted, marginTop: 3 }}>
+                {esVend ? "Sus mensajes aparecen en la pestaña Vendedores" : "Activar si este contacto es un vendedor del equipo"}
+              </div>
+            </div>
+            <button onClick={toggleVendedor} disabled={toggling}
+              style={{ flexShrink: 0, width: 46, height: 26, borderRadius: 13, border: "none", cursor: toggling ? "default" : "pointer", background: esVend ? "#16A34A" : L.border, position: "relative", transition: "background .2s" }}>
+              <div style={{ position: "absolute", top: 3, left: esVend ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,.2)", transition: "left .2s" }} />
+            </button>
+          </div>
+
           <div style={{ padding: "13px 16px", background: "#EFF6FF", borderRadius: 10, border: "1px solid #BFDBFE" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Teléfono WhatsApp</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: L.text }}>{contacto.telefono}</div>
@@ -1178,11 +1205,24 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const esVendedorContacto = (c) =>
-    VENDEDORES_INFO.some(v => {
-      const n = (c.nombre || "").toLowerCase().trim();
-      return n === v.alias.toLowerCase() || n === v.nombre.toLowerCase() || n.startsWith(v.alias.toLowerCase() + " ");
+  // Detecta si un contacto ES un vendedor (no solo asignado a uno)
+  // Chequea: flag manual es_vendedor, nombre exacto/parcial, o alias al inicio
+  const esVendedorContacto = (c) => {
+    if (c.es_vendedor === true) return true;
+    const n = (c.nombre || "").toLowerCase().trim();
+    if (!n) return false;
+    return VENDEDORES_INFO.some(v => {
+      const alias = v.alias.toLowerCase();
+      const nombre = v.nombre.toLowerCase();
+      return (
+        n === alias ||
+        n === nombre ||
+        n.startsWith(alias + " ") ||
+        n.startsWith(alias) ||
+        nombre.split(" ").some(p => p.length >= 4 && n.includes(p))
+      );
     });
+  };
 
   // Chat solo muestra contactos que ya tuvieron actividad de WhatsApp
   const tieneConversacion = (c) => !!(c.ultimo_msg || c.ultimo_in_at || c.ultimo_out_at);
@@ -1333,7 +1373,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 9.5, padding: "2px 8px", borderRadius: 4, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{est.label}</span>
-                      {c.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>{c.vendedor}</span>}
+                      {c.es_vendedor && <span style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 4, background: "#DCFCE7", color: "#15803D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</span>}
+                      {!c.es_vendedor && c.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>{c.vendedor}</span>}
                       {c.seguimiento_at && new Date(c.seguimiento_at) <= new Date() && <span title="Seguimiento vencido"><Clock size={12} color={C.red} /></span>}
                     </div>
                   </div>
