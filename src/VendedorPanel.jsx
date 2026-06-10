@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, LogOut, Bell,
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
-  FileText, Truck, Coffee, PhoneCall, Users,
+  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save,
 } from "lucide-react";
 import {
   supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL,
@@ -115,6 +115,89 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
         })}
       </div>
     </div>
+  );
+}
+
+// ── Modal de Perfil ──────────────────────────────────────────
+function PerfilModal({ vendorInfo, userEmail, onClose }) {
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [ok, setOk] = useState(false);
+
+  useEffect(() => {
+    const cargar = async () => {
+      const { data } = await supabase.from("vendedores")
+        .select("nombre, telefono_whatsapp")
+        .ilike("email", `${vendorInfo.emailPrefix}%`)
+        .maybeSingle();
+      if (data) {
+        setNombre(data.nombre || vendorInfo.nombre);
+        setTelefono(data.telefono_whatsapp || "");
+      } else {
+        setNombre(vendorInfo.nombre);
+      }
+    };
+    cargar();
+  }, [vendorInfo]);
+
+  const guardar = async () => {
+    setGuardando(true);
+    await supabase.from("vendedores")
+      .update({ nombre: nombre.trim() || null, telefono_whatsapp: telefono.trim() || null })
+      .ilike("email", `${vendorInfo.emailPrefix}%`);
+    setGuardando(false);
+    setOk(true);
+    setTimeout(() => { setOk(false); onClose(); }, 1200);
+  };
+
+  const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(420px, 94vw)", background: L.white, borderRadius: 18, zIndex: 401, boxShadow: "0 24px 80px rgba(0,0,0,.25)", fontFamily: FONT_BODY, overflow: "hidden" }}>
+        <div style={{ padding: "18px 22px", borderBottom: `3px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.white }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <UserCircle size={22} color={C.red} />
+            <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: L.text }}>Mis datos personales</span>
+          </div>
+          <button onClick={onClose} style={{ background: L.soft, border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div style={{ padding: "22px" }}>
+          {/* Avatar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22, background: L.soft, borderRadius: 12, padding: "14px 16px" }}>
+            <div style={{ width: 50, height: 50, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, flexShrink: 0 }}>
+              {(nombre || vendorInfo.nombre).slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: L.text }}>{nombre || vendorInfo.nombre}</div>
+              <div style={{ fontSize: 12, color: L.muted }}>{userEmail}</div>
+              <div style={{ fontSize: 11, color: C.red, fontWeight: 700, marginTop: 2 }}>Vendedor · Nuevo Munich</div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>Nombre completo</label>
+            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo" style={inp} />
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 7 }}>
+              Teléfono WhatsApp
+            </label>
+            <input value={telefono} onChange={e => setTelefono(e.target.value.replace(/[^\d+\-\s]/g, ""))} placeholder="5491155551234" style={inp} type="tel" />
+            <div style={{ fontSize: 11, color: L.light, marginTop: 5 }}>Permite identificar tus mensajes de WhatsApp automáticamente en el CRM</div>
+          </div>
+
+          <button onClick={guardar} disabled={guardando}
+            style={{ width: "100%", background: ok ? "#15803D" : (guardando ? L.light : C.red), color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, cursor: guardando ? "default" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background .2s" }}>
+            {ok ? <><Check size={16} /> Guardado</> : guardando ? "Guardando…" : <><Save size={16} /> Guardar cambios</>}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -381,6 +464,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [notifs, setNotifs]         = useState([]);
   const [showNotifs, setShowNotifs] = useState(true);
   const [confirmElim, setConfirmElim] = useState(null);
+  const [showPerfil, setShowPerfil] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -467,6 +551,10 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{notifs.length}</span>
           </button>
         )}
+        <button onClick={() => setShowPerfil(true)} title="Mis datos"
+          style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <UserCircle size={18} />
+        </button>
         <button onClick={() => { setEditando(null); setShowForm(true); }}
           style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "8px 16px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)" }}>
           <Plus size={15} /> Cargar
@@ -687,6 +775,11 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           onClose={() => { setShowForm(false); setEditando(null); }}
           onGuardado={cargar}
         />
+      )}
+
+      {/* Modal perfil */}
+      {showPerfil && (
+        <PerfilModal vendorInfo={vendorInfo} userEmail={userEmail || ""} onClose={() => setShowPerfil(false)} />
       )}
 
       {/* Confirmar eliminación */}
