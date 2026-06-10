@@ -15,6 +15,7 @@ import {
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
+import AdministracionPanel from "./AdministracionPanel";
 
 // ============================================================
 // PALETA LIGHT — tema claro profesional
@@ -1278,8 +1279,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
   const tieneConversacion = (c) => !!(c.ultimo_msg || c.ultimo_in_at || c.ultimo_out_at);
 
   const baseContactos =
-    vista === "vendedores" ? contactos.filter(esVendedorContacto) :
-    vista === "chat"       ? contactos.filter(tieneConversacion) :
+    vista === "vendedores" ? contactos.filter(c => esVendedorContacto(c) && tieneConversacion(c)) :
+    vista === "chat"       ? contactos.filter(c => tieneConversacion(c) && !esVendedorContacto(c)) :
     contactos; // "contactos" muestra todos
 
   const lista = baseContactos.filter((c) => {
@@ -1870,12 +1871,26 @@ export default function App() {
   const rol       = getRol(userEmail);
   const alertas   = calcularAlertas(contactos);
 
-  // Vendedores externos ven su propio panel, no el CRM completo
+  // Vendedores externos ven su propio panel
   if (rol === "vendedor_panel") {
     return (
       <>
         <FontLoader />
         <VendedorDashboard userEmail={userEmail} onLogout={() => supabase.auth.signOut()} />
+      </>
+    );
+  }
+
+  // Personal de administración ve el panel de gestión de pedidos
+  if (rol === "administracion") {
+    return (
+      <>
+        <FontLoader />
+        <AdministracionPanel
+          userName={userName}
+          userEmail={userEmail}
+          onLogout={() => supabase.auth.signOut()}
+        />
       </>
     );
   }
