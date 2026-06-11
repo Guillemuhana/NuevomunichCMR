@@ -685,7 +685,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : 80, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
