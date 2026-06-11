@@ -25,6 +25,7 @@ export const EP = {
   listo:      { label: "Listo",      color: "#15803D", bg: "#DCFCE7", Icon: CheckCircle },
   entregado:  { label: "Entregado",  color: "#374151", bg: "#F3F4F6", Icon: Package },
   cancelado:  { label: "Cancelado",  color: "#B91C1C", bg: "#FEE2E2", Icon: X },
+  finalizado: { label: "Finalizado", color: "#1E3A5F", bg: "#DBEAFE", Icon: CheckCircle },
 };
 
 const PAGOS   = ["Efectivo", "Transferencia", "Tarjeta", "Mercado Pago"];
@@ -375,7 +376,7 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
 // ═══════════════════════════════════════════════
 // PANEL — Vista completa de pedidos
 // ═══════════════════════════════════════════════
-export default function PedidosPanel() {
+export default function PedidosPanel({ rol = "vendedor" }) {
   const [pedidos, setPedidos]       = useState([]);
   const [contactos, setContactos]   = useState({});
   const [filtro, setFiltro]         = useState("todos");
@@ -619,9 +620,13 @@ export default function PedidosPanel() {
                       <span style={{ fontSize: 11.5, color: L.muted, fontWeight: 600 }}>Cambiar estado:</span>
                       {Object.entries(EP).map(([k, v]) => {
                         const on = ped.estado === k;
+                        const soloAdmin = k === "finalizado";
+                        const puedeEditar = !soloAdmin || rol === "admin" || rol === "administracion";
+                        if (soloAdmin && !puedeEditar) return null;
                         return (
-                          <button key={k} onClick={() => cambiarEstado(ped.id, k)}
-                            style={{ fontSize: 11.5, padding: "5px 13px", borderRadius: 20, border: `1.5px solid ${on ? v.color : L.border}`, cursor: "pointer", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
+                          <button key={k} onClick={() => puedeEditar && cambiarEstado(ped.id, k)}
+                            disabled={!puedeEditar}
+                            style={{ fontSize: 11.5, padding: "5px 13px", borderRadius: 20, border: `1.5px solid ${on ? v.color : L.border}`, cursor: puedeEditar ? "pointer" : "default", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
                             {on && <Check size={11} style={{ display: "inline", marginRight: 4 }} />}{v.label}
                           </button>
                         );

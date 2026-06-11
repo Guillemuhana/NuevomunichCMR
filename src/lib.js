@@ -22,7 +22,7 @@ export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "S
 
 // Vendedores externos con panel propio
 export const VENDEDORES_INFO = [
-  { nombre: "Boris Arredondo",   alias: "Boris",     emailPrefix: "boris" },
+  { nombre: "Boris Arredondo",   alias: "Boris",     emailPrefix: "boris",     telefono: "5493512168835" },
   { nombre: "Pablo Castillo",    alias: "Pablo",     emailPrefix: "pablo" },
   { nombre: "Marcelino Allende", alias: "Marcelino", emailPrefix: "marcelino" },
   { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },

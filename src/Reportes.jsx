@@ -565,8 +565,8 @@ export default function Reportes() {
                         const cliente = p.contactos?.nombre || p.contactos?.telefono || "—";
                         const tel   = p.contactos?.telefono || "—";
                         const fecha = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-                        const eColor = { pendiente: "#92400E", confirmado: "#1D4ED8", preparando: "#7C3AED", listo: "#15803D", entregado: "#374151", cancelado: "#B91C1C" }[p.estado] || T.muted;
-                        const eBg   = { pendiente: "#FEF3C7", confirmado: "#DBEAFE", preparando: "#EDE9FE", listo: "#DCFCE7", entregado: "#F3F4F6", cancelado: "#FEE2E2" }[p.estado] || T.soft;
+                        const eColor = { pendiente: "#92400E", confirmado: "#1D4ED8", preparando: "#7C3AED", listo: "#15803D", entregado: "#374151", cancelado: "#B91C1C", finalizado: "#1E3A5F" }[p.estado] || T.muted;
+                        const eBg   = { pendiente: "#FEF3C7", confirmado: "#DBEAFE", preparando: "#EDE9FE", listo: "#DCFCE7", entregado: "#F3F4F6", cancelado: "#FEE2E2", finalizado: "#DBEAFE" }[p.estado] || T.soft;
                         return (
                           <tr key={p.id} style={{ borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.white : T.soft }}>
                             <td style={{ padding: "9px 12px", fontWeight: 700, color: T.muted, whiteSpace: "nowrap", fontSize: 11.5, fontFamily: "monospace" }}>{shortId(p.id)}</td>

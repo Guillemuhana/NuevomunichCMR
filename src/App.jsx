@@ -1797,11 +1797,13 @@ export default function App() {
       const { data: contactosData } = await query;
       const lista = contactosData || [];
 
-      // Auto-detectar vendedores por teléfono registrado en la tabla vendedores
+      // Auto-detectar vendedores por teléfono (tabla DB + lista estática)
       const { data: vendDB } = await supabase
         .from("vendedores").select("telefono_whatsapp").not("telefono_whatsapp", "is", null);
-      if (vendDB && vendDB.length > 0) {
-        const vendPhones = vendDB.map(v => v.telefono_whatsapp.replace(/\D/g, "")).filter(Boolean);
+      const staticPhones = VENDEDORES_INFO.filter(v => v.telefono).map(v => v.telefono.replace(/\D/g, ""));
+      const dbPhones = (vendDB || []).map(v => v.telefono_whatsapp.replace(/\D/g, "")).filter(Boolean);
+      const vendPhones = [...new Set([...staticPhones, ...dbPhones])];
+      if (vendPhones.length > 0) {
         const sinMarcar = lista.filter(c => {
           if (c.es_vendedor) return false;
           const cPhone = (c.telefono || "").replace(/\D/g, "");
@@ -1902,7 +1904,7 @@ export default function App() {
         ) : vista === "pedidos" ? (
           <>
             {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
-            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel /></div>
+            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>
           </>
         ) : activo ? (
           <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
