@@ -476,10 +476,10 @@ export default function AdminPanel({ userName, isMobile }) {
                   Seleccioná un vendedor para ver sus pedidos y estadísticas.
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-                  {VENDEDORES_INFO.map(v => (
+                  {vendedoresList.map(v => (
                     <button
-                      key={v.alias}
-                      onClick={() => setVendedorPanel(v.alias)}
+                      key={v.id || v.nombre}
+                      onClick={() => setVendedorPanel(v.nombre)}
                       style={{
                         background: L.white, border: `2px solid ${L.border}`, borderRadius: 16,
                         padding: "20px 16px", cursor: "pointer", textAlign: "center",
@@ -489,16 +489,9 @@ export default function AdminPanel({ userName, isMobile }) {
                       onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.boxShadow = "0 4px 16px rgba(156,27,27,.15)"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.04)"; }}
                     >
-                      <div style={{
-                        width: 52, height: 52, borderRadius: "50%", background: C.red,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontFamily: FONT_DISPLAY, fontWeight: 700, color: "#fff",
-                        fontSize: 22, margin: "0 auto 12px",
-                      }}>
-                        {v.alias[0]}
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: L.text, lineHeight: 1.3 }}>{v.alias}</div>
-                      <div style={{ fontSize: 11, color: L.muted, marginTop: 3 }}>{v.nombre}</div>
+                      <Inicial nombre={v.nombre} size={52} />
+                      <div style={{ fontWeight: 700, fontSize: 14, color: L.text, lineHeight: 1.3, marginTop: 12 }}>{v.nombre}</div>
+                      {v.email && <div style={{ fontSize: 11, color: L.muted, marginTop: 3 }}>{v.email}</div>}
                       <div style={{
                         marginTop: 10, padding: "4px 10px", background: `${C.red}15`,
                         borderRadius: 8, fontSize: 11, color: C.red, fontWeight: 600,
@@ -507,6 +500,11 @@ export default function AdminPanel({ userName, isMobile }) {
                       </div>
                     </button>
                   ))}
+                  {vendedoresList.length === 0 && (
+                    <div style={{ gridColumn: "1/-1", padding: 40, textAlign: "center", color: L.light }}>
+                      No hay vendedores aún. Agregá uno en la pestaña Vendedores.
+                    </div>
+                  )}
                 </div>
               </>
             )
