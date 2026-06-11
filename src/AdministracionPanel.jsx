@@ -6,7 +6,7 @@ import {
   Phone, Download, MapPin, Users, FileDown,
 } from "lucide-react";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO,
+  supabase, C, FONT_DISPLAY, FONT_BODY,
   fmtMoneda, LOGO_URL, exportarCSV,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
@@ -104,6 +104,7 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
 export default function AdministracionPanel({ userName, userEmail, onLogout }) {
   const [pedidos, setPedidos] = useState([]);
   const [contactos, setContactos] = useState({});
+  const [vendedoresList, setVendedoresList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [filtroVendedor, setFiltroVendedor] = useState("todos");
@@ -115,19 +116,21 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const { data: peds } = await supabase
-      .from("pedidos")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [pedsRes, vendsRes] = await Promise.all([
+      supabase.from("pedidos").select("*").order("created_at", { ascending: false }),
+      supabase.from("vendedores").select("nombre").eq("activo", true).order("nombre"),
+    ]);
 
-    if (peds && peds.length > 0) {
+    const peds = pedsRes.data || [];
+    if (peds.length > 0) {
       const ids = [...new Set(peds.map(p => p.contacto_id).filter(Boolean))];
       const { data: conts } = await supabase.from("contactos").select("id,nombre,telefono,empresa,direccion").in("id", ids);
       const map = {};
       (conts || []).forEach(c => { map[c.id] = c; });
       setContactos(map);
     }
-    setPedidos(peds || []);
+    setPedidos(peds);
+    setVendedoresList(vendsRes.data || []);
     setLoading(false);
   }, []);
 
@@ -180,7 +183,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
     total: pedidos.length,
     enProceso: pedidos.filter(p => ["pendiente", "confirmado", "preparando", "listo"].includes(p.estado)).length,
     monto: pedidos.reduce((s, p) => s + (p.total || 0), 0),
-    entregados: pedidos.filter(p => p.estado === "entregado").length,
+    entregados: pedidos.filter(p => ["entregado", "finalizado"].includes(p.estado)).length,
   };
 
   const handleExportCSV = () => {
@@ -261,7 +264,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
             { icon: <ShoppingBag size={18} />, label: "Total pedidos", value: stats.total, color: "#1D4ED8", bg: "#EFF6FF" },
             { icon: <Clock size={18} />, label: "En proceso", value: stats.enProceso, color: "#D97706", bg: "#FFFBEB" },
             { icon: <TrendingUp size={18} />, label: "Total facturado", value: fmtMoneda(stats.monto), color: C.red, bg: "#FEF2F2" },
-            { icon: <CheckCircle size={18} />, label: "Entregados", value: stats.entregados, color: "#15803D", bg: "#DCFCE7" },
+            { icon: <CheckCircle size={18} />, label: "Entregados / Finalizados", value: stats.entregados, color: "#15803D", bg: "#DCFCE7" },
           ].map(s => (
             <div key={s.label} style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div style={{ width: 36, height: 36, borderRadius: 9, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", color: s.color, marginBottom: 10 }}>{s.icon}</div>
@@ -277,15 +280,15 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
             <Users size={13} color={C.red} /> Pedidos por vendedor
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {VENDEDORES_INFO.map(v => {
-              const count = pedidos.filter(p => p.vendedor === v.alias).length;
-              const monto = pedidos.filter(p => p.vendedor === v.alias).reduce((s, p) => s + (p.total || 0), 0);
+            {vendedoresList.map(v => {
+              const count = pedidos.filter(p => p.vendedor === v.nombre).length;
+              const monto = pedidos.filter(p => p.vendedor === v.nombre).reduce((s, p) => s + (p.total || 0), 0);
               if (count === 0) return null;
               return (
-                <button key={v.alias}
-                  onClick={() => setFiltroVendedor(filtroVendedor === v.alias ? "todos" : v.alias)}
-                  style={{ padding: "8px 14px", borderRadius: 10, border: `2px solid ${filtroVendedor === v.alias ? C.red : L.border}`, background: filtroVendedor === v.alias ? "#FEF2F2" : L.soft, cursor: "pointer", fontFamily: FONT_BODY, transition: "all .15s" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: filtroVendedor === v.alias ? C.red : L.text }}>{v.alias}</div>
+                <button key={v.nombre}
+                  onClick={() => setFiltroVendedor(filtroVendedor === v.nombre ? "todos" : v.nombre)}
+                  style={{ padding: "8px 14px", borderRadius: 10, border: `2px solid ${filtroVendedor === v.nombre ? C.red : L.border}`, background: filtroVendedor === v.nombre ? "#FEF2F2" : L.soft, cursor: "pointer", fontFamily: FONT_BODY, transition: "all .15s" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: filtroVendedor === v.nombre ? C.red : L.text }}>{v.nombre}</div>
                   <div style={{ fontSize: 11, color: L.muted }}>{count} ped · {fmtMoneda(monto)}</div>
                 </button>
               );
@@ -309,7 +312,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
               <select value={filtroVendedor} onChange={e => setFiltroVendedor(e.target.value)}
                 style={{ padding: "8px 12px", borderRadius: 9, border: `1.5px solid ${filtroVendedor !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroVendedor !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los vendedores</option>
-                {VENDEDORES_INFO.map(v => <option key={v.alias} value={v.alias}>{v.alias}</option>)}
+                {vendedoresList.map(v => <option key={v.nombre} value={v.nombre}>{v.nombre}</option>)}
               </select>
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
                 style={{ padding: "8px 12px", borderRadius: 9, border: `1.5px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
