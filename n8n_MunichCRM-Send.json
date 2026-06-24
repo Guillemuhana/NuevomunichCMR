@@ -29,7 +29,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json.body.media_url ? JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.telefono, type: (['image','video','audio','document'].includes($json.body.media_tipo) ? $json.body.media_tipo : 'document'), [['image','video','audio','document'].includes($json.body.media_tipo) ? $json.body.media_tipo : 'document']: Object.assign({ link: $json.body.media_url }, ($json.body.media_tipo === 'document' ? { filename: ($json.body.media_nombre || 'archivo') } : {}), (($json.body.mensaje && $json.body.media_tipo !== 'audio') ? { caption: $json.body.mensaje } : {})) }) : JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.telefono, type: 'text', text: { body: $json.body.mensaje } }) }}",
+        "jsonBody": "={{ (function(){ var b=$json.body; if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
         "options": {}
       },
       "id": "send-wa",
