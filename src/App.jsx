@@ -1312,10 +1312,12 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           </button>
         ))}
 
+        {/* Hamburguesa — oculto para administración */}
+        {rol !== "administracion" && (
+        <>
         {/* Separador */}
         <div style={{ width: 1, background: L.border, margin: "8px 0" }} />
 
-        {/* Hamburguesa */}
         <div ref={menuRef} style={{ position: "relative" }}>
           <button onClick={() => setMenuOpen(v => !v)}
             style={{ width: 46, height: "100%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: menuOpen ? "#FFF5F5" : "transparent", color: ["contactos","reportes","ajustes","admin"].includes(vista) ? C.red : L.muted, transition: "all .15s", borderBottom: ["contactos","reportes","ajustes","admin"].includes(vista) ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
@@ -1341,6 +1343,8 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {(vista === "chat" || vista === "contactos") && (
