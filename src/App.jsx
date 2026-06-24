@@ -6,6 +6,8 @@ import {
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
   Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu,
+  Plus, Image as ImageIcon, Video as VideoIcon, Paperclip, Download, Music, File as FileIcon,
+  CornerUpLeft,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -16,6 +18,60 @@ import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
 import AdministracionPanel from "./AdministracionPanel";
+
+// ============================================================
+// HELPERS DE MENSAJES
+// ============================================================
+// Ordena cronológicamente; ante el mismo timestamp, el mensaje
+// del cliente (entrante) va siempre antes que la respuesta del bot/agente.
+const ordenarMensajes = (arr) =>
+  [...(arr || [])].sort((a, b) => {
+    const ta = new Date(a.created_at).getTime();
+    const tb = new Date(b.created_at).getTime();
+    if (ta !== tb) return ta - tb;
+    if (a.direccion !== b.direccion) return a.direccion === "in" ? -1 : 1;
+    return 0;
+  });
+
+// Elimina del texto cualquier referencia a precios, montos, símbolos $ y pesos
+// (en el CRM no se manejan precios).
+const limpiarPrecios = (txt) => {
+  if (!txt || typeof txt !== "string") return txt;
+  let t = txt
+    // Montos con símbolo: $1500, $ 1.500,00, AR$ 2000, ARS 1500, USD 10
+    .replace(/(?:ar|u\$?s|usd)?\s*\$\s?\d[\d.,]*/gi, "")
+    .replace(/\b(?:ars|usd)\s*\d[\d.,]*/gi, "")
+    .replace(/\$/g, "")
+    // Etiquetas precio/monto/total/importe/subtotal con o sin valor
+    .replace(/\b(precios?|montos?|importes?|sub\s*totales?|totales?)\b\s*:?\s*\$?\s*\d?[\d.,]*/gi, "")
+    // Cantidades en pesos: "1.500 pesos", "$ 200 ar"
+    .replace(/\d[\d.,]*\s*pesos?\b/gi, "")
+    .replace(/\bpesos?\b/gi, "")
+    // Limpieza de residuos (espacios dobles, signos/líneas vacías que quedaron)
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^[\s:;,.\-•]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return t;
+};
+
+// Resuelve la info de medios de un mensaje, tolerando distintos nombres de
+// campo (los que use el bot/n8n para imágenes, videos, audios o documentos).
+const resolverMedia = (m) => {
+  const url = m.media_url || m.mediaUrl || m.imagen || m.image_url || m.url || m.foto || null;
+  if (!url || typeof url !== "string") return null;
+  let tipo = (m.media_tipo || m.media_type || m.tipo_media || m.tipo || "").toLowerCase();
+  if (!["image", "imagen", "video", "audio", "document", "documento", "archivo"].includes(tipo)) {
+    const ext = (url.split("?")[0].split(".").pop() || "").toLowerCase();
+    if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(ext)) tipo = "image";
+    else if (["mp4", "webm", "mov", "avi", "mkv", "3gp"].includes(ext)) tipo = "video";
+    else if (["mp3", "ogg", "oga", "wav", "m4a", "aac", "opus"].includes(ext)) tipo = "audio";
+    else tipo = "document";
+  }
+  if (tipo === "imagen") tipo = "image";
+  if (tipo === "documento" || tipo === "archivo") tipo = "document";
+  return { url, tipo, nombre: m.media_nombre || m.media_name || m.nombre_archivo || "archivo" };
+};
 
 // ============================================================
 // PALETA LIGHT — tema claro profesional
@@ -685,7 +741,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : 80, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(96px + env(safe-area-inset-bottom))" : 150, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -693,7 +749,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 86, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : "min(600px, calc(100vh - 120px))", maxHeight: isMobile ? "calc(100% - 80px)" : "calc(100vh - 120px)", background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom))" : 156, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : "min(600px, calc(100vh - 120px))", maxHeight: isMobile ? "calc(100% - 80px)" : "calc(100vh - 120px)", background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
           {/* Header minimalista */}
           <div style={{ background: "#fff", padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
             <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
@@ -1369,7 +1425,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                       </div>
                     </div>
                     <div style={{ fontSize: 12.5, color: L.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 5 }}>
-                      {c.ultimo_msg || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
+                      {limpiarPrecios(c.ultimo_msg) || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 9.5, padding: "2px 8px", borderRadius: 4, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{est.label}</span>
@@ -1422,7 +1478,15 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
   const [msgParaPedido, setMsgParaPedido] = useState(null);
   const [hoverMsg, setHoverMsg]   = useState(null);
   const [newMsgIds, setNewMsgIds] = useState(new Set());
+  const [menuAdjuntar, setMenuAdjuntar] = useState(false);
+  const [subiendo, setSubiendo]   = useState(false);
+  const [replyTo, setReplyTo]     = useState(null);   // mensaje al que se responde (estilo WhatsApp)
+  const [pedidoOk, setPedidoOk]   = useState(false);  // confirmación "Agregar a pedidos"
+  const [agregandoPed, setAgregandoPed] = useState(false);
   const endRef = useRef(null);
+  const fileImagenRef   = useRef(null);
+  const fileVideoRef    = useRef(null);
+  const fileDocRef      = useRef(null);
 
   useEffect(() => {
     const id = "msg-new-style";
@@ -1432,6 +1496,8 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
       s.textContent = `
         @keyframes msgSlideIn{0%{opacity:0;transform:translateX(-14px)}70%{transform:translateX(3px)}100%{opacity:1;transform:translateX(0)}}
         @keyframes msgGlow{0%{box-shadow:0 0 0 0 rgba(156,27,27,.45),0 1px 4px rgba(0,0,0,.07)}65%{box-shadow:0 0 0 8px rgba(156,27,27,0),0 1px 4px rgba(0,0,0,.07)}100%{box-shadow:0 1px 4px rgba(0,0,0,.07)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin{animation:spin .9s linear infinite}
       `;
       document.head.appendChild(s);
     }
@@ -1448,9 +1514,48 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     await supabase.from("pedidos").insert({ contacto_id: contacto.id, vendedor: contacto.vendedor || "", detalle, total: 0, estado: "pendiente" });
   };
 
+  // Autor legible de un mensaje (para la cita estilo WhatsApp)
+  const autorDe = (m) => {
+    if (m.direccion === "in") return contacto.nombre || contacto.telefono || "Cliente";
+    if (m.origen === "agente") return m.agente || "Agente";
+    if (m.origen === "bot" || (m.direccion === "out" && !m.origen && !m.agente)) return "Bot · Nuevo Munich";
+    return "Nuevo Munich";
+  };
+  // Resumen corto de un mensaje (texto o etiqueta de medio)
+  const snippetDe = (m) => {
+    const media = resolverMedia(m);
+    const txt = limpiarPrecios(m.contenido || m.body || m.message || m.texto) || "";
+    if (txt) return txt;
+    if (media) return media.tipo === "image" ? "📷 Imagen" : media.tipo === "video" ? "🎥 Video" : media.tipo === "audio" ? "🎤 Audio" : "📎 " + (media.nombre || "Documento");
+    return "Mensaje";
+  };
+
+  // "Agregar a pedidos" → crea el pedido y lo manda directo a Administración
+  const agregarAPedido = async () => {
+    if (agregandoPed) return;
+    setAgregandoPed(true); setErr("");
+    const ultimosMsgs = mensajes.filter((m) => m.direccion === "in").slice(-5);
+    const desc = ultimosMsgs.length > 0
+      ? ultimosMsgs.map((m) => snippetDe(m)).join("\n")
+      : `Pedido de ${contacto.nombre || contacto.telefono}`;
+    const detalle = JSON.stringify({ items: [{ desc, qty: 1, precio: 0 }], notas: "Generado desde el chat", entrega: "Retiro en local", direccion: contacto.direccion || "", pago: "Efectivo" });
+    const { error } = await supabase.from("pedidos").insert({
+      contacto_id: contacto.id, vendedor: contacto.vendedor || "", detalle, total: 0, estado: "pendiente",
+    });
+    if (error) { setErr("No se pudo agregar a pedidos: " + error.message); setAgregandoPed(false); return; }
+    // Marcar el contacto como pedido para reflejarlo en el estado
+    if (contacto.estado !== "pedido") {
+      await supabase.from("contactos").update({ estado: "pedido" }).eq("id", contacto.id);
+      onUpdateContacto({ ...contacto, estado: "pedido" });
+    }
+    setAgregandoPed(false);
+    setPedidoOk(true);
+    setTimeout(() => setPedidoOk(false), 2500);
+  };
+
   const cargar = useCallback(async () => {
     const { data } = await supabase.from("mensajes").select("*").eq("contacto_id", contacto.id).order("created_at", { ascending: true });
-    setMensajes(data || []);
+    setMensajes(ordenarMensajes(data || []));
     await supabase.from("contactos").update({ no_leidos: 0 }).eq("id", contacto.id);
   }, [contacto.id]);
 
@@ -1459,7 +1564,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     const ch = supabase.channel(`msg-${contacto.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes", filter: `contacto_id=eq.${contacto.id}` },
         (p) => {
-          setMensajes((m) => m.some((x) => x.id === p.new.id) ? m : [...m, p.new]);
+          setMensajes((m) => m.some((x) => x.id === p.new.id) ? m : ordenarMensajes([...m, p.new]));
           if (p.new.direccion === "in" || p.new.origen === "bot" || p.new.origen === "n8n") {
             setNewMsgIds((s) => new Set([...s, p.new.id]));
             setTimeout(() => setNewMsgIds((s) => { const n = new Set(s); n.delete(p.new.id); return n; }), 2500);
@@ -1475,10 +1580,13 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     const cuerpo = texto.trim();
     if (!cuerpo || enviando) return;
     setEnviando(true); setErr(""); setTexto("");
+    const cita = replyTo ? { texto: snippetDe(replyTo).slice(0, 220), autor: autorDe(replyTo) } : null;
+    setReplyTo(null);
 
     // 1) Guardar en CRM (Supabase)
     const { data, error } = await supabase.from("mensajes").insert({
       contacto_id: contacto.id, direccion: "out", origen: "agente", agente: userName, contenido: cuerpo,
+      cita_texto: cita?.texto || null, cita_autor: cita?.autor || null,
     }).select().single();
     if (error) {
       setErr("Error al guardar el mensaje: " + error.message);
@@ -1493,7 +1601,8 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     // 2) Enviar por WhatsApp vía n8n (no bloquea si falla)
     if (N8N_SEND_WEBHOOK) {
       try {
-        const msgWA = `*${userName} · Nuevo Munich:*\n${cuerpo}`;
+        const citaWA = cita ? `↩️ _${cita.autor}: ${cita.texto}_\n\n` : "";
+        const msgWA = `${citaWA}*${userName} · Nuevo Munich:*\n${cuerpo}`;
         const res = await fetch(N8N_SEND_WEBHOOK, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWA, agente: userName }),
@@ -1512,6 +1621,64 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     }
 
     setEnviando(false);
+  };
+
+  // Tamaño máximo por archivo (16 MB, límite de WhatsApp)
+  const MAX_MB = 16;
+
+  const subirArchivo = async (file, tipo) => {
+    setMenuAdjuntar(false);
+    if (!file) return;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setErr(`El archivo supera el máximo de ${MAX_MB} MB.`);
+      return;
+    }
+    setErr(""); setSubiendo(true);
+    try {
+      // 1) Subir a Supabase Storage (bucket público "chat-media")
+      const ext  = (file.name.split(".").pop() || "bin").toLowerCase();
+      const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-60);
+      const path = `${contacto.id}/${Date.now()}-${safe || "archivo." + ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("chat-media")
+        .upload(path, file, { contentType: file.type || undefined, upsert: false });
+      if (upErr) { setErr("Error al subir el archivo: " + upErr.message); setSubiendo(false); return; }
+
+      const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const mediaUrl = pub?.publicUrl;
+
+      // 2) Guardar el mensaje en el CRM con la referencia al medio
+      const caption = texto.trim();
+      const cita = replyTo ? { texto: snippetDe(replyTo).slice(0, 220), autor: autorDe(replyTo) } : null;
+      setReplyTo(null);
+      const { data, error } = await supabase.from("mensajes").insert({
+        contacto_id: contacto.id, direccion: "out", origen: "agente", agente: userName,
+        contenido: caption, media_url: mediaUrl, media_tipo: tipo, media_nombre: file.name,
+        cita_texto: cita?.texto || null, cita_autor: cita?.autor || null,
+      }).select().single();
+      if (error) { setErr("Archivo subido, pero no se pudo guardar el mensaje: " + error.message); setSubiendo(false); return; }
+      if (data) setMensajes((prev) => ordenarMensajes([...prev, data]));
+      setTexto("");
+
+      // 3) Enviar por WhatsApp vía n8n (no bloquea si falla)
+      if (N8N_SEND_WEBHOOK) {
+        try {
+          const citaWA = cita ? `↩️ _${cita.autor}: ${cita.texto}_\n\n` : "";
+          await fetch(N8N_SEND_WEBHOOK, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              telefono: contacto.telefono, agente: userName,
+              mensaje: caption ? `${citaWA}*${userName} · Nuevo Munich:*\n${caption}` : citaWA,
+              media_url: mediaUrl, media_tipo: tipo, media_nombre: file.name,
+            }),
+          });
+        } catch { /* el medio ya quedó guardado en el CRM */ }
+      }
+    } catch (e) {
+      setErr("No se pudo subir el archivo: " + (e?.message || e));
+    } finally {
+      setSubiendo(false);
+    }
   };
 
   const eliminarChat = async () => {
@@ -1617,6 +1784,10 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: contacto.bot_activo ? "#DCFCE7" : "#FEF2F2", color: contacto.bot_activo ? "#15803D" : C.red, borderColor: contacto.bot_activo ? "#86EFAC" : "#FECACA" }}>
             {contacto.bot_activo ? <><Bot size={13} /> Bot</> : <><User size={13} /> {isMobile ? "Agente" : "Yo atiendo"}</>}
           </button>
+          <button onClick={agregarAPedido} disabled={agregandoPed} title="Agregar a pedidos y enviar a Administración"
+            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: pedidoOk ? "#16A34A" : "#1E3A5F", color: "#fff", borderColor: pedidoOk ? "#16A34A" : "#1E3A5F", fontWeight: 700, opacity: agregandoPed ? 0.7 : 1 }}>
+            {pedidoOk ? <><Check size={13} /> Agregado</> : <><Package size={13} /> {agregandoPed ? "Agregando…" : "Agregar a pedidos"}</>}
+          </button>
         </div>
       </div>
 
@@ -1696,9 +1867,45 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 </div>
               )}
               {/* Burbuja */}
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
-                {m.contenido || m.body || m.message || m.texto || <span style={{ color: L.light, fontStyle: "italic", fontSize: 12 }}>(mensaje vacío)</span>}
+              {(() => {
+              const media = resolverMedia(m);
+              const txt = limpiarPrecios(m.contenido || m.body || m.message || m.texto);
+              return (
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: media ? "6px 6px 8px" : "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
+                {m.cita_texto && (
+                  <div style={{ borderLeft: `3px solid ${C.gold}`, background: "rgba(0,0,0,.04)", borderRadius: 7, padding: "5px 9px", marginBottom: 6, fontSize: 12.5, color: L.muted, whiteSpace: "pre-wrap" }}>
+                    <div style={{ fontWeight: 700, color: C.red, fontSize: 11.5, marginBottom: 1 }}>{m.cita_autor || "Mensaje"}</div>
+                    <div style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{m.cita_texto}</div>
+                  </div>
+                )}
+                {media && media.tipo === "image" && (
+                  <a href={media.url} target="_blank" rel="noreferrer" style={{ display: "block" }}>
+                    <img src={media.url} alt={media.nombre} loading="lazy"
+                      style={{ maxWidth: "100%", width: 260, maxHeight: 320, objectFit: "cover", borderRadius: 10, display: "block" }} />
+                  </a>
+                )}
+                {media && media.tipo === "video" && (
+                  <video src={media.url} controls preload="metadata"
+                    style={{ maxWidth: "100%", width: 260, borderRadius: 10, display: "block", background: "#000" }} />
+                )}
+                {media && media.tipo === "audio" && (
+                  <audio src={media.url} controls style={{ width: 240, display: "block" }} />
+                )}
+                {media && media.tipo === "document" && (
+                  <a href={media.url} target="_blank" rel="noreferrer" download={media.nombre}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(0,0,0,.04)", borderRadius: 10, textDecoration: "none", color: L.text, width: 240, maxWidth: "100%" }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: C.red, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><FileIcon size={17} /></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{media.nombre}</div>
+                      <div style={{ fontSize: 11, color: L.muted, display: "flex", alignItems: "center", gap: 4 }}><Download size={11} /> Descargar</div>
+                    </div>
+                  </a>
+                )}
+                {txt
+                  ? <div style={{ padding: media ? "7px 8px 1px" : 0 }}>{txt}</div>
+                  : (!media && <span style={{ color: L.light, fontStyle: "italic", fontSize: 12 }}>(mensaje vacío)</span>)}
               </div>
+              ); })()}
               {/* Hora + eliminar */}
               {isNew && esCliente && (
                 <div style={{ alignSelf: "flex-start", fontSize: 10.5, color: C.red, fontWeight: 700, background: "#FEF2F2", padding: "2px 8px", borderRadius: 999, marginBottom: 2 }}>
@@ -1709,6 +1916,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 <div style={{ fontSize: 10.5, color: L.light }}>{hora}</div>
                 {hoverMsg === m.id && (
                   <>
+                    <button onClick={() => { setReplyTo(m); }} title="Responder este mensaje"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: L.muted, display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.75}>
+                      <CornerUpLeft size={12} />
+                    </button>
                     <button onClick={() => marcarComoPedido(m.contenido)} title="Convertir en pedido"
                       style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: C.red, display: "flex", alignItems: "center", borderRadius: 4, opacity: 0.75 }}
                       onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
@@ -1734,8 +1947,59 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
         <AlertCircle size={15} /> {err}
       </div>}
 
+      {/* ── Barra de respuesta (estilo WhatsApp) ── */}
+      {replyTo && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "8px 12px" : "8px 22px", background: "#FFF7E6", borderTop: `1px solid ${L.border}`, borderLeft: `3px solid ${C.gold}` }}>
+          <CornerUpLeft size={16} color={C.red} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: C.red }}>Respondiendo a {autorDe(replyTo)}</div>
+            <div style={{ fontSize: 12.5, color: L.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{snippetDe(replyTo)}</div>
+          </div>
+          <button onClick={() => setReplyTo(null)} title="Cancelar respuesta"
+            style={{ background: "none", border: "none", cursor: "pointer", color: L.muted, display: "flex", alignItems: "center", padding: 4, flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* ── Input ── */}
-      <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderTop: `1px solid ${L.border}`, background: L.white, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+      <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderTop: replyTo ? "none" : `1px solid ${L.border}`, background: L.white, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, position: "relative" }}>
+        {/* Inputs ocultos para seleccionar archivos */}
+        <input ref={fileImagenRef} type="file" accept="image/*" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) subirArchivo(f, "image"); }} />
+        <input ref={fileVideoRef} type="file" accept="video/*" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) subirArchivo(f, "video"); }} />
+        <input ref={fileDocRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,application/*" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) subirArchivo(f, "document"); }} />
+
+        {/* Menú desplegable de adjuntar (estilo WhatsApp) */}
+        {menuAdjuntar && (
+          <>
+            <div onClick={() => setMenuAdjuntar(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+            <div style={{ position: "absolute", bottom: "100%", left: isMobile ? 12 : 22, marginBottom: 8, background: L.white, borderRadius: 14, boxShadow: "0 12px 40px rgba(0,0,0,.18)", border: `1px solid ${L.border}`, padding: 8, zIndex: 50, display: "flex", flexDirection: "column", gap: 2, minWidth: 196 }}>
+              {[
+                { lbl: "Imagen",    icon: <ImageIcon size={17} />, bg: "#EFF6FF", col: "#2563EB", ref: fileImagenRef },
+                { lbl: "Video",     icon: <VideoIcon size={17} />, bg: "#FEF2F2", col: C.red,    ref: fileVideoRef },
+                { lbl: "Documento", icon: <FileIcon size={17} />,  bg: "#F0FDF4", col: "#16A34A", ref: fileDocRef },
+              ].map((o) => (
+                <button key={o.lbl} onClick={() => { setMenuAdjuntar(false); o.ref.current?.click(); }}
+                  style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", background: "none", border: "none", borderRadius: 9, cursor: "pointer", fontFamily: FONT_BODY, fontSize: 14, fontWeight: 600, color: L.text, textAlign: "left", transition: "background .12s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = L.soft}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                  <span style={{ width: 34, height: 34, borderRadius: 9, background: o.bg, color: o.col, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{o.icon}</span>
+                  {o.lbl}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Botón + adjuntar */}
+        <button onClick={() => setMenuAdjuntar((v) => !v)} disabled={subiendo} title="Adjuntar"
+          style={{ background: menuAdjuntar ? C.red : L.soft, color: menuAdjuntar ? "#fff" : L.muted, border: `1.5px solid ${menuAdjuntar ? C.red : L.border}`, borderRadius: 11, width: 44, height: 44, cursor: subiendo ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .18s", transform: menuAdjuntar ? "rotate(45deg)" : "none" }}>
+          {subiendo ? <Upload size={18} className="spin" /> : <Plus size={22} />}
+        </button>
+
         <textarea value={texto} onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
           placeholder={isMobile ? "Escribí un mensaje…" : "Escribí un mensaje… (Enter para enviar · Shift+Enter = nueva línea)"} rows={1}
