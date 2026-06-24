@@ -29,7 +29,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.body.telefono }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": {{ JSON.stringify($json.body.mensaje) }} }\n}",
+        "jsonBody": "={{ $json.body.media_url ? JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.telefono, type: (['image','video','audio','document'].includes($json.body.media_tipo) ? $json.body.media_tipo : 'document'), [['image','video','audio','document'].includes($json.body.media_tipo) ? $json.body.media_tipo : 'document']: Object.assign({ link: $json.body.media_url }, ($json.body.media_tipo === 'document' ? { filename: ($json.body.media_nombre || 'archivo') } : {}), (($json.body.mensaje && $json.body.media_tipo !== 'audio') ? { caption: $json.body.mensaje } : {})) }) : JSON.stringify({ messaging_product: 'whatsapp', to: $json.body.telefono, type: 'text', text: { body: $json.body.mensaje } }) }}",
         "options": {}
       },
       "id": "send-wa",

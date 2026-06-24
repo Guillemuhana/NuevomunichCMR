@@ -54,6 +54,7 @@ export const VENDEDORES_INFO = [
 export const ADMINISTRACION_INFO = [
   { nombre: "Administración 1", emailPrefix: "admin1" },
   { nombre: "Administración 2", emailPrefix: "admin2" },
+  { nombre: "Administración",   emailPrefix: "admin26" },
   { nombre: "Administración",   emailPrefix: "administracion" },
 ];
 
