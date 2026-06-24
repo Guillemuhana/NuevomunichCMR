@@ -1309,7 +1309,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           ["chat",       <MessageSquare size={14} />, "Chats"],
           ["vendedores", <UserCheck size={14} />,     "Vendedores"],
           ["pedidos",    <Package size={14} />,       "Pedidos"],
-        ].map(([k, icon, l]) => (
+        ].filter(([k]) => rol !== "administracion" || k === "pedidos").map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
             style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0 10px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: "transparent", borderBottom: vista === k ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
             {icon} {l}
@@ -2156,6 +2156,11 @@ export default function App() {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Administración solo gestiona pedidos: arranca directo en esa pestaña
+  useEffect(() => {
+    if (session && getRol(session.user.email) === "administracion") setVista("pedidos");
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Package, Search, Clock, X, Calendar,
+  Package, Search, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
-  Trash2, ShoppingBag, CheckCircle, AlertCircle,
-  Phone, Download, MapPin, Users, FileDown,
+  Trash2, AlertCircle,
+  Phone, Download, MapPin, FileDown,
 } from "lucide-react";
 import {
   supabase, C, FONT_DISPLAY, FONT_BODY,
@@ -109,6 +109,9 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
   const [busqueda, setBusqueda] = useState("");
   const [filtroVendedor, setFiltroVendedor] = useState("todos");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [fechaCampo, setFechaCampo] = useState("entrega"); // "entrega" | "creado"
   const [selectedDate, setSelectedDate] = useState(null);
   const [editandoFecha, setEditandoFecha] = useState(null);
   const [notifs, setNotifs] = useState([]);
@@ -181,16 +184,19 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
     const porBusq = !busqueda || nombre.includes(busqueda.toLowerCase()) || items.includes(busqueda.toLowerCase()) || (p.vendedor || "").toLowerCase().includes(busqueda.toLowerCase());
     const porVend = filtroVendedor === "todos" || p.vendedor === filtroVendedor;
     const porEstado = filtroEstado === "todos" || p.estado === filtroEstado;
-    const porFecha = !selectedDate || (det.fecha_entrega && det.fecha_entrega.startsWith(selectedDate));
+    // Fecha: el calendario selecciona un día puntual (por entrega). Si no hay día
+    // seleccionado, aplica el rango Desde/Hasta sobre el campo elegido (entrega/creado).
+    const fe = det.fecha_entrega;
+    const fechaRef = fechaCampo === "creado" ? (p.created_at || "").slice(0, 10) : fe;
+    let porFecha = true;
+    if (selectedDate) {
+      porFecha = !!(fe && fe.startsWith(selectedDate));
+    } else {
+      if (fechaDesde) porFecha = porFecha && !!fechaRef && fechaRef >= fechaDesde;
+      if (fechaHasta) porFecha = porFecha && !!fechaRef && fechaRef <= fechaHasta;
+    }
     return porBusq && porVend && porEstado && porFecha;
   });
-
-  const stats = {
-    total: pedidos.length,
-    enProceso: pedidos.filter(p => ["pendiente", "confirmado", "preparando", "listo"].includes(p.estado)).length,
-    pendientes: pedidos.filter(p => p.estado === "pendiente").length,
-    entregados: pedidos.filter(p => ["entregado", "finalizado"].includes(p.estado)).length,
-  };
 
   const handleExportCSV = () => {
     const rows = lista.map(p => {
@@ -265,43 +271,6 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           </div>
         )}
 
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 22 }}>
-          {[
-            { icon: <ShoppingBag size={18} />, label: "Total pedidos", value: stats.total, color: "#1D4ED8", bg: "#EFF6FF" },
-            { icon: <Clock size={18} />, label: "En proceso", value: stats.enProceso, color: "#D97706", bg: "#FFFBEB" },
-            { icon: <Clock size={18} />, label: "Pendientes", value: stats.pendientes, color: "#92400E", bg: "#FEF3C7" },
-            { icon: <CheckCircle size={18} />, label: "Entregados / Finalizados", value: stats.entregados, color: "#15803D", bg: "#DCFCE7" },
-          ].map(s => (
-            <div key={s.label} style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", color: s.color, marginBottom: 10 }}>{s.icon}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, fontFamily: FONT_DISPLAY, color: s.color, marginBottom: 2 }}>{s.value}</div>
-              <div style={{ fontSize: 11.5, color: L.muted, fontWeight: 600 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Resumen por vendedor */}
-        <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <Users size={13} color={C.red} /> Pedidos por vendedor
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {vendedoresList.map(v => {
-              const count = pedidos.filter(p => p.vendedor === v.nombre).length;
-              if (count === 0) return null;
-              return (
-                <button key={v.nombre}
-                  onClick={() => setFiltroVendedor(filtroVendedor === v.nombre ? "todos" : v.nombre)}
-                  style={{ padding: "8px 14px", borderRadius: 10, border: `2px solid ${filtroVendedor === v.nombre ? C.red : L.border}`, background: filtroVendedor === v.nombre ? "#FEF2F2" : L.soft, cursor: "pointer", fontFamily: FONT_BODY, transition: "all .15s" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: filtroVendedor === v.nombre ? C.red : L.text }}>{v.nombre}</div>
-                  <div style={{ fontSize: 11, color: L.muted }}>{count} ped</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
 
           {/* Lista de pedidos */}
@@ -333,6 +302,31 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                   <X size={11} />
                 </button>
               )}
+
+              {/* Rango de fechas */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", opacity: selectedDate ? 0.4 : 1, pointerEvents: selectedDate ? "none" : "auto" }}>
+                <select value={fechaCampo} onChange={e => setFechaCampo(e.target.value)} title="Campo de fecha"
+                  style={{ padding: "8px 10px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                  <option value="entrega">Entrega</option>
+                  <option value="creado">Creado</option>
+                </select>
+                <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} title="Desde"
+                  style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${fechaDesde ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaDesde ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
+                <span style={{ fontSize: 12, color: L.light }}>→</span>
+                <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} title="Hasta"
+                  style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${fechaHasta ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaHasta ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
+              </div>
+
+              {(busqueda || filtroVendedor !== "todos" || filtroEstado !== "todos" || fechaDesde || fechaHasta || selectedDate) && (
+                <button onClick={() => { setBusqueda(""); setFiltroVendedor("todos"); setFiltroEstado("todos"); setFechaDesde(""); setFechaHasta(""); setSelectedDate(null); }}
+                  style={{ display: "flex", alignItems: "center", gap: 5, background: L.soft, color: L.muted, border: `1px solid ${L.border}`, borderRadius: 9, padding: "7px 11px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  <X size={12} /> Limpiar
+                </button>
+              )}
+
+              <span style={{ marginLeft: "auto", fontSize: 12.5, color: L.muted, fontWeight: 600, whiteSpace: "nowrap" }}>
+                {lista.length} {lista.length === 1 ? "pedido" : "pedidos"}
+              </span>
             </div>
 
             {loading ? (
