@@ -34,6 +34,12 @@ function isVencido(iso) {
   if (!iso) return false;
   return new Date(iso + "T23:59:59") < new Date() && !isHoy(iso);
 }
+// Fecha "efectiva" del pedido para el calendario: usa la fecha de entrega si
+// está cargada; si no, cae en la fecha de creación (YYYY-MM-DD).
+function fechaPedido(p) {
+  const fe = parseDet(p.detalle).fecha_entrega;
+  return fe || (p.created_at || "").slice(0, 10);
+}
 
 const VENDOR_COLORS = ["#B91C1C","#1D4ED8","#15803D","#7C3AED","#B45309","#0E7490"];
 
@@ -55,9 +61,9 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
 
   const ordersByDate = {};
   pedidos.forEach(p => {
-    const fe = parseDet(p.detalle).fecha_entrega;
-    if (!fe) return;
-    const d = new Date(fe + "T12:00");
+    const fp = fechaPedido(p);
+    if (!fp) return;
+    const d = new Date(fp + "T12:00");
     if (d.getFullYear() === year && d.getMonth() === month) {
       ordersByDate[d.getDate()] = (ordersByDate[d.getDate()] || 0) + 1;
     }
@@ -190,7 +196,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
     const fechaRef = fechaCampo === "creado" ? (p.created_at || "").slice(0, 10) : fe;
     let porFecha = true;
     if (selectedDate) {
-      porFecha = !!(fe && fe.startsWith(selectedDate));
+      porFecha = fechaPedido(p).startsWith(selectedDate);
     } else {
       if (fechaDesde) porFecha = porFecha && !!fechaRef && fechaRef >= fechaDesde;
       if (fechaHasta) porFecha = porFecha && !!fechaRef && fechaRef <= fechaHasta;
@@ -475,22 +481,28 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
             </div>
             <MiniCalendar pedidos={pedidos} onSelectDate={setSelectedDate} selectedDate={selectedDate} />
 
-            {selectedDate && (
+            {selectedDate && (() => {
+              const pedidosDia = pedidos.filter(p => fechaPedido(p).startsWith(selectedDate));
+              return (
               <div style={{ marginTop: 12, background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: L.muted, marginBottom: 10, textTransform: "capitalize" }}>
-                  {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: L.muted, textTransform: "capitalize" }}>
+                    {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
+                  </span>
+                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: C.red, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, padding: "2px 9px" }}>
+                    {pedidosDia.length} {pedidosDia.length === 1 ? "pedido" : "pedidos"}
+                  </span>
                 </div>
-                {pedidos.filter(p => {
-                  const fe = parseDet(p.detalle).fecha_entrega;
-                  return fe && fe.startsWith(selectedDate);
-                }).map(p => {
+                {pedidosDia.length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: L.light, padding: "6px 0" }}>Sin pedidos este día</div>
+                ) : pedidosDia.map(p => {
                   const cont = contactos[p.contacto_id] || {};
                   const ep = EP[p.estado] || EP.pendiente;
                   return (
                     <div key={p.id} style={{ padding: "8px 0", borderTop: `1px solid ${L.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <VendedorBadge alias={p.vendedor} />
-                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || cont.telefono || "—"}</span>
+                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || cont.telefono || "Cliente sin nombre"}</span>
                         <span style={{ padding: "1px 7px", borderRadius: 6, background: ep.bg, color: ep.color, fontSize: 10.5, fontWeight: 700 }}>{ep.label}</span>
                       </div>
                       <div style={{ fontSize: 12, color: L.muted, marginTop: 3 }}>{parseDet(p.detalle).entrega}</div>
@@ -498,7 +510,8 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
