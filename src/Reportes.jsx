@@ -7,12 +7,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   MessageSquare, Users, UserPlus, Target, Package,
-  Clock, Bot, AlertTriangle, DollarSign, Receipt,
+  Clock, Bot, AlertTriangle,
   TrendingUp, Download, FileText, ArrowDownToLine,
 } from "lucide-react";
 import {
   supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
-  rangoFechas, fmtFecha, fmtFechaLarga, fmtMoneda, exportarCSV,
+  rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV,
 } from "./lib";
 
 const PALETA = ["#9C1B1B", "#6366F1", "#D4A13A", "#0891B2", "#5D6B3A", "#EA580C", "#16A34A", "#BE185D"];
@@ -267,10 +267,10 @@ export default function Reportes() {
       const empresa  = p.contactos?.empresa || "";
       const fecha    = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
       if (det.items.length === 0) {
-        filas.push({ "N° Pedido": shortId(p.id), Fecha: fecha, Cliente: cliente, Teléfono: telefono, Empresa: empresa, Vendedor: p.vendedor || "", Estado: p.estado || "", Artículo: "", Cantidad: "", "Precio unit.": "", Subtotal: "", Notas: det.notas, Entrega: det.entrega, Dirección: det.direccion, Pago: det.pago, Total: p.total || 0 });
+        filas.push({ "N° Pedido": shortId(p.id), Fecha: fecha, Cliente: cliente, Teléfono: telefono, Empresa: empresa, Vendedor: p.vendedor || "", Estado: p.estado || "", Artículo: "", Cantidad: "", Notas: det.notas, Entrega: det.entrega, Dirección: det.direccion, Pago: det.pago });
       } else {
         det.items.forEach((it, idx) => {
-          filas.push({ "N° Pedido": idx === 0 ? shortId(p.id) : "", Fecha: idx === 0 ? fecha : "", Cliente: idx === 0 ? cliente : "", Teléfono: idx === 0 ? telefono : "", Empresa: idx === 0 ? empresa : "", Vendedor: idx === 0 ? (p.vendedor || "") : "", Estado: idx === 0 ? (p.estado || "") : "", Artículo: it.desc, Cantidad: it.qty, "Precio unit.": it.precio, Subtotal: (Number(it.qty) || 0) * (Number(it.precio) || 0), Notas: idx === 0 ? det.notas : "", Entrega: idx === 0 ? det.entrega : "", Dirección: idx === 0 ? det.direccion : "", Pago: idx === 0 ? det.pago : "", Total: idx === 0 ? (p.total || 0) : "" });
+          filas.push({ "N° Pedido": idx === 0 ? shortId(p.id) : "", Fecha: idx === 0 ? fecha : "", Cliente: idx === 0 ? cliente : "", Teléfono: idx === 0 ? telefono : "", Empresa: idx === 0 ? empresa : "", Vendedor: idx === 0 ? (p.vendedor || "") : "", Estado: idx === 0 ? (p.estado || "") : "", Artículo: limpiarPrecios(it.desc), Cantidad: it.qty, Notas: idx === 0 ? det.notas : "", Entrega: idx === 0 ? det.entrega : "", Dirección: idx === 0 ? det.direccion : "", Pago: idx === 0 ? det.pago : "" });
         });
       }
     }
@@ -291,22 +291,19 @@ export default function Reportes() {
       const cliente = p.contactos?.nombre || p.contactos?.telefono || "";
       const tel    = p.contactos?.telefono || "";
       const fecha  = new Date(p.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-      const articulos = det.items.map((i) => `${i.qty}x ${i.desc}`).join("\n") || "—";
-      body.push([shortId(p.id), fecha, cliente, tel, p.vendedor || "—", p.estado || "—", articulos, det.entrega, det.pago, fmtMoneda(p.total)]);
+      const articulos = det.items.map((i) => `${i.qty}x ${limpiarPrecios(i.desc)}`).join("\n") || "—";
+      body.push([shortId(p.id), fecha, cliente, tel, p.vendedor || "—", p.estado || "—", articulos, det.entrega, det.pago]);
     }
     autoTable(doc, {
       startY: 28,
-      head: [["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Artículos","Entrega","Pago","Total"]],
+      head: [["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Artículos","Entrega","Pago"]],
       body,
       headStyles: { fillColor: [156, 27, 27], fontSize: 8.5 },
       styles: { fontSize: 8, cellPadding: 3, overflow: "linebreak" },
-      columnStyles: { 6: { cellWidth: 55 } },
+      columnStyles: { 6: { cellWidth: 70 } },
       alternateRowStyles: { fillColor: [252, 248, 240] },
     });
-    const tot = pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0);
     const y = doc.lastAutoTable.finalY + 8;
-    doc.setFontSize(10); doc.setTextColor(40, 30, 20);
-    doc.text(`Total facturado: ${fmtMoneda(tot)}`, 14, y);
     doc.setFontSize(7.5); doc.setTextColor(140, 132, 114);
     doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, y + 6);
     doc.save(`pedidos-nm-${pDesde}-al-${pHasta}.pdf`);
@@ -358,7 +355,7 @@ export default function Reportes() {
       const msgsV    = msgs.filter((m) => m.agente === v).length;
       const nuevosV  = nuevos.filter((c) => c.vendedor === v).length;
       const cerrados = cont.filter((c) => ["pedido","cerrado","vendido"].includes(c.estado)).length;
-      return { vendedor: v, contactos: cont.length, nuevos: nuevosV, cerrados, conversion: cont.length ? Math.round(cerrados / cont.length * 100) : 0, pedidos: ped.length, facturacion: ped.reduce((s, p) => s + (Number(p.total) || 0), 0), mensajes: msgsV };
+      return { vendedor: v, contactos: cont.length, nuevos: nuevosV, cerrados, conversion: cont.length ? Math.round(cerrados / cont.length * 100) : 0, pedidos: ped.length, mensajes: msgsV };
     });
     const vendedoresActivos = porVendedor.filter((v) => v.contactos > 0 || v.mensajes > 0);
     const porEstado = Object.entries(ESTADOS).map(([k, v]) => ({ name: v.label, value: contactos.filter((c) => c.estado === k).length }));
@@ -372,10 +369,8 @@ export default function Reportes() {
       .map((c) => (new Date(c.ultimo_out_at) - new Date(c.ultimo_in_at)) / 60000)
       .filter((t) => t > 0 && t < 1440);
     const tiempoPromMin = tiemposMin.length ? tiemposMin.reduce((a, b) => a + b, 0) / tiemposMin.length : null;
-    const facturacion  = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
     const totalPedidos = pedidos.length;
-    const ticket       = totalPedidos ? facturacion / totalPedidos : 0;
-    setData({ serie, horarios, porVendedor, vendedoresActivos, porEstado, kpis: { msgsIn: msgs.filter((m) => m.direccion === "in").length, msgsTotal: msgs.length, contactosActivos, nuevos: nuevos.length, totalContactos: contactos.length, cerradosTot, tasaConversion, totalPedidos, facturacion, ticket, botCount, agenteCount, botPct, botAutonomo, agenteManual, segVencidos, tiempoPromMin }, periodo, inicio, fin });
+    setData({ serie, horarios, porVendedor, vendedoresActivos, porEstado, kpis: { msgsIn: msgs.filter((m) => m.direccion === "in").length, msgsTotal: msgs.length, contactosActivos, nuevos: nuevos.length, totalContactos: contactos.length, cerradosTot, tasaConversion, totalPedidos, botCount, agenteCount, botPct, botAutonomo, agenteManual, segVencidos, tiempoPromMin }, periodo, inicio, fin });
     setLoading(false);
   }, [periodo]);
 
@@ -402,8 +397,6 @@ export default function Reportes() {
         ["Total contactos (acumulado)", String(kpis.totalContactos)],
         ["Tasa de conversión global", `${kpis.tasaConversion}% (${kpis.cerradosTot} de ${kpis.totalContactos})`],
         ["Pedidos", String(kpis.totalPedidos)],
-        ["Facturación", fmtMoneda(kpis.facturacion)],
-        ["Ticket promedio", fmtMoneda(kpis.ticket)],
         ["Atendido por bot", `${kpis.botPct}% (${kpis.botCount} mensajes)`],
         ["Tiempo prom. respuesta", fmtMin(kpis.tiempoPromMin)],
         ["Seguimientos vencidos", String(kpis.segVencidos)],
@@ -416,8 +409,8 @@ export default function Reportes() {
     doc.setFontSize(14); doc.text("Rendimiento por vendedor", 14, y2);
     autoTable(doc, {
       startY: y2 + 4,
-      head: [["Vendedor","Contactos","Nuevos","Cerrados","Conv.%","Pedidos","Facturación","Mensajes"]],
-      body: porVendedor.map((v) => [v.vendedor, v.contactos, v.nuevos, v.cerrados, `${v.conversion}%`, v.pedidos, fmtMoneda(v.facturacion), v.mensajes]),
+      head: [["Vendedor","Contactos","Nuevos","Cerrados","Conv.%","Pedidos","Mensajes"]],
+      body: porVendedor.map((v) => [v.vendedor, v.contactos, v.nuevos, v.cerrados, `${v.conversion}%`, v.pedidos, v.mensajes]),
       headStyles: { fillColor: [212, 161, 58], textColor: [40, 30, 20] },
       styles: { fontSize: 8.5 },
       alternateRowStyles: { fillColor: [252, 248, 240] },
@@ -429,7 +422,7 @@ export default function Reportes() {
 
   const exportarCSVBtn = () => {
     if (!data) return;
-    exportarCSV(data.porVendedor.map((v) => ({ Vendedor: v.vendedor, Contactos: v.contactos, "Nuevos período": v.nuevos, Cerrados: v.cerrados, "Conversión %": v.conversion, Pedidos: v.pedidos, Facturación: v.facturacion, Mensajes: v.mensajes })), `vendedores-nm-${periodo}`);
+    exportarCSV(data.porVendedor.map((v) => ({ Vendedor: v.vendedor, Contactos: v.contactos, "Nuevos período": v.nuevos, Cerrados: v.cerrados, "Conversión %": v.conversion, Pedidos: v.pedidos, Mensajes: v.mensajes })), `vendedores-nm-${periodo}`);
   };
 
   // ── Estilos comunes ──────────────────────────────────────────────────────
@@ -539,8 +532,6 @@ export default function Reportes() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 20 }}>
                   {[
                     ["Pedidos totales", pedResult.length],
-                    ["Facturación", fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))],
-                    ["Ticket promedio", fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0) / pedResult.length)],
                   ].map(([l, v]) => (
                     <div key={l} style={{ padding: "14px 16px", background: T.soft, borderRadius: 8, border: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 10.5, fontWeight: 600, color: T.muted, textTransform: "uppercase", letterSpacing: 0.7 }}>{l}</div>
@@ -554,7 +545,7 @@ export default function Reportes() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: `2px solid ${T.border}`, background: T.soft }}>
-                        {["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Productos","Notas","Entrega","Dirección","Pago","Total"].map((h) => (
+                        {["N°","Fecha","Cliente","Teléfono","Vendedor","Estado","Productos","Notas","Entrega","Dirección","Pago"].map((h) => (
                           <th key={h} style={{ padding: "9px 12px", fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, color: T.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
@@ -581,7 +572,7 @@ export default function Reportes() {
                               {det.items.length > 0
                                 ? det.items.map((it, k) => (
                                     <div key={k} style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                                      <strong>{it.qty}×</strong> {it.desc}{it.precio ? <span style={{ color: T.muted }}> — {fmtMoneda(it.precio)}</span> : ""}
+                                      <strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}
                                     </div>
                                   ))
                                 : "—"}
@@ -590,13 +581,11 @@ export default function Reportes() {
                             <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: T.sub }}>{det.entrega || "—"}</td>
                             <td style={{ padding: "9px 12px", color: T.muted, fontSize: 12, maxWidth: 140 }}>{det.direccion || "—"}</td>
                             <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: T.sub }}>{det.pago || "—"}</td>
-                            <td style={{ padding: "9px 12px", fontWeight: 700, color: "#16A34A", whiteSpace: "nowrap", fontSize: 14 }}>{fmtMoneda(p.total)}</td>
                           </tr>
                         );
                       })}
                       <tr style={{ borderTop: `2px solid ${T.border}`, background: T.soft, fontWeight: 700 }}>
                         <td colSpan={11} style={{ padding: "10px 12px", color: T.sub, fontSize: 12.5 }}>{pedResult.length} pedidos</td>
-                        <td style={{ padding: "10px 12px", color: "#16A34A", fontWeight: 800, fontSize: 14 }}>{fmtMoneda(pedResult.reduce((s, p) => s + (Number(p.total) || 0), 0))}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -636,10 +625,6 @@ export default function Reportes() {
               <Kpi Icon={Package} label="Pedidos" valor={data.kpis.totalPedidos}
                 sub="en el período"
                 iconColor="#0891B2" iconBg="#ECFEFF" />
-              <Kpi Icon={DollarSign} label="Facturación" valor={fmtMoneda(data.kpis.facturacion)}
-                iconColor="#16A34A" iconBg="#F0FDF4" />
-              <Kpi Icon={Receipt} label="Ticket promedio" valor={fmtMoneda(data.kpis.ticket)}
-                iconColor="#EA580C" iconBg="#FFF7ED" />
               <Kpi Icon={Clock} label="T. resp. promedio" valor={fmtMin(data.kpis.tiempoPromMin)}
                 sub="tiempo hasta primera respuesta"
                 iconColor={T.muted} iconBg={T.soft} />
@@ -733,7 +718,7 @@ export default function Reportes() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: `2px solid ${T.border}`, background: T.soft }}>
-                      {["Vendedor","Contactos","Nuevos","Cerrados","Conversión","Pedidos","Facturación","Mensajes"].map((h) => (
+                      {["Vendedor","Contactos","Nuevos","Cerrados","Conversión","Pedidos","Mensajes"].map((h) => (
                         <th key={h} style={{ padding: "9px 12px", fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, color: T.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
@@ -760,7 +745,6 @@ export default function Reportes() {
                             </span>
                           </td>
                           <td style={{ padding: "9px 12px", color: T.sub }}>{v.pedidos}</td>
-                          <td style={{ padding: "9px 12px", color: T.sub, fontWeight: 600 }}>{fmtMoneda(v.facturacion)}</td>
                           <td style={{ padding: "9px 12px", color: T.sub }}>{v.mensajes}</td>
                         </tr>
                       );
@@ -776,7 +760,6 @@ export default function Reportes() {
                         </span>
                       </td>
                       <td style={{ padding: "9px 12px" }}>{data.kpis.totalPedidos}</td>
-                      <td style={{ padding: "9px 12px", color: "#16A34A", fontWeight: 700 }}>{fmtMoneda(data.kpis.facturacion)}</td>
                       <td style={{ padding: "9px 12px" }}>{data.kpis.agenteCount}</td>
                     </tr>
                   </tbody>

@@ -1721,12 +1721,6 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                 onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; }}>
                 <Trash2 size={14} /> Eliminar
               </button>
-              <button onClick={() => setPedido(true)}
-                style={{ background: C.red, border: "none", color: "#fff", borderRadius: 9, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)", transition: "all .15s", flexShrink: 0 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = C.redDark; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = C.red; }}>
-                <ShoppingBag size={14} /> Nuevo Pedido
-              </button>
             </>
           )}
         </div>
@@ -1737,10 +1731,6 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
               <button onClick={() => setDrawer(true)}
                 style={{ ...btnSt, flexShrink: 0, fontSize: 12, padding: "6px 11px", background: L.soft, color: L.muted, borderColor: L.border }}>
                 <Pencil size={13} /> Editar
-              </button>
-              <button onClick={() => setPedido(true)}
-                style={{ ...btnSt, flexShrink: 0, fontSize: 12, padding: "6px 11px", background: C.red, color: "#fff", borderColor: C.red }}>
-                <ShoppingBag size={13} /> Pedido
               </button>
             </>
           )}
