@@ -486,6 +486,18 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Tiempo real: si Administración cambia el estado de un pedido (preparando,
+  // entregado, etc.), el vendedor lo ve al instante sin recargar.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`pedidos-vend-${vendorInfo.alias}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "pedidos", filter: `vendedor=eq.${vendorInfo.alias}` },
+        () => cargar())
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [vendorInfo.alias, cargar]);
+
   useEffect(() => {
     const alerts = [];
     pedidos.forEach(p => {
