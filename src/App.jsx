@@ -22,16 +22,33 @@ import AdministracionPanel from "./AdministracionPanel";
 // ============================================================
 // HELPERS DE MENSAJES
 // ============================================================
+// ¿Es una respuesta automática del bot saliente?
+const esRespuestaBot = (m) =>
+  m.direccion === "out" && (m.origen === "bot" || (!m.origen && !m.agente));
+
 // Ordena cronológicamente; ante el mismo timestamp, el mensaje
 // del cliente (entrante) va siempre antes que la respuesta del bot/agente.
-const ordenarMensajes = (arr) =>
-  [...(arr || [])].sort((a, b) => {
+const ordenarMensajes = (arr) => {
+  const sorted = [...(arr || [])].sort((a, b) => {
     const ta = new Date(a.created_at).getTime();
     const tb = new Date(b.created_at).getTime();
     if (ta !== tb) return ta - tb;
     if (a.direccion !== b.direccion) return a.direccion === "in" ? -1 : 1;
     return 0;
   });
+  // n8n guarda la respuesta del bot ('out') JUSTO ANTES del mensaje del cliente
+  // ('in') que la disparó, dejando al bot adelante por unos milisegundos. Si una
+  // respuesta del bot aparece pegada (≤ 6 s) antes de un mensaje del cliente, los
+  // intercambiamos para que el cliente quede primero (que es lo real).
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i], b = sorted[i + 1];
+    if (esRespuestaBot(a) && b.direccion === "in") {
+      const gap = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (gap >= 0 && gap <= 6000) { sorted[i] = b; sorted[i + 1] = a; }
+    }
+  }
+  return sorted;
+};
 
 // Resuelve la info de medios de un mensaje, tolerando distintos nombres de
 // campo (los que use el bot/n8n para imágenes, videos, audios o documentos).
