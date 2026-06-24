@@ -39,12 +39,20 @@ create policy "chat_media_delete"
 -- 4) Versión ampliada de ingest_mensaje para que n8n/el bot puedan
 --    guardar el medio (URL + tipo + nombre) al recibir/enviar imágenes.
 --    Es una sobrecarga nueva: la versión vieja (5 parámetros) sigue funcionando.
+--
+--    IMPORTANTE (orden de los mensajes): n8n guarda primero la respuesta del
+--    bot ('out') y después el mensaje del cliente ('in') que la disparó, por lo
+--    que el bot quedaba con una hora anterior y aparecía primero en el chat.
+--    Corrección: al guardar un mensaje ENTRANTE ('in'), si justo antes se guardó
+--    una respuesta del bot (últimos 15 s), lo ubicamos 1 segundo ANTES de esa
+--    respuesta. Así el mensaje del cliente siempre queda delante de la respuesta
+--    que generó, sin afectar mensajes de otros momentos.
 create or replace function ingest_mensaje(
   p_telefono text, p_nombre text, p_contenido text,
   p_direccion text, p_origen text,
   p_media_url text, p_media_tipo text, p_media_nombre text
 ) returns void as $$
-declare v_id uuid;
+declare v_id uuid; v_last_out timestamptz; v_created timestamptz := now();
 begin
   insert into contactos (telefono, nombre)
   values (p_telefono, nullif(p_nombre,''))
@@ -56,8 +64,49 @@ begin
     select id into v_id from contactos where telefono = p_telefono;
   end if;
 
-  insert into mensajes (contacto_id, direccion, origen, contenido, media_url, media_tipo, media_nombre)
+  if p_direccion = 'in' then
+    select created_at into v_last_out from mensajes
+      where contacto_id = v_id and direccion = 'out'
+      order by created_at desc limit 1;
+    if v_last_out is not null and v_last_out > now() - interval '15 seconds' then
+      v_created := least(now(), v_last_out - interval '1 second');
+    end if;
+  end if;
+
+  insert into mensajes (contacto_id, direccion, origen, contenido, media_url, media_tipo, media_nombre, created_at)
   values (v_id, p_direccion, p_origen, p_contenido,
-          nullif(p_media_url,''), nullif(p_media_tipo,''), nullif(p_media_nombre,''));
+          nullif(p_media_url,''), nullif(p_media_tipo,''), nullif(p_media_nombre,''), v_created);
+end;
+$$ language plpgsql security definer;
+
+-- 4b) MISMO ARREGLO DE ORDEN para la versión de 5 parámetros (la que usa hoy n8n).
+--     Esto es lo que efectivamente corrige el orden en la app actual.
+create or replace function ingest_mensaje(
+  p_telefono text, p_nombre text, p_contenido text,
+  p_direccion text, p_origen text
+) returns void as $$
+declare v_id uuid; v_last_out timestamptz; v_created timestamptz := now();
+begin
+  insert into contactos (telefono, nombre)
+  values (p_telefono, nullif(p_nombre,''))
+  on conflict (telefono) do update
+    set nombre = coalesce(nullif(excluded.nombre,''), contactos.nombre)
+  returning id into v_id;
+
+  if v_id is null then
+    select id into v_id from contactos where telefono = p_telefono;
+  end if;
+
+  if p_direccion = 'in' then
+    select created_at into v_last_out from mensajes
+      where contacto_id = v_id and direccion = 'out'
+      order by created_at desc limit 1;
+    if v_last_out is not null and v_last_out > now() - interval '15 seconds' then
+      v_created := least(now(), v_last_out - interval '1 second');
+    end if;
+  end if;
+
+  insert into mensajes (contacto_id, direccion, origen, contenido, created_at)
+  values (v_id, p_direccion, p_origen, p_contenido, v_created);
 end;
 $$ language plpgsql security definer;
