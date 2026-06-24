@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Package, Search, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
-  Trash2, AlertCircle,
+  Trash2, AlertCircle, User,
   Phone, Download, MapPin, FileDown,
 } from "lucide-react";
 import {
@@ -347,24 +347,33 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
 
               return (
                 <div key={ped.id}
-                  style={{ background: L.white, border: `1.5px solid ${borderColor}`, borderRadius: 12, marginBottom: 10, padding: "16px 18px", boxShadow: "0 1px 4px rgba(0,0,0,.04)", transition: "box-shadow .15s" }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)"}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)"}>
+                  style={{ background: L.white, border: `1.5px solid ${borderColor}`, borderLeft: `5px solid ${ep.color}`, borderRadius: 12, marginBottom: 12, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,.04)", transition: "box-shadow .15s, transform .15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.09)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)"; e.currentTarget.style.transform = "translateY(0)"; }}>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
 
                     {/* Izquierda */}
                     <div style={{ flex: 1, minWidth: 220 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                        <VendedorBadge alias={ped.vendedor} />
-                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: L.text }}>
-                          {cont.nombre || cont.telefono || "—"}
+                      {/* Cliente + Estado */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: "#FEF2F2", flexShrink: 0 }}>
+                          <User size={16} color={C.red} />
                         </span>
-                        {cont.empresa && <span style={{ fontSize: 11.5, color: L.muted }}>· {cont.empresa}</span>}
-                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{ep.label}</span>
+                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: L.text, letterSpacing: 0.2 }}>
+                          {cont.nombre || cont.telefono || "Cliente sin nombre"}
+                        </span>
+                        {cont.empresa && <span style={{ fontSize: 12, color: L.muted }}>· {cont.empresa}</span>}
+                        <span style={{ fontSize: 12.5, padding: "5px 14px", borderRadius: 999, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
                       </div>
 
-                      <div style={{ fontSize: 13, color: L.muted, marginBottom: 8, lineHeight: 1.5 }}>
+                      {/* Vendedor */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                        <span style={{ fontSize: 10.5, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</span>
+                        <VendedorBadge alias={ped.vendedor} />
+                      </div>
+
+                      <div style={{ fontSize: 13.5, color: L.muted, marginBottom: 10, lineHeight: 1.55 }}>
                         {det.items.filter(i => i.desc?.trim()).slice(0, 4).map((it, idx) => (
                           <span key={idx}>{idx > 0 ? " · " : ""}
                             <strong style={{ color: L.text }}>{it.qty}×</strong> {limpiarPrecios(it.desc)}
@@ -425,10 +434,13 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                       )}
 
                       {/* Estado */}
-                      <select value={ped.estado} onChange={e => updateEstado(ped.id, e.target.value)}
-                        style={{ padding: "5px 10px", borderRadius: 8, border: `1.5px solid ${ep.color}40`, fontSize: 12.5, fontFamily: FONT_BODY, background: ep.bg, color: ep.color, cursor: "pointer", outline: "none", fontWeight: 700 }}>
-                        {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                      </select>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                        <span style={{ fontSize: 10, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado del pedido</span>
+                        <select value={ped.estado} onChange={e => updateEstado(ped.id, e.target.value)}
+                          style={{ padding: "9px 16px", borderRadius: 10, border: `2px solid ${ep.color}55`, fontSize: 14.5, fontFamily: FONT_DISPLAY, background: ep.bg, color: ep.color, cursor: "pointer", outline: "none", fontWeight: 800, letterSpacing: 0.3, boxShadow: `0 1px 3px ${ep.color}22` }}>
+                          {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                      </div>
 
                       {/* PDF + Eliminar */}
                       <div style={{ display: "flex", gap: 6 }}>
