@@ -339,12 +339,12 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
                   placeholder="Ej: Charly Dog" style={inp} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 11, color: L.muted, marginBottom: 5, fontWeight: 600 }}>Teléfono</label>
+                <label style={{ display: "block", fontSize: 11, color: L.muted, marginBottom: 5, fontWeight: 600 }}>Teléfono <span style={{ color: L.light, fontWeight: 400 }}>(opcional)</span></label>
                 <input value={form.clienteTel} onChange={e => set("clienteTel", e.target.value)}
                   placeholder="5491155551234" style={inp} type="tel" />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
-                <label style={{ display: "block", fontSize: 11, color: L.muted, marginBottom: 5, fontWeight: 600 }}>Dirección</label>
+                <label style={{ display: "block", fontSize: 11, color: L.muted, marginBottom: 5, fontWeight: 600 }}>Dirección <span style={{ color: L.light, fontWeight: 400 }}>(opcional)</span></label>
                 <input value={form.clienteDireccion} onChange={e => set("clienteDireccion", e.target.value)}
                   placeholder="Calle, número, barrio" style={inp} />
               </div>
