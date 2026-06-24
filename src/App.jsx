@@ -1343,7 +1343,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
         </div>
       </div>
 
-      {(vista === "chat" || vista === "contactos" || vista === "vendedores") && (
+      {(vista === "chat" || vista === "contactos") && (
         <>
           {/* ── Búsqueda ── */}
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${L.border}` }}>
@@ -1435,7 +1435,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
           </div>
         </>
       )}
-      {vista === "reportes" && <div style={{ flex: 1 }} />}
+      {(vista === "reportes" || vista === "vendedores" || vista === "pedidos") && <div style={{ flex: 1 }} />}
 
       {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
 
@@ -1769,10 +1769,6 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: contacto.bot_activo ? "#DCFCE7" : "#FEF2F2", color: contacto.bot_activo ? "#15803D" : C.red, borderColor: contacto.bot_activo ? "#86EFAC" : "#FECACA" }}>
             {contacto.bot_activo ? <><Bot size={13} /> Bot</> : <><User size={13} /> {isMobile ? "Agente" : "Yo atiendo"}</>}
           </button>
-          <button onClick={agregarAPedido} disabled={agregandoPed} title="Agregar a pedidos y enviar a Administración"
-            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: pedidoOk ? "#16A34A" : "#1E3A5F", color: "#fff", borderColor: pedidoOk ? "#16A34A" : "#1E3A5F", fontWeight: 700, opacity: agregandoPed ? 0.7 : 1 }}>
-            {pedidoOk ? <><Check size={13} /> Agregado</> : <><Package size={13} /> {agregandoPed ? "Agregando…" : "Agregar a pedidos"}</>}
-          </button>
         </div>
       </div>
 
@@ -2010,6 +2006,30 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
 }
 
 // ============================================================
+// PANEL VENDEDORES (admin) — pedidos/actividad de cada vendedor
+// ============================================================
+function VendedoresPanel({ isMobile }) {
+  const [sel, setSel] = useState(VENDEDORES[0]);
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+      {/* Selector de vendedor */}
+      <div className="strip" style={{ display: "flex", gap: 8, padding: isMobile ? "10px 12px" : "12px 18px", overflowX: "auto", background: L.white, borderBottom: `1px solid ${L.border}`, flexShrink: 0 }}>
+        {VENDEDORES.map((v) => (
+          <button key={v} onClick={() => setSel(v)}
+            style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 999, border: `2px solid ${sel === v ? C.red : L.border}`, background: sel === v ? "#FEF2F2" : L.soft, color: sel === v ? C.red : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, transition: "all .15s" }}>
+            {v}
+          </button>
+        ))}
+      </div>
+      {/* Panel del vendedor seleccionado (sin botón de cerrar sesión) */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <VendedorDashboard key={sel} vendorAliasOverride={sel} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // APP
 // ============================================================
 export default function App() {
@@ -2114,7 +2134,7 @@ export default function App() {
   }
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "reportes" || vista === "admin" || vista === "ajustes");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes");
 
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
@@ -2154,6 +2174,11 @@ export default function App() {
           <>
             {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>
+          </>
+        ) : vista === "vendedores" ? (
+          <>
+            {isMobile && <MobileBack title="Vendedores" onBack={() => setVista("chat")} />}
+            <VendedoresPanel isMobile={isMobile} />
           </>
         ) : activo ? (
           <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}

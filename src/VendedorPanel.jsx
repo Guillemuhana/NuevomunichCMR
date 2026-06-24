@@ -20,7 +20,6 @@ const L = {
 const TIPOS = [
   { k: "pedido",   label: "Pedido",   icon: <Package size={14} />,   color: "#1D4ED8", bg: "#DBEAFE" },
   { k: "visita",   label: "Visita",   icon: <Truck size={14} />,     color: "#15803D", bg: "#DCFCE7" },
-  { k: "llamada",  label: "Llamada",  icon: <PhoneCall size={14} />, color: "#7C3AED", bg: "#EDE9FE" },
   { k: "reunion",  label: "Reunión",  icon: <Users size={14} />,     color: "#B45309", bg: "#FEF3C7" },
 ];
 
@@ -60,8 +59,8 @@ function parseDetEx(raw) {
   const base = parseDet(raw);
   try {
     const p = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
-    return { ...base, tipo: p.tipo || "pedido", observacion: p.observacion || base.notas || "", detalle_extra: p.detalle_extra || "", fecha_visita: p.fecha_visita || null };
-  } catch { return { ...base, tipo: "pedido", observacion: "", detalle_extra: "", fecha_visita: null }; }
+    return { ...base, tipo: p.tipo || "pedido", clienteNombre: p.clienteNombre || "", clienteTel: p.clienteTel || "", observacion: p.observacion || base.notas || "", detalle_extra: p.detalle_extra || "", fecha_visita: p.fecha_visita || null };
+  } catch { return { ...base, tipo: "pedido", clienteNombre: "", clienteTel: "", observacion: "", detalle_extra: "", fecha_visita: null }; }
 }
 
 // ── Mini Calendario ──────────────────────────────────────────
@@ -268,6 +267,8 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
 
       const det = {
         tipo: form.tipo,
+        clienteNombre: form.clienteNombre,
+        clienteTel: form.clienteTel,
         items: form.items.filter(i => i.desc?.trim()).map(i => ({ qty: Number(i.qty) || 1, desc: i.desc, precio: 0 })),
         observacion: form.observacion,
         detalle_extra: form.detalle_extra,
@@ -350,7 +351,8 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
             </div>
           </div>
 
-          {/* Pedido / Productos */}
+          {/* Pedido / Productos — no aplica para Visita */}
+          {form.tipo !== "visita" && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Productos / Pedido</label>
@@ -372,24 +374,33 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
               </div>
             ))}
           </div>
+          )}
 
-          {/* Observación y Detalle */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          {/* Observación (+ Detalle adicional, salvo en Visita) */}
+          <div style={{ display: "grid", gridTemplateColumns: form.tipo === "visita" ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Observación</label>
               <textarea value={form.observacion} onChange={e => set("observacion", e.target.value)}
-                placeholder="Ej: Visite cliente, pidió surtido de embutidos. Llamar para confirmar próxima semana."
-                rows={3} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
+                placeholder="Ej: Visité al cliente, pidió surtido de embutidos. Confirmar próxima semana."
+                rows={form.tipo === "visita" ? 4 : 3} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
             </div>
+            {form.tipo !== "visita" && (
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Detalle adicional</label>
               <textarea value={form.detalle_extra} onChange={e => set("detalle_extra", e.target.value)}
                 placeholder="Condiciones especiales, descuentos pactados, persona de contacto..."
                 rows={3} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
             </div>
+            )}
           </div>
 
-          {/* Fechas y logística */}
+          {/* Fechas y logística — en Visita, solo el calendario de la visita */}
+          {form.tipo === "visita" ? (
+          <div style={{ background: L.soft, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Fecha de la visita</div>
+            <input type="date" value={form.fechaVisita} onChange={e => set("fechaVisita", e.target.value)} style={{ ...inp, maxWidth: 220 }} />
+          </div>
+          ) : (
           <div style={{ background: L.soft, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Fechas y logística</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
@@ -418,6 +429,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
               </div>
             </div>
           </div>
+          )}
 
           {/* Estado */}
           <div>
