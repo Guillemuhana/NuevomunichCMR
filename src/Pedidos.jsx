@@ -7,7 +7,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, fmtMoneda,
+  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios,
 } from "./lib";
 
 // Paleta light (igual que App.jsx)
@@ -148,21 +148,16 @@ export function imprimirPedido(pedido, contacto) {
   const items = det.items.filter((i) => i.desc?.trim());
   autoTable(doc, {
     startY: y + 5,
-    head: [["Cant.", "Descripción", "Precio unit.", "Subtotal"]],
+    head: [["Cant.", "Descripción"]],
     body: items.map((i) => [
       String(i.qty || 1),
-      i.desc || "",
-      fmtMoneda(i.precio || 0),
-      fmtMoneda((i.qty || 1) * (i.precio || 0)),
+      limpiarPrecios(i.desc || ""),
     ]),
-    foot: [["", "", "TOTAL", fmtMoneda(pedido.total || 0)]],
     headStyles:  { fillColor: [156, 27, 27], fontSize: 9.5, fontStyle: "bold", halign: "center" },
     bodyStyles:  { fontSize: 10, cellPadding: 4 },
-    footStyles:  { fillColor: [212, 161, 58], fontStyle: "bold", fontSize: 12, textColor: [40, 30, 20] },
     columnStyles: {
       0: { cellWidth: 18, halign: "center" },
-      2: { cellWidth: 34, halign: "right" },
-      3: { cellWidth: 34, halign: "right", fontStyle: "bold" },
+      1: { cellWidth: 168 },
     },
     alternateRowStyles: { fillColor: [252, 248, 240] },
     margin: { left: 14, right: 14 },
@@ -202,7 +197,7 @@ export function imprimirPedido(pedido, contacto) {
 // MODAL — Nuevo / Editar Pedido
 // ═══════════════════════════════════════════════
 export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onClose, onGuardado }) {
-  const [items, setItems]         = useState(mensajeInicial ? [{ desc: mensajeInicial, qty: 1, precio: "" }] : [{ desc: "", qty: 1, precio: "" }]);
+  const [items, setItems]         = useState(mensajeInicial ? [{ desc: mensajeInicial, qty: 1, precio: 0 }] : [{ desc: "", qty: 1, precio: 0 }]);
   const [notas, setNotas]         = useState("");
   const [entrega, setEntrega]     = useState("Retiro en local");
   const [direccion, setDireccion] = useState(contacto?.direccion || "");
@@ -212,9 +207,9 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState("");
 
-  const total = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.precio) || 0), 0);
+  const total = 0; // En este CRM no se manejan precios
 
-  const addItem    = () => setItems((p) => [...p, { desc: "", qty: 1, precio: "" }]);
+  const addItem    = () => setItems((p) => [...p, { desc: "", qty: 1, precio: 0 }]);
   const removeItem = (i) => setItems((p) => p.filter((_, idx) => idx !== i));
   const updItem    = (i, k, v) => setItems((p) => p.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
 
@@ -267,49 +262,30 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
             </div>
 
             {/* Cabecera de columnas */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 68px 110px 88px 32px", gap: 6, marginBottom: 6, padding: "0 2px" }}>
-              {["Descripción", "Cant.", "$ Precio unit.", "Subtotal", ""].map((h) => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 88px 32px", gap: 6, marginBottom: 6, padding: "0 2px" }}>
+              {["Descripción", "Cant.", ""].map((h) => (
                 <div key={h} style={{ fontSize: 10.5, fontWeight: 700, color: L.light, textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</div>
               ))}
             </div>
 
             {/* Filas */}
-            {items.map((item, i) => {
-              const sub = (Number(item.qty) || 0) * (Number(item.precio) || 0);
-              return (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 68px 110px 88px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
-                  <input value={item.desc} onChange={(e) => updItem(i, "desc", e.target.value)}
-                    placeholder="Ej: Empanadas de carne" style={inp} />
-                  <input type="number" min="1" value={item.qty} onChange={(e) => updItem(i, "qty", e.target.value)}
-                    style={{ ...inp, textAlign: "center" }} />
-                  <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: L.muted, fontSize: 13, fontWeight: 700, pointerEvents: "none" }}>$</span>
-                    <input type="number" min="0" value={item.precio} onChange={(e) => updItem(i, "precio", e.target.value)}
-                      placeholder="0" style={{ ...inp, paddingLeft: 22, textAlign: "right" }} />
-                  </div>
-                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, color: sub > 0 ? C.red : L.light, textAlign: "right", paddingRight: 4 }}>
-                    {sub > 0 ? fmtMoneda(sub) : "—"}
-                  </div>
-                  <button onClick={() => removeItem(i)} disabled={items.length === 1}
-                    style={{ background: "transparent", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? L.border : "#EF4444", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, padding: 4 }}>
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              );
-            })}
+            {items.map((item, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 88px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                <input value={item.desc} onChange={(e) => updItem(i, "desc", e.target.value)}
+                  placeholder="Ej: Empanadas de carne" style={inp} />
+                <input type="number" min="1" value={item.qty} onChange={(e) => updItem(i, "qty", e.target.value)}
+                  style={{ ...inp, textAlign: "center" }} />
+                <button onClick={() => removeItem(i)} disabled={items.length === 1}
+                  style={{ background: "transparent", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? L.border : "#EF4444", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, padding: 4 }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
 
             <button onClick={addItem}
               style={{ width: "100%", background: "transparent", border: `1.5px dashed ${L.border}`, borderRadius: 9, padding: "9px", fontSize: 13.5, color: C.red, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 4 }}>
               <Plus size={16} /> Agregar artículo
             </button>
-
-            {/* Total */}
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <div style={{ background: C.red, borderRadius: 12, padding: "12px 22px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 16px rgba(185,28,28,.3)" }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,.7)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>TOTAL DEL PEDIDO</span>
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 700, color: "#fff" }}>{fmtMoneda(total)}</span>
-              </div>
-            </div>
           </div>
 
           {/* ── Detalles ── */}
@@ -414,14 +390,18 @@ export default function PedidosPanel({ rol = "vendedor" }) {
     setPedidos((p) => p.map((x) => x.id === id ? { ...x, estado: nuevoEstado } : x));
   };
 
+  const eliminarPedido = async (id) => {
+    if (!window.confirm("¿Eliminar este pedido? Esta acción no se puede deshacer.")) return;
+    await supabase.from("pedidos").delete().eq("id", id);
+    setPedidos((p) => p.filter((x) => x.id !== id));
+  };
+
   const lista = pedidos.filter((p) => {
     const porEstado = filtro === "todos" || p.estado === filtro;
     const cont = contactos[p.contacto_id];
     const texto = `${cont?.nombre || ""} ${cont?.telefono || ""} ${p.vendedor || ""}`.toLowerCase();
     return porEstado && (!busqueda || texto.includes(busqueda.toLowerCase()));
   });
-
-  const totalFact = lista.reduce((s, p) => s + (Number(p.total) || 0), 0);
 
   // Buscar contactos para el selector del modal
   const buscarContactos = async (q) => {
@@ -454,7 +434,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                 Pedidos
               </div>
               <div style={{ fontSize: 11.5, color: L.muted }}>
-                {lista.length} pedido{lista.length !== 1 ? "s" : ""} · <strong style={{ color: C.red }}>{fmtMoneda(totalFact)}</strong>
+                {lista.length} pedido{lista.length !== 1 ? "s" : ""}
               </div>
             </div>
           </div>
@@ -544,15 +524,14 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                     {/* Preview de items */}
                     <div style={{ fontSize: 12.5, color: L.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {itemsValidos.slice(0, 3).map((it, idx) => (
-                        <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {it.desc}</span>
+                        <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>
                       ))}
                       {itemsValidos.length > 3 && ` +${itemsValidos.length - 3} más`}
                     </div>
                   </div>
 
-                  {/* Total + acciones */}
+                  {/* Acciones */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, color: C.red }}>{fmtMoneda(ped.total)}</span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <button onClick={(e) => { e.stopPropagation(); imprimirPedido(ped, cont); }}
                         title="Descargar PDF"
@@ -560,6 +539,13 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                         onMouseEnter={(e) => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
                         <Printer size={13} /> PDF
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); eliminarPedido(ped.id); }}
+                        title="Eliminar pedido"
+                        style={{ background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#EF4444", fontFamily: FONT_BODY, fontWeight: 600, transition: "all .15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#EF4444"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = L.border; }}>
+                        <Trash2 size={13} /> Eliminar
                       </button>
                       <ChevronDown size={16} color={L.light} style={{ transform: exp ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
                     </div>
@@ -573,24 +559,17 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                     <div style={{ marginBottom: 16 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: L.light, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Artículos</div>
                       <div style={{ border: `1px solid ${L.border}`, borderRadius: 10, overflow: "hidden" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 110px 110px", background: L.soft }}>
-                          {["Cant.", "Descripción", "Precio unit.", "Subtotal"].map((h) => (
+                        <div style={{ display: "grid", gridTemplateColumns: "52px 1fr", background: L.soft }}>
+                          {["Cant.", "Descripción"].map((h) => (
                             <div key={h} style={{ padding: "8px 12px", fontSize: 10.5, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</div>
                           ))}
                         </div>
                         {itemsValidos.map((item, i) => (
-                          <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr 110px 110px", borderTop: `1px solid ${L.border}`, background: i % 2 === 0 ? L.white : "#FAFBFC" }}>
+                          <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr", borderTop: `1px solid ${L.border}`, background: i % 2 === 0 ? L.white : "#FAFBFC" }}>
                             <div style={{ padding: "10px 12px", fontSize: 14, fontWeight: 700, color: L.text }}>{item.qty}</div>
-                            <div style={{ padding: "10px 12px", fontSize: 14, color: L.text }}>{item.desc}</div>
-                            <div style={{ padding: "10px 12px", fontSize: 13.5, color: L.muted }}>{fmtMoneda(item.precio || 0)}</div>
-                            <div style={{ padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: L.text }}>{fmtMoneda((item.qty || 1) * (item.precio || 0))}</div>
+                            <div style={{ padding: "10px 12px", fontSize: 14, color: L.text }}>{limpiarPrecios(item.desc)}</div>
                           </div>
                         ))}
-                        {/* Total row */}
-                        <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 110px 110px", borderTop: `2px solid ${L.border}`, background: "#FFF5F5" }}>
-                          <div style={{ gridColumn: "1 / 4", padding: "10px 12px", fontWeight: 700, color: L.muted, fontSize: 12 }}>TOTAL</div>
-                          <div style={{ padding: "10px 12px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 17, color: C.red }}>{fmtMoneda(ped.total)}</div>
-                        </div>
                       </div>
                     </div>
 

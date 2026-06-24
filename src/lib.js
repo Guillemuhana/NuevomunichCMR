@@ -18,6 +18,27 @@ export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
 // Logo oficial de Nuevo Munich
 export const LOGO_URL = "/logo.png";
 
+// Elimina del texto cualquier referencia a precios, montos, símbolos $ y pesos.
+// En este CRM no se manejan precios, así que se ocultan en mensajes y pedidos.
+export function limpiarPrecios(txt) {
+  if (!txt || typeof txt !== "string") return txt;
+  return txt
+    // Montos con símbolo: $1500, $ 1.500,00, AR$ 2000, ARS 1500, USD 10
+    .replace(/(?:ar|u\$?s|usd)?\s*\$\s?\d[\d.,]*/gi, "")
+    .replace(/\b(?:ars|usd)\s*\d[\d.,]*/gi, "")
+    .replace(/\$/g, "")
+    // Etiquetas precio/monto/total/importe/subtotal con o sin valor
+    .replace(/\b(precios?|montos?|importes?|sub\s*totales?|totales?)\b\s*:?\s*\$?\s*\d?[\d.,]*/gi, "")
+    // Cantidades en pesos: "1.500 pesos"
+    .replace(/\d[\d.,]*\s*pesos?\b/gi, "")
+    .replace(/\bpesos?\b/gi, "")
+    // Limpieza de residuos (espacios dobles, líneas que quedaron con solo signos)
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^[\s:;,.\-•]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra"];
 
 // Vendedores externos con panel propio

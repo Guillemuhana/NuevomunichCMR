@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Package, Search, Clock, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
-  TrendingUp, ShoppingBag, CheckCircle, AlertCircle,
+  Trash2, ShoppingBag, CheckCircle, AlertCircle,
   Phone, Download, MapPin, Users, FileDown,
 } from "lucide-react";
 import {
   supabase, C, FONT_DISPLAY, FONT_BODY,
-  fmtMoneda, LOGO_URL, exportarCSV,
+  limpiarPrecios, LOGO_URL, exportarCSV,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 
@@ -167,6 +167,12 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
     setPedidos(prev => prev.map(p => p.id === pedidoId ? { ...p, estado: newEstado } : p));
   };
 
+  const eliminarPedido = async (pedidoId) => {
+    if (!window.confirm("¿Eliminar este pedido? Esta acción no se puede deshacer.")) return;
+    await supabase.from("pedidos").delete().eq("id", pedidoId);
+    setPedidos(prev => prev.filter(p => p.id !== pedidoId));
+  };
+
   const lista = pedidos.filter(p => {
     const cont = contactos[p.contacto_id] || {};
     const nombre = (cont.nombre || cont.telefono || "").toLowerCase();
@@ -182,7 +188,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
   const stats = {
     total: pedidos.length,
     enProceso: pedidos.filter(p => ["pendiente", "confirmado", "preparando", "listo"].includes(p.estado)).length,
-    monto: pedidos.reduce((s, p) => s + (p.total || 0), 0),
+    pendientes: pedidos.filter(p => p.estado === "pendiente").length,
     entregados: pedidos.filter(p => ["entregado", "finalizado"].includes(p.estado)).length,
   };
 
@@ -195,8 +201,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
         Cliente: cont.nombre || cont.telefono || "",
         Telefono: cont.telefono || "",
         Empresa: cont.empresa || "",
-        Productos: (det.items || []).filter(i => i.desc).map(i => `${i.qty}x ${i.desc}`).join(", "),
-        Total: p.total || 0,
+        Productos: (det.items || []).filter(i => i.desc).map(i => `${i.qty}x ${limpiarPrecios(i.desc)}`).join(", "),
         Estado: (EP[p.estado] || {}).label || p.estado,
         Entrega: det.entrega || "",
         Direccion: det.direccion || "",
@@ -263,7 +268,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           {[
             { icon: <ShoppingBag size={18} />, label: "Total pedidos", value: stats.total, color: "#1D4ED8", bg: "#EFF6FF" },
             { icon: <Clock size={18} />, label: "En proceso", value: stats.enProceso, color: "#D97706", bg: "#FFFBEB" },
-            { icon: <TrendingUp size={18} />, label: "Total facturado", value: fmtMoneda(stats.monto), color: C.red, bg: "#FEF2F2" },
+            { icon: <Clock size={18} />, label: "Pendientes", value: stats.pendientes, color: "#92400E", bg: "#FEF3C7" },
             { icon: <CheckCircle size={18} />, label: "Entregados / Finalizados", value: stats.entregados, color: "#15803D", bg: "#DCFCE7" },
           ].map(s => (
             <div key={s.label} style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
@@ -282,14 +287,13 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {vendedoresList.map(v => {
               const count = pedidos.filter(p => p.vendedor === v.nombre).length;
-              const monto = pedidos.filter(p => p.vendedor === v.nombre).reduce((s, p) => s + (p.total || 0), 0);
               if (count === 0) return null;
               return (
                 <button key={v.nombre}
                   onClick={() => setFiltroVendedor(filtroVendedor === v.nombre ? "todos" : v.nombre)}
                   style={{ padding: "8px 14px", borderRadius: 10, border: `2px solid ${filtroVendedor === v.nombre ? C.red : L.border}`, background: filtroVendedor === v.nombre ? "#FEF2F2" : L.soft, cursor: "pointer", fontFamily: FONT_BODY, transition: "all .15s" }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: filtroVendedor === v.nombre ? C.red : L.text }}>{v.nombre}</div>
-                  <div style={{ fontSize: 11, color: L.muted }}>{count} ped · {fmtMoneda(monto)}</div>
+                  <div style={{ fontSize: 11, color: L.muted }}>{count} ped</div>
                 </button>
               );
             })}
@@ -367,8 +371,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                       <div style={{ fontSize: 13, color: L.muted, marginBottom: 8, lineHeight: 1.5 }}>
                         {det.items.filter(i => i.desc?.trim()).slice(0, 4).map((it, idx) => (
                           <span key={idx}>{idx > 0 ? " · " : ""}
-                            <strong style={{ color: L.text }}>{it.qty}×</strong> {it.desc}
-                            {it.precio > 0 && <span style={{ color: L.light, fontSize: 11.5 }}> ({fmtMoneda(it.precio)})</span>}
+                            <strong style={{ color: L.text }}>{it.qty}×</strong> {limpiarPrecios(it.desc)}
                           </span>
                         ))}
                         {det.items.filter(i => i.desc?.trim()).length > 4 && (
@@ -399,7 +402,6 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
 
                     {/* Derecha */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.red }}>{fmtMoneda(ped.total)}</span>
                       <span style={{ fontSize: 11, color: L.light }}>
                         {new Date(ped.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -432,13 +434,21 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                         {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
 
-                      {/* PDF */}
-                      <button onClick={() => imprimirPedido(ped, cont)} title="Descargar PDF"
-                        style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
-                        <Download size={12} /> PDF
-                      </button>
+                      {/* PDF + Eliminar */}
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => imprimirPedido(ped, cont)} title="Descargar PDF"
+                          style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
+                          onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
+                          <Download size={12} /> PDF
+                        </button>
+                        <button onClick={() => eliminarPedido(ped.id)} title="Eliminar pedido"
+                          style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: "#EF4444", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#EF4444"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = L.border; }}>
+                          <Trash2 size={12} /> Eliminar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -471,7 +481,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                         <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || cont.telefono || "—"}</span>
                         <span style={{ padding: "1px 7px", borderRadius: 6, background: ep.bg, color: ep.color, fontSize: 10.5, fontWeight: 700 }}>{ep.label}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: L.muted, marginTop: 3 }}>{fmtMoneda(p.total)} · {parseDet(p.detalle).entrega}</div>
+                      <div style={{ fontSize: 12, color: L.muted, marginTop: 3 }}>{parseDet(p.detalle).entrega}</div>
                     </div>
                   );
                 })}

@@ -12,7 +12,7 @@ import {
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios,
 } from "./lib";
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
@@ -32,28 +32,6 @@ const ordenarMensajes = (arr) =>
     if (a.direccion !== b.direccion) return a.direccion === "in" ? -1 : 1;
     return 0;
   });
-
-// Elimina del texto cualquier referencia a precios, montos, símbolos $ y pesos
-// (en el CRM no se manejan precios).
-const limpiarPrecios = (txt) => {
-  if (!txt || typeof txt !== "string") return txt;
-  let t = txt
-    // Montos con símbolo: $1500, $ 1.500,00, AR$ 2000, ARS 1500, USD 10
-    .replace(/(?:ar|u\$?s|usd)?\s*\$\s?\d[\d.,]*/gi, "")
-    .replace(/\b(?:ars|usd)\s*\d[\d.,]*/gi, "")
-    .replace(/\$/g, "")
-    // Etiquetas precio/monto/total/importe/subtotal con o sin valor
-    .replace(/\b(precios?|montos?|importes?|sub\s*totales?|totales?)\b\s*:?\s*\$?\s*\d?[\d.,]*/gi, "")
-    // Cantidades en pesos: "1.500 pesos", "$ 200 ar"
-    .replace(/\d[\d.,]*\s*pesos?\b/gi, "")
-    .replace(/\bpesos?\b/gi, "")
-    // Limpieza de residuos (espacios dobles, signos/líneas vacías que quedaron)
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/^[\s:;,.\-•]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return t;
-};
 
 // Resuelve la info de medios de un mensaje, tolerando distintos nombres de
 // campo (los que use el bot/n8n para imágenes, videos, audios o documentos).
