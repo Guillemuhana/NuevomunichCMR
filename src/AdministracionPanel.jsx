@@ -347,9 +347,9 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
 
               return (
                 <div key={ped.id}
-                  style={{ background: L.white, border: `1.5px solid ${borderColor}`, borderLeft: `5px solid ${ep.color}`, borderRadius: 12, marginBottom: 12, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,.04)", transition: "box-shadow .15s, transform .15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,.09)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)"; e.currentTarget.style.transform = "translateY(0)"; }}>
+                  style={{ background: L.white, border: `1px solid ${borderColor}`, borderLeft: `4px solid ${ep.color}`, borderRadius: 10, marginBottom: 12, padding: "18px 20px", boxShadow: "0 1px 3px rgba(15,23,42,.05)", transition: "box-shadow .18s ease, transform .18s ease", willChange: "transform" }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 14px 32px rgba(15,23,42,.14)"; e.currentTarget.style.transform = "scale(1.018)"; e.currentTarget.style.zIndex = "5"; e.currentTarget.style.position = "relative"; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(15,23,42,.05)"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "auto"; }}>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
 
@@ -364,7 +364,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                           {cont.nombre || cont.telefono || "Cliente sin nombre"}
                         </span>
                         {cont.empresa && <span style={{ fontSize: 12, color: L.muted }}>· {cont.empresa}</span>}
-                        <span style={{ fontSize: 12.5, padding: "5px 14px", borderRadius: 999, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
+                        <span style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 5, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
                       </div>
 
                       {/* Vendedor */}
@@ -384,23 +384,23 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                         )}
                       </div>
 
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", paddingTop: 10, borderTop: `1px solid ${L.soft}` }}>
                         {cont.telefono && (
-                          <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
                             <Phone size={11} /> {cont.telefono}
                           </span>
                         )}
-                        <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 3 }}>
+                        <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
                           <Package size={11} /> {det.entrega}
                         </span>
                         {det.entrega === "Delivery" && det.direccion && (
-                          <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
                             <MapPin size={11} /> {det.direccion.slice(0, 35)}
                           </span>
                         )}
-                        <span style={{ fontSize: 12, color: L.muted }}>{det.pago}</span>
+                        <span style={{ fontSize: 11.5, color: L.muted, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>{det.pago}</span>
                         {det.notas?.trim() && (
-                          <span style={{ fontSize: 12, color: "#D97706" }}>📝 {det.notas.slice(0, 60)}</span>
+                          <span style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>📝 {det.notas.slice(0, 60)}</span>
                         )}
                       </div>
                     </div>
@@ -434,10 +434,14 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                       )}
 
                       {/* Estado */}
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                        <span style={{ fontSize: 10, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Estado del pedido</span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                        <span style={{ fontSize: 9.5, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Estado del pedido</span>
                         <select value={ped.estado} onChange={e => updateEstado(ped.id, e.target.value)}
-                          style={{ padding: "9px 16px", borderRadius: 10, border: `2px solid ${ep.color}55`, fontSize: 14.5, fontFamily: FONT_DISPLAY, background: ep.bg, color: ep.color, cursor: "pointer", outline: "none", fontWeight: 800, letterSpacing: 0.3, boxShadow: `0 1px 3px ${ep.color}22` }}>
+                          style={{ padding: "9px 14px", borderRadius: 6, border: `1px solid ${ep.color}`, borderBottom: `3px solid ${ep.color}`, fontSize: 14, fontFamily: FONT_DISPLAY, background: "#fff", color: ep.color, cursor: "pointer", outline: "none", fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", boxShadow: "0 2px 5px rgba(15,23,42,.10)", transition: "transform .12s ease, box-shadow .12s ease, border-bottom-width .12s ease" }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 5px 12px rgba(15,23,42,.16)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 5px rgba(15,23,42,.10)"; e.currentTarget.style.borderBottomWidth = "3px"; }}
+                          onMouseDown={e => { e.currentTarget.style.transform = "translateY(1px)"; e.currentTarget.style.borderBottomWidth = "1px"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(15,23,42,.12)"; }}
+                          onMouseUp={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderBottomWidth = "3px"; }}>
                           {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                         </select>
                       </div>
