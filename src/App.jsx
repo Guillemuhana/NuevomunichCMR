@@ -7,7 +7,7 @@ import {
   Mic, MicOff, Volume2, VolumeX,
   Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu,
   Plus, Image as ImageIcon, Video as VideoIcon, Paperclip, Download, Music, File as FileIcon,
-  CornerUpLeft,
+  CornerUpLeft, Pause,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
 import {
@@ -1766,8 +1766,21 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             <Calendar size={13} /> {isMobile ? "" : "Seguimiento"}
           </button>
           <button onClick={() => upd({ bot_activo: !contacto.bot_activo })}
-            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: contacto.bot_activo ? "#DCFCE7" : "#FEF2F2", color: contacto.bot_activo ? "#15803D" : C.red, borderColor: contacto.bot_activo ? "#86EFAC" : "#FECACA" }}>
-            {contacto.bot_activo ? <><Bot size={13} /> Bot</> : <><User size={13} /> {isMobile ? "Agente" : "Yo atiendo"}</>}
+            title={contacto.bot_activo ? "Pausar el bot y atender vos" : "Reactivar el bot"}
+            style={{
+              flexShrink: 0, display: "flex", alignItems: "center", gap: 9,
+              padding: isMobile ? "9px 16px" : "10px 20px", borderRadius: 14,
+              border: `1.5px solid ${contacto.bot_activo ? "#A7F3D0" : "#E2E8F0"}`,
+              background: contacto.bot_activo ? "#F0FDF4" : "#F8FAFC",
+              color: contacto.bot_activo ? "#15803D" : "#475569",
+              cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700,
+              fontSize: 14, letterSpacing: 0.3, transition: "all .18s",
+              boxShadow: contacto.bot_activo ? "0 2px 10px rgba(22,163,74,.14)" : "none",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = contacto.bot_activo ? "0 4px 14px rgba(22,163,74,.22)" : "0 2px 8px rgba(0,0,0,.08)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = contacto.bot_activo ? "0 2px 10px rgba(22,163,74,.14)" : "none"; }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", flexShrink: 0, background: contacto.bot_activo ? "#22C55E" : "#94A3B8", boxShadow: contacto.bot_activo ? "0 0 0 3px rgba(34,197,94,.2)" : "none" }} />
+            {contacto.bot_activo ? <><Pause size={16} /> Pausar Bot</> : <><Bot size={16} /> Activar Bot</>}
           </button>
         </div>
       </div>
