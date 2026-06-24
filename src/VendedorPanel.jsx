@@ -7,9 +7,10 @@ import {
   FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save,
 } from "lucide-react";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL,
+  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
+import BotonMensajes from "./MensajeriaInterna";
 
 const L = {
   bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
@@ -578,6 +579,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{notifs.length}</span>
           </button>
         )}
+        {userEmail && !vendorAliasOverride && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
         <button onClick={() => setShowPerfil(true)} title="Mis datos"
           style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <UserCircle size={18} />

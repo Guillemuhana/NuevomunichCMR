@@ -12,8 +12,9 @@ import {
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
 } from "./lib";
+import BotonMensajes from "./MensajeriaInterna";
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
@@ -1295,7 +1296,10 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
       {/* ── Brand bar ── */}
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 118, objectFit: "contain", maxWidth: 240 }} />
-        <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
+          <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
+        </div>
       </div>
 
       {/* ── Tabs principales + menú hamburguesa ── */}

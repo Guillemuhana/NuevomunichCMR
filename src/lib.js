@@ -58,6 +58,27 @@ export const ADMINISTRACION_INFO = [
   { nombre: "Administración",   emailPrefix: "administracion" },
 ];
 
+// ─── Mensajería interna: identidad y contactos ──────────────
+// Identifica al usuario logueado con una "key" estable para el chat interno.
+export function getIdentidadInterna(userEmail) {
+  const prefix = (userEmail || "").split("@")[0].toLowerCase();
+  if (prefix === "cristian") return { key: "cristian", nombre: "Cristian" };
+  if (ADMINISTRACION_INFO.some(a => a.emailPrefix === prefix)) return { key: "administracion", nombre: "Administración" };
+  const v = VENDEDORES_INFO.find(v => v.emailPrefix === prefix);
+  if (v) return { key: v.emailPrefix, nombre: v.alias || v.nombre };
+  return { key: prefix, nombre: prefix };
+}
+
+// Lista de usuarios a los que se les puede escribir (todos menos uno mismo).
+export function getContactosInternos(selfKey) {
+  const todos = [
+    { key: "cristian", nombre: "Cristian (Admin)" },
+    { key: "administracion", nombre: "Administración" },
+    ...VENDEDORES_INFO.map(v => ({ key: v.emailPrefix, nombre: v.nombre })),
+  ];
+  return todos.filter(c => c.key !== selfKey);
+}
+
 // ─── Roles de usuario ───────────────────────────────────────
 // "cristian" → admin; vendedores conocidos → vendedor_panel
 // personal admin → administracion; resto → vendedor
