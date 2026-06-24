@@ -2060,7 +2060,7 @@ export default function App() {
     const userNombre = session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase());
 
     const cargar = async () => {
-      if (rolActual === "vendedor_panel" || rolActual === "administracion") return;
+      if (rolActual === "vendedor_panel") return;
       let query = supabase.from("contactos").select("*").order("updated_at", { ascending: false });
       if (rolActual === "vendedor") query = query.eq("vendedor", userNombre);
       const { data: contactosData } = await query;
@@ -2119,19 +2119,8 @@ export default function App() {
     );
   }
 
-  // Personal de administración ve el panel de gestión de pedidos
-  if (rol === "administracion") {
-    return (
-      <>
-        <FontLoader />
-        <AdministracionPanel
-          userName={userName}
-          userEmail={userEmail}
-          onLogout={() => supabase.auth.signOut()}
-        />
-      </>
-    );
-  }
+  // Personal de administración usa el layout principal (chats + vendedores + pedidos)
+  // con el panel de gestión de pedidos en la pestaña Pedidos.
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes");
@@ -2173,7 +2162,9 @@ export default function App() {
         ) : vista === "pedidos" ? (
           <>
             {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
-            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>
+            {rol === "administracion"
+              ? <div style={{ flex: 1, minHeight: 0 }}><AdministracionPanel userName={userName} userEmail={userEmail} /></div>
+              : <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>}
           </>
         ) : vista === "vendedores" ? (
           <>

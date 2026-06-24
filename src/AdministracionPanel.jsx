@@ -240,10 +240,12 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           style={{ background: "#EFF6FF", border: "1.5px solid #BFDBFE", color: "#1D4ED8", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
           <FileDown size={15} /> Exportar
         </button>
-        <button onClick={onLogout} title="Cerrar sesión"
-          style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <LogOut size={16} />
-        </button>
+        {onLogout && (
+          <button onClick={onLogout} title="Cerrar sesión"
+            style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <LogOut size={16} />
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "22px 24px" }}>
