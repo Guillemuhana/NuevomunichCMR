@@ -431,17 +431,20 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
           </div>
           )}
 
-          {/* Estado */}
+          {/* Estado (solo lectura — lo gestiona Administración) */}
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Estado</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {Object.entries(EP).map(([k, v]) => (
-                <button key={k} onClick={() => set("estado", k)}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `2px solid ${form.estado === k ? v.color : L.border}`, background: form.estado === k ? v.bg : L.soft, color: form.estado === k ? v.color : L.muted, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FONT_BODY, transition: "all .15s" }}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const ep = EP[form.estado] || EP.pendiente;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ep.bg, color: ep.color, fontWeight: 700, fontSize: 12.5 }}>
+                    {ep.label}
+                  </span>
+                  <span style={{ fontSize: 12, color: L.light }}>El estado lo gestiona Administración.</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
