@@ -9,7 +9,7 @@ import {
   Plus, Image as ImageIcon, Video as VideoIcon, Paperclip, Download, Music, File as FileIcon,
   CornerUpLeft, Pause,
 } from "lucide-react";
-import PedidosPanel, { NuevoPedidoModal, imprimirPedido } from "./Pedidos";
+import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios,
@@ -2026,22 +2026,104 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
 // PANEL VENDEDORES (admin) — pedidos/actividad de cada vendedor
 // ============================================================
 function VendedoresPanel({ isMobile }) {
-  const [sel, setSel] = useState(VENDEDORES[0]);
+  const [sel, setSel] = useState("__todos__");
+  const opciones = ["__todos__", ...VENDEDORES];
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
-      {/* Selector de vendedor */}
+      {/* Selector: Todos + cada vendedor (botones rectangulares) */}
       <div className="strip" style={{ display: "flex", gap: 8, padding: isMobile ? "10px 12px" : "12px 18px", overflowX: "auto", background: L.white, borderBottom: `1px solid ${L.border}`, flexShrink: 0 }}>
-        {VENDEDORES.map((v) => (
-          <button key={v} onClick={() => setSel(v)}
-            style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 999, border: `2px solid ${sel === v ? C.red : L.border}`, background: sel === v ? "#FEF2F2" : L.soft, color: sel === v ? C.red : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, transition: "all .15s" }}>
-            {v}
-          </button>
-        ))}
+        {opciones.map((v) => {
+          const on = sel === v;
+          const esTodos = v === "__todos__";
+          return (
+            <button key={v} onClick={() => setSel(v)}
+              style={{ flexShrink: 0, padding: "9px 18px", borderRadius: 8, border: `1.5px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", transition: "all .15s" }}>
+              {esTodos ? "Todos" : v}
+            </button>
+          );
+        })}
       </div>
-      {/* Panel del vendedor seleccionado (sin botón de cerrar sesión) */}
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <VendedorDashboard key={sel} vendorAliasOverride={sel} />
+      {/* Contenido */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: sel === "__todos__" ? "auto" : "visible" }}>
+        {sel === "__todos__"
+          ? <PedidosDelDia isMobile={isMobile} />
+          : <VendedorDashboard key={sel} vendorAliasOverride={sel} />}
       </div>
+    </div>
+  );
+}
+
+// Todos los pedidos cargados hoy (de todos los vendedores)
+function PedidosDelDia({ isMobile }) {
+  const [pedidos, setPedidos] = useState([]);
+  const [contactos, setContactos] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  const cargar = useCallback(async () => {
+    const inicio = new Date(); inicio.setHours(0, 0, 0, 0);
+    const { data } = await supabase.from("pedidos").select("*")
+      .gte("created_at", inicio.toISOString())
+      .order("created_at", { ascending: false });
+    const peds = data || [];
+    setPedidos(peds);
+    const ids = [...new Set(peds.map((p) => p.contacto_id).filter(Boolean))];
+    if (ids.length) {
+      const { data: cs } = await supabase.from("contactos").select("id,nombre,telefono").in("id", ids);
+      const map = {}; (cs || []).forEach((c) => { map[c.id] = c; });
+      setContactos(map);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    cargar();
+    const ch = supabase.channel("pedidos-dia")
+      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargar).subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [cargar]);
+
+  const hoyTxt = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <div style={{ padding: isMobile ? "14px 12px" : "20px 24px", background: L.bg, minHeight: "100%" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Pedidos del día</div>
+        <div style={{ fontSize: 13, color: L.muted, textTransform: "capitalize" }}>{hoyTxt} · {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}</div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", color: L.light, fontSize: 14, padding: 40 }}>Cargando…</div>
+      ) : pedidos.length === 0 ? (
+        <div style={{ textAlign: "center", color: L.light, fontSize: 14, padding: 40, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>Todavía no hay pedidos cargados hoy.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {pedidos.map((p) => {
+            const cont = contactos[p.contacto_id] || {};
+            const det = parseDet(p.detalle);
+            const ep = EP[p.estado] || EP.pendiente;
+            const nombre = cont.nombre || det.clienteNombre || cont.telefono || "—";
+            const items = (det.items || []).filter((i) => i.desc?.trim());
+            const hora = new Date(p.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <div key={p.id} style={{ background: L.white, border: `1px solid ${L.border}`, borderLeft: `4px solid ${ep.color}`, borderRadius: 12, padding: "13px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: L.text }}>{nombre}</span>
+                    {p.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><User size={11} />{p.vendedor}</span>}
+                    <span style={{ fontSize: 10, padding: "2px 9px", borderRadius: 6, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{ep.label}</span>
+                  </div>
+                  <span style={{ fontSize: 11.5, color: L.light }}>{hora}</span>
+                </div>
+                <div style={{ fontSize: 13, color: L.muted }}>
+                  {items.length > 0
+                    ? items.map((it, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>)
+                    : <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion) || "Sin detalle"}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
