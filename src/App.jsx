@@ -2114,11 +2114,13 @@ function VendedoresPanel({ isMobile }) {
   );
 }
 
-// Todos los pedidos cargados hoy (de todos los vendedores)
+// Todos los pedidos cargados hoy (de todos los vendedores), separados en
+// dos pestañas: Pedidos reales y Reportes (visitas) de vendedores.
 function PedidosDelDia({ isMobile }) {
   const [pedidos, setPedidos] = useState([]);
   const [contactos, setContactos] = useState({});
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("pedido"); // "pedido" | "reporte"
 
   const cargar = useCallback(async () => {
     const inicio = new Date(); inicio.setHours(0, 0, 0, 0);
@@ -2145,40 +2147,71 @@ function PedidosDelDia({ isMobile }) {
 
   const hoyTxt = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
 
+  const esReporte = (p) => parseDet(p.detalle).tipo === "visita";
+  const soloPedidos = pedidos.filter((p) => !esReporte(p));
+  const reportes    = pedidos.filter(esReporte);
+  const lista = tab === "reporte" ? reportes : soloPedidos;
+
   return (
     <div style={{ padding: isMobile ? "14px 12px" : "20px 24px", background: L.bg, minHeight: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Pedidos del día</div>
-        <div style={{ fontSize: 13, color: L.muted, textTransform: "capitalize" }}>{hoyTxt} · {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>
+          {tab === "reporte" ? "Reportes del día" : "Pedidos del día"}
+        </div>
+        <div style={{ fontSize: 13, color: L.muted, textTransform: "capitalize" }}>{hoyTxt} · {lista.length} {tab === "reporte" ? (lista.length === 1 ? "reporte" : "reportes") : (lista.length === 1 ? "pedido" : "pedidos")}</div>
+      </div>
+
+      {/* Pestañas Pedidos / Reportes */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {[
+          { k: "pedido",  label: "Pedidos",  icon: <Package size={14} />,  count: soloPedidos.length },
+          { k: "reporte", label: "Reportes", icon: <FileText size={14} />, count: reportes.length },
+        ].map(({ k, label, icon, count }) => {
+          const on = tab === k;
+          return (
+            <button key={k} onClick={() => setTab(k)}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 9, border: `1.5px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
+              {icon} {label}
+              <span style={{ background: on ? "rgba(255,255,255,.25)" : L.soft, color: on ? "#fff" : L.muted, borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
         <div style={{ textAlign: "center", color: L.light, fontSize: 14, padding: 40 }}>Cargando…</div>
-      ) : pedidos.length === 0 ? (
-        <div style={{ textAlign: "center", color: L.light, fontSize: 14, padding: 40, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>Todavía no hay pedidos cargados hoy.</div>
+      ) : lista.length === 0 ? (
+        <div style={{ textAlign: "center", color: L.light, fontSize: 14, padding: 40, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>
+          {tab === "reporte" ? "Todavía no hay reportes cargados hoy." : "Todavía no hay pedidos cargados hoy."}
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {pedidos.map((p) => {
+          {lista.map((p) => {
             const cont = contactos[p.contacto_id] || {};
             const det = parseDet(p.detalle);
             const ep = EP[p.estado] || EP.pendiente;
             const nombre = cont.nombre || det.clienteNombre || cont.telefono || "—";
             const items = (det.items || []).filter((i) => i.desc?.trim());
             const hora = new Date(p.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+            const esRep = tab === "reporte";
             return (
-              <div key={p.id} style={{ background: L.white, border: `1px solid ${L.border}`, borderLeft: `4px solid ${ep.color}`, borderRadius: 12, padding: "13px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+              <div key={p.id} style={{ background: L.white, border: `1px solid ${L.border}`, borderLeft: `4px solid ${esRep ? "#15803D" : ep.color}`, borderRadius: 12, padding: "13px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: L.text }}>{nombre}</span>
                     {p.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><User size={11} />{p.vendedor}</span>}
-                    <span style={{ fontSize: 10, padding: "2px 9px", borderRadius: 6, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{ep.label}</span>
+                    {esRep
+                      ? <span style={{ fontSize: 10, padding: "2px 9px", borderRadius: 6, background: "#DCFCE7", color: "#15803D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>Reporte</span>
+                      : <span style={{ fontSize: 10, padding: "2px 9px", borderRadius: 6, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{ep.label}</span>}
                   </div>
                   <span style={{ fontSize: 11.5, color: L.light }}>{hora}</span>
                 </div>
-                <div style={{ fontSize: 13, color: L.muted }}>
-                  {items.length > 0
-                    ? items.map((it, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>)
-                    : <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion) || "Sin detalle"}</span>}
+                <div style={{ fontSize: 13, color: L.muted, lineHeight: 1.5 }}>
+                  {esRep
+                    ? <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion || det.notas) || "Sin detalle"}</span>
+                    : items.length > 0
+                      ? items.map((it, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>)
+                      : <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion) || "Sin detalle"}</span>}
                 </div>
               </div>
             );
