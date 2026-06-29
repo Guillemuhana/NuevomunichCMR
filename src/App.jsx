@@ -1470,7 +1470,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
 // ============================================================
 // CHAT PANEL
 // ============================================================
-function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onEliminar }) {
+function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onEliminar, rol }) {
   const [mensajes, setMensajes] = useState([]);
   const [texto, setTexto]       = useState("");
   const [enviando, setEnviando]   = useState(false);
@@ -1769,10 +1769,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
               <option value={contacto.estado}>{ESTADOS[contacto.estado]?.label || contacto.estado}</option>
             )}
           </select>
-          <button onClick={() => setPanelSeg((v) => !v)}
-            style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: panelSeg ? C.gold : L.soft, color: panelSeg ? "#fff" : L.muted, borderColor: panelSeg ? C.gold : L.border }}>
-            <Calendar size={13} /> {isMobile ? "" : "Seguimiento"}
-          </button>
+          {rol !== "administracion" && (
+            <button onClick={() => setPanelSeg((v) => !v)}
+              style={{ ...btnSt, flexShrink: 0, fontSize: 12, background: panelSeg ? C.gold : L.soft, color: panelSeg ? "#fff" : L.muted, borderColor: panelSeg ? C.gold : L.border }}>
+              <Calendar size={13} /> {isMobile ? "" : "Seguimiento"}
+            </button>
+          )}
           <button onClick={() => upd({ bot_activo: !contacto.bot_activo })}
             title={contacto.bot_activo ? "Pausar el bot y atender vos" : "Reactivar el bot"}
             style={{
@@ -1794,7 +1796,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
       </div>
 
       {/* ── Panel seguimiento ── */}
-      {panelSeg && (
+      {panelSeg && rol !== "administracion" && (
         <div style={{ background: "#FFFBEB", borderBottom: `1px solid #FDE68A`, padding: isMobile ? "12px 14px" : "13px 22px", display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
             <label style={lblSt}>Próximo contacto</label>
@@ -2277,7 +2279,7 @@ export default function App() {
         ) : activo ? (
           <ChatPanel contacto={activo} onUpdateContacto={updateContacto} userName={userName}
             onBack={isMobile ? () => setActivo(null) : undefined}
-            isMobile={isMobile}
+            isMobile={isMobile} rol={rol}
             onEliminar={() => { setActivo(null); setContactos((prev) => prev.filter((c) => c.id !== activo.id)); }} />
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, flexDirection: "column", gap: 20, padding: "0 20px" }}>

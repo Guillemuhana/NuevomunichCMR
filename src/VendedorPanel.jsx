@@ -20,7 +20,7 @@ const L = {
 
 const TIPOS = [
   { k: "pedido",   label: "Pedido",   icon: <Package size={14} />,   color: "#1D4ED8", bg: "#DBEAFE" },
-  { k: "visita",   label: "Visita",   icon: <Truck size={14} />,     color: "#15803D", bg: "#DCFCE7" },
+  { k: "visita",   label: "Reporte",  icon: <FileText size={14} />,  color: "#15803D", bg: "#DCFCE7" },
   { k: "reunion",  label: "Reunión",  icon: <Users size={14} />,     color: "#B45309", bg: "#FEF3C7" },
 ];
 
@@ -398,7 +398,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
           {/* Fechas y logística — en Visita, solo el calendario de la visita */}
           {form.tipo === "visita" ? (
           <div style={{ background: L.soft, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Fecha de la visita</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Fecha del reporte</div>
             <input type="date" value={form.fechaVisita} onChange={e => set("fechaVisita", e.target.value)} style={{ ...inp, maxWidth: 220 }} />
           </div>
           ) : (
@@ -473,7 +473,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [loading, setLoading]       = useState(true);
   const [busqueda, setBusqueda]     = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [tab, setTab] = useState("pedido"); // "pedido" | "reporte"
   const [selectedDate, setSelectedDate] = useState(null);
   const [showForm, setShowForm]     = useState(false);
   const [editando, setEditando]     = useState(null);
@@ -546,10 +546,16 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
       det.observacion.toLowerCase().includes(busqueda.toLowerCase()) ||
       (det.items || []).some(i => (i.desc || "").toLowerCase().includes(busqueda.toLowerCase()));
     const porEstado = filtroEstado === "todos" || p.estado === filtroEstado;
-    const porTipo   = filtroTipo === "todos" || det.tipo === filtroTipo;
+    const porTab    = tab === "pedido" ? det.tipo === "pedido" : det.tipo !== "pedido";
     const porFecha  = !selectedDate || (det.fecha_entrega && det.fecha_entrega.startsWith(selectedDate));
-    return porBusq && porEstado && porTipo && porFecha;
+    return porBusq && porEstado && porTab && porFecha;
   });
+
+  const conteo = pedidos.reduce((a, p) => {
+    const t = parseDetEx(p.detalle).tipo;
+    if (t === "pedido") a.pedido++; else a.reporte++;
+    return a;
+  }, { pedido: 0, reporte: 0 });
 
   const stats = {
     total: pedidos.length,
@@ -633,6 +639,23 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           {/* Lista principal */}
           <div style={{ flex: 1, minWidth: 300 }}>
 
+            {/* Tabs: Pedidos / Reportes */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {[
+                { k: "pedido",  label: "Pedidos",  icon: <Package size={15} />,  count: conteo.pedido },
+                { k: "reporte", label: "Reportes", icon: <FileText size={15} />, count: conteo.reporte },
+              ].map(t => {
+                const activa = tab === t.k;
+                return (
+                  <button key={t.k} onClick={() => setTab(t.k)}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", borderRadius: 11, border: `1.5px solid ${activa ? C.red : L.border}`, background: activa ? C.red : L.white, color: activa ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, letterSpacing: 0.3, boxShadow: activa ? "0 2px 10px rgba(185,28,28,.25)" : "0 1px 4px rgba(0,0,0,.04)", transition: "all .15s" }}>
+                    {t.icon} {t.label}
+                    <span style={{ fontSize: 12, fontWeight: 800, padding: "1px 8px", borderRadius: 8, background: activa ? "rgba(255,255,255,.25)" : L.soft, color: activa ? "#fff" : L.muted }}>{t.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Filtros */}
             <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "10px 14px", marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
@@ -641,11 +664,6 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                   placeholder="Buscar cliente, producto…"
                   style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px 7px 26px", borderRadius: 8, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
-              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-                style={{ padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtroTipo !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroTipo !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
-                <option value="todos">Todos los tipos</option>
-                {TIPOS.map(t => <option key={t.k} value={t.k}>{t.label}</option>)}
-              </select>
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
                 style={{ padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los estados</option>
