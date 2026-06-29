@@ -120,6 +120,37 @@ function renderMd(text) {
 }
 
 // ============================================================
+// CONTADOR DE ESPERA
+// ============================================================
+// Mide el tiempo desde que llegó el último mensaje del cliente y todavía
+// no se abrió el chat (no_leidos > 0). Tic-tac en vivo cada segundo; se
+// corta solo cuando administración abre el chat (no_leidos vuelve a 0).
+function ContadorEspera({ desde }) {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!desde) return null;
+  const ms = ahora - new Date(desde).getTime();
+  if (ms < 0) return null;
+  const totalSeg = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeg / 3600);
+  const m = Math.floor((totalSeg % 3600) / 60);
+  const s = totalSeg % 60;
+  const txt = h > 0 ? `${h}h ${m}m` : `${m}:${String(s).padStart(2, "0")}`;
+  const min = totalSeg / 60;
+  const col = min < 2 ? { bg: "#DCFCE7", fg: "#15803D", bd: "#86EFAC" }
+            : min < 5 ? { bg: "#FEF3C7", fg: "#B45309", bd: "#FDE68A" }
+            :           { bg: "#FEE2E2", fg: C.red,     bd: "#FECACA" };
+  return (
+    <span title="Tiempo de espera sin abrir el chat" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: col.bg, color: col.fg, border: `1px solid ${col.bd}`, fontVariantNumeric: "tabular-nums" }}>
+      <Clock size={11} /> {txt}
+    </span>
+  );
+}
+
+// ============================================================
 // FONT LOADER
 // ============================================================
 function FontLoader() {
@@ -1431,6 +1462,7 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                       {limpiarPrecios(c.ultimo_msg) || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                      {c.no_leidos > 0 && <ContadorEspera desde={c.ultimo_in_at || c.updated_at} />}
                       <span style={{ fontSize: 9.5, padding: "2px 8px", borderRadius: 4, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{est.label}</span>
                       {c.es_vendedor && <span style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 4, background: "#DCFCE7", color: "#15803D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</span>}
                       {!c.es_vendedor && c.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>{c.vendedor}</span>}

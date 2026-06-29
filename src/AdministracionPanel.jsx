@@ -3,7 +3,7 @@ import {
   Package, Search, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
   Trash2, AlertCircle, User,
-  Phone, Download, MapPin, FileDown,
+  Phone, Download, MapPin, FileDown, FileText,
 } from "lucide-react";
 import {
   supabase, C, FONT_DISPLAY, FONT_BODY,
@@ -122,6 +122,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
   const [editandoFecha, setEditandoFecha] = useState(null);
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(true);
+  const [reporteAbierto, setReporteAbierto] = useState(null); // { titulo, texto }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -406,7 +407,12 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                         )}
                         <span style={{ fontSize: 11.5, color: L.muted, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>{det.pago}</span>
                         {det.notas?.trim() && (
-                          <span style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>📝 {det.notas.slice(0, 60)}</span>
+                          <button onClick={() => setReporteAbierto({ titulo: cont.nombre || cont.telefono || "Cliente sin nombre", vendedor: ped.vendedor, texto: det.notas })}
+                            style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 11px", borderRadius: 6, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY, transition: "all .15s" }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "#FEF3C7"; e.currentTarget.style.borderColor = "#FCD34D"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "#FFFBEB"; e.currentTarget.style.borderColor = "#FDE68A"; }}>
+                            <FileText size={12} /> Ver reporte
+                          </button>
                         )}
                       </div>
                     </div>
@@ -515,6 +521,32 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Modal: ver reporte completo */}
+      {reporteAbierto && (
+        <>
+          <div onClick={() => setReporteAbierto(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,560px)", maxHeight: "85vh", background: L.white, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,.3)", zIndex: 401, display: "flex", flexDirection: "column", fontFamily: FONT_BODY, overflow: "hidden" }}>
+            <div style={{ padding: "18px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <FileText size={19} color="#B45309" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text }}>Reporte</div>
+                <div style={{ fontSize: 12.5, color: L.muted, marginTop: 1 }}>
+                  {reporteAbierto.titulo}{reporteAbierto.vendedor ? ` · ${reporteAbierto.vendedor}` : ""}
+                </div>
+              </div>
+              <button onClick={() => setReporteAbierto(null)} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px", fontSize: 14.5, lineHeight: 1.6, color: L.text, whiteSpace: "pre-wrap" }}>
+              {reporteAbierto.texto}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
