@@ -122,23 +122,36 @@ function renderMd(text) {
 // ============================================================
 // CONTADOR DE ESPERA
 // ============================================================
-// Mide el tiempo desde que llegó el último mensaje del cliente y todavía
-// no se abrió el chat (no_leidos > 0). Tic-tac en vivo cada segundo; se
-// corta solo cuando administración abre el chat (no_leidos vuelve a 0).
-function ContadorEspera({ desde }) {
+// Mide el tiempo desde que llegó el último mensaje del cliente (`desde`).
+// Mientras el chat no se abrió, cuenta en vivo (tic-tac cada segundo) con
+// color que escala. Al abrirse el chat se pasa `hasta` (momento de apertura):
+// el contador se congela y queda visible como registro de cuánto tardó.
+function ContadorEspera({ desde, hasta }) {
+  const congelado = !!hasta;
   const [ahora, setAhora] = useState(() => Date.now());
   useEffect(() => {
+    if (congelado) return;
     const t = setInterval(() => setAhora(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [congelado]);
   if (!desde) return null;
-  const ms = ahora - new Date(desde).getTime();
+  const fin = congelado ? new Date(hasta).getTime() : ahora;
+  const ms = fin - new Date(desde).getTime();
   if (ms < 0) return null;
   const totalSeg = Math.floor(ms / 1000);
   const h = Math.floor(totalSeg / 3600);
   const m = Math.floor((totalSeg % 3600) / 60);
   const s = totalSeg % 60;
   const txt = h > 0 ? `${h}h ${m}m` : `${m}:${String(s).padStart(2, "0")}`;
+
+  if (congelado) {
+    return (
+      <span title={`Atendido en ${txt}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: L.soft, color: L.muted, border: `1px solid ${L.border}`, fontVariantNumeric: "tabular-nums" }}>
+        <Check size={11} /> {txt}
+      </span>
+    );
+  }
+
   const min = totalSeg / 60;
   const col = min < 2 ? { bg: "#DCFCE7", fg: "#15803D", bd: "#86EFAC" }
             : min < 5 ? { bg: "#FEF3C7", fg: "#B45309", bd: "#FDE68A" }
@@ -1462,7 +1475,11 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                       {limpiarPrecios(c.ultimo_msg) || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                      {c.no_leidos > 0 && <ContadorEspera desde={c.ultimo_in_at || c.updated_at} />}
+                      {c.no_leidos > 0
+                        ? <ContadorEspera desde={c.ultimo_in_at || c.updated_at} />
+                        : (c.leido_at && c.ultimo_in_at && new Date(c.leido_at) > new Date(c.ultimo_in_at))
+                          ? <ContadorEspera desde={c.ultimo_in_at} hasta={c.leido_at} />
+                          : null}
                       <span style={{ fontSize: 9.5, padding: "2px 8px", borderRadius: 4, background: est.bg, color: est.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>{est.label}</span>
                       {c.es_vendedor && <span style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 4, background: "#DCFCE7", color: "#15803D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</span>}
                       {!c.es_vendedor && c.vendedor && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>{c.vendedor}</span>}
@@ -1592,6 +1609,12 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     const { data } = await supabase.from("mensajes").select("*").eq("contacto_id", contacto.id).order("created_at", { ascending: true });
     setMensajes(ordenarMensajes(data || []));
     await supabase.from("contactos").update({ no_leidos: 0 }).eq("id", contacto.id);
+    // Si había mensajes sin leer, congelamos el momento de apertura para dejar
+    // registrado cuánto tardó en atenderse (update aparte: si la columna leido_at
+    // todavía no existe, no rompe el reseteo de no_leidos de arriba).
+    if ((contacto.no_leidos || 0) > 0) {
+      await supabase.from("contactos").update({ leido_at: new Date().toISOString() }).eq("id", contacto.id);
+    }
   }, [contacto.id]);
 
   useEffect(() => {

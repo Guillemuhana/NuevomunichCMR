@@ -36,6 +36,7 @@ alter table contactos add column if not exists email    text;
 alter table contactos add column if not exists empresa  text;
 alter table contactos add column if not exists direccion text;
 alter table contactos add column if not exists foto_url text;
+alter table contactos add column if not exists leido_at timestamptz;   -- momento en que se abrió/leyó el chat (para congelar el tiempo de espera)
 
 create table if not exists mensajes (
   id            uuid primary key default gen_random_uuid(),

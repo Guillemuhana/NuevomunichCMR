@@ -7,7 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   MessageSquare, Users, UserPlus, Target, Package,
-  Clock, Bot, AlertTriangle,
+  Clock, Bot, AlertTriangle, Eye,
   TrendingUp, Download, FileText, ArrowDownToLine,
 } from "lucide-react";
 import {
@@ -316,7 +316,7 @@ export default function Reportes() {
     const iso = inicio.toISOString();
     const [msgsRes, contRes, pedRes] = await Promise.all([
       supabase.from("mensajes").select("id,direccion,origen,agente,created_at,contacto_id").gte("created_at", iso),
-      supabase.from("contactos").select("id,vendedor,estado,created_at,bot_activo,seguimiento_at,ultimo_in_at,ultimo_out_at"),
+      supabase.from("contactos").select("id,vendedor,estado,created_at,bot_activo,seguimiento_at,ultimo_in_at,ultimo_out_at,leido_at"),
       supabase.from("pedidos").select("vendedor,total,estado,created_at").gte("created_at", iso),
     ]);
     const msgs      = msgsRes.data || [];
@@ -369,8 +369,16 @@ export default function Reportes() {
       .map((c) => (new Date(c.ultimo_out_at) - new Date(c.ultimo_in_at)) / 60000)
       .filter((t) => t > 0 && t < 1440);
     const tiempoPromMin = tiemposMin.length ? tiemposMin.reduce((a, b) => a + b, 0) / tiemposMin.length : null;
+    // Tiempo que tarda ADMINISTRACIÓN en abrir/atender el chat: desde que llega
+    // el mensaje del cliente (ultimo_in_at) hasta que se abre el chat (leido_at).
+    const tiemposApertura = contactos
+      .filter((c) => c.ultimo_in_at && c.leido_at && new Date(c.leido_at) > new Date(c.ultimo_in_at))
+      .map((c) => (new Date(c.leido_at) - new Date(c.ultimo_in_at)) / 60000)
+      .filter((t) => t > 0 && t < 1440);
+    const tiempoAperturaMin = tiemposApertura.length ? tiemposApertura.reduce((a, b) => a + b, 0) / tiemposApertura.length : null;
+    const tiempoAperturaMax = tiemposApertura.length ? Math.max(...tiemposApertura) : null;
     const totalPedidos = pedidos.length;
-    setData({ serie, horarios, porVendedor, vendedoresActivos, porEstado, kpis: { msgsIn: msgs.filter((m) => m.direccion === "in").length, msgsTotal: msgs.length, contactosActivos, nuevos: nuevos.length, totalContactos: contactos.length, cerradosTot, tasaConversion, totalPedidos, botCount, agenteCount, botPct, botAutonomo, agenteManual, segVencidos, tiempoPromMin }, periodo, inicio, fin });
+    setData({ serie, horarios, porVendedor, vendedoresActivos, porEstado, kpis: { msgsIn: msgs.filter((m) => m.direccion === "in").length, msgsTotal: msgs.length, contactosActivos, nuevos: nuevos.length, totalContactos: contactos.length, cerradosTot, tasaConversion, totalPedidos, botCount, agenteCount, botPct, botAutonomo, agenteManual, segVencidos, tiempoPromMin, tiempoAperturaMin, tiempoAperturaMax, tiempoAperturaCount: tiemposApertura.length }, periodo, inicio, fin });
     setLoading(false);
   }, [periodo]);
 
@@ -399,6 +407,7 @@ export default function Reportes() {
         ["Pedidos", String(kpis.totalPedidos)],
         ["Atendido por bot", `${kpis.botPct}% (${kpis.botCount} mensajes)`],
         ["Tiempo prom. respuesta", fmtMin(kpis.tiempoPromMin)],
+        ["T. apertura administración (prom.)", kpis.tiempoAperturaCount > 0 ? `${fmtMin(kpis.tiempoAperturaMin)} · peor ${fmtMin(kpis.tiempoAperturaMax)} (${kpis.tiempoAperturaCount} chats)` : "—"],
         ["Seguimientos vencidos", String(kpis.segVencidos)],
       ],
       headStyles: { fillColor: [156, 27, 27] },
@@ -628,6 +637,12 @@ export default function Reportes() {
               <Kpi Icon={Clock} label="T. resp. promedio" valor={fmtMin(data.kpis.tiempoPromMin)}
                 sub="tiempo hasta primera respuesta"
                 iconColor={T.muted} iconBg={T.soft} />
+              <Kpi Icon={Eye} label="T. apertura administración" valor={fmtMin(data.kpis.tiempoAperturaMin)}
+                sub={data.kpis.tiempoAperturaCount > 0
+                  ? `desde que llega el msj hasta abrir el chat · peor: ${fmtMin(data.kpis.tiempoAperturaMax)} (${data.kpis.tiempoAperturaCount} chats)`
+                  : "sin chats atendidos en el período"}
+                iconColor="#0891B2" iconBg="#ECFEFF"
+                alert={data.kpis.tiempoAperturaMin != null && data.kpis.tiempoAperturaMin > 10} />
               <Kpi Icon={Bot} label="Mensajes bot" valor={`${data.kpis.botPct}%`}
                 sub={`${data.kpis.agenteCount} por agentes`}
                 iconColor="#7C3AED" iconBg="#F5F3FF" />
