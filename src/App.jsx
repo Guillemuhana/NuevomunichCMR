@@ -5,7 +5,7 @@ import {
   Sparkles, Phone, Mail, Building2, MapPin, FileText,
   AlertCircle, Clock, ChevronDown, ChevronLeft, Zap, ShoppingBag, Shield, Trash2,
   Mic, MicOff, Volume2, VolumeX,
-  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu,
+  Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu, Star,
   Plus, Image as ImageIcon, Video as VideoIcon, Paperclip, Download, Music, File as FileIcon,
   CornerUpLeft, Pause,
 } from "lucide-react";
@@ -1288,8 +1288,9 @@ function AjustesPanel({ userName, userEmail, rol }) {
   );
 }
 
-function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
+function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
   const [filtro, setFiltro]           = useState("todos");
+  const [soloDestacados, setSoloDestacados] = useState(false);
   const [busqueda, setBusqueda]       = useState("");
   const [showImportar, setShowImportar] = useState(false);
   const [menuOpen, setMenuOpen]       = useState(false);
@@ -1328,11 +1329,15 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
     vista === "chat"       ? contactos.filter(c => tieneConversacion(c) && !esVendedorContacto(c)) :
     contactos; // "contactos" muestra todos
 
-  const lista = baseContactos.filter((c) => {
-    const porEstado = filtro === "todos" || c.estado === filtro;
-    const porBusq   = !busqueda || (c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || c.telefono.includes(busqueda);
-    return porEstado && porBusq;
-  });
+  const lista = baseContactos
+    .filter((c) => {
+      const porEstado = filtro === "todos" || c.estado === filtro;
+      const porBusq   = !busqueda || (c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || c.telefono.includes(busqueda);
+      const porDest   = !soloDestacados || c.destacado;
+      return porEstado && porBusq && porDest;
+    })
+    // Los destacados (importantes) siempre arriba, respetando el orden por fecha
+    .sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
 
   return (
     <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
@@ -1418,15 +1423,20 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
             </div>
           </div>
 
-          {/* ── Filtro estado (desplegable) ── */}
-          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${L.border}` }}>
+          {/* ── Filtro estado (desplegable) + importantes ── */}
+          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${L.border}`, display: "flex", gap: 8, alignItems: "center" }}>
             <select value={filtro} onChange={(e) => setFiltro(e.target.value)}
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtro !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, color: filtro !== "todos" ? C.red : L.muted, background: L.white, cursor: "pointer", outline: "none" }}>
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtro !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, color: filtro !== "todos" ? C.red : L.muted, background: L.white, cursor: "pointer", outline: "none" }}>
               <option value="todos">Todos los estados</option>
               {ESTADOS_ACTIVOS.map((f) => (
                 <option key={f} value={f}>{ESTADOS[f]?.label || f}</option>
               ))}
             </select>
+            <button onClick={() => setSoloDestacados(v => !v)}
+              title={soloDestacados ? "Mostrar todos" : "Mostrar solo importantes"}
+              style={{ flexShrink: 0, height: 34, display: "flex", alignItems: "center", gap: 5, padding: "0 11px", borderRadius: 8, border: `1.5px solid ${soloDestacados ? "#F59E0B" : L.border}`, background: soloDestacados ? "#FFFBEB" : L.white, color: soloDestacados ? "#B45309" : L.muted, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap", outline: "none" }}>
+              <Star size={14} fill={soloDestacados ? "#F59E0B" : "none"} color={soloDestacados ? "#F59E0B" : L.muted} /> Importantes
+            </button>
           </div>
 
           {/* ── Lista contactos ── */}
@@ -1465,6 +1475,14 @@ function Sidebar({ contactos, activo, onSelect, onLogout, userEmail, userName, v
                         {c.nombre || c.telefono}
                       </span>
                       <div style={{ display: "flex", gap: 5, alignItems: "center", flexShrink: 0 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onToggleDestacado?.(c); }}
+                          title={c.destacado ? "Quitar de importantes" : "Marcar como importante"}
+                          style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", display: "flex", alignItems: "center", lineHeight: 0 }}>
+                          <Star size={15}
+                            fill={c.destacado ? "#F59E0B" : "none"}
+                            color={c.destacado ? "#F59E0B" : L.light} />
+                        </button>
                         <span style={{ fontSize: 11, color: L.light }}>{hora}</span>
                         {c.no_leidos > 0 && (
                           <span style={{ background: "#22C55E", color: "#fff", fontSize: 10, borderRadius: 10, minWidth: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", fontWeight: 800 }}>{c.no_leidos}</span>
@@ -1608,14 +1626,18 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
   const cargar = useCallback(async () => {
     const { data } = await supabase.from("mensajes").select("*").eq("contacto_id", contacto.id).order("created_at", { ascending: true });
     setMensajes(ordenarMensajes(data || []));
-    await supabase.from("contactos").update({ no_leidos: 0 }).eq("id", contacto.id);
-    // Si había mensajes sin leer, congelamos el momento de apertura para dejar
-    // registrado cuánto tardó en atenderse (update aparte: si la columna leido_at
-    // todavía no existe, no rompe el reseteo de no_leidos de arriba).
-    if ((contacto.no_leidos || 0) > 0) {
-      await supabase.from("contactos").update({ leido_at: new Date().toISOString() }).eq("id", contacto.id);
+    // Solo Administración resetea contadores y marca el mensaje como visto. Si abre
+    // otro rol (p. ej. Cristian/admin) el chat se lee sin tocar no_leidos ni leido_at.
+    if (rol === "administracion") {
+      await supabase.from("contactos").update({ no_leidos: 0 }).eq("id", contacto.id);
+      // Si había mensajes sin leer, congelamos el momento de apertura para dejar
+      // registrado cuánto tardó en atenderse (update aparte: si la columna leido_at
+      // todavía no existe, no rompe el reseteo de no_leidos de arriba).
+      if ((contacto.no_leidos || 0) > 0) {
+        await supabase.from("contactos").update({ leido_at: new Date().toISOString() }).eq("id", contacto.id);
+      }
     }
-  }, [contacto.id]);
+  }, [contacto.id, rol]);
 
   useEffect(() => {
     cargar();
@@ -2291,6 +2313,12 @@ export default function App() {
     if (activo?.id === c.id) setActivo(c);
   };
 
+  const toggleDestacado = async (c) => {
+    const nuevo = !c.destacado;
+    updateContacto({ ...c, destacado: nuevo });          // optimista
+    await supabase.from("contactos").update({ destacado: nuevo }).eq("id", c.id);
+  };
+
   if (session) tuvoSesion.current = true;
   if (!ready) return null;
   // No mostrar login si tuvo sesión previa y solo está refrescando token
@@ -2329,6 +2357,7 @@ export default function App() {
       <div className="app-sidebar">
         <Sidebar contactos={contactos} activo={activo}
           onSelect={(c) => setActivo(c)}
+          onToggleDestacado={toggleDestacado}
           onLogout={() => supabase.auth.signOut()}
           userEmail={userEmail} userName={userName}
           vista={vista} setVista={setVista} alertas={alertas}
