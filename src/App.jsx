@@ -1634,10 +1634,16 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
       // registrado cuánto tardó en atenderse (update aparte: si la columna leido_at
       // todavía no existe, no rompe el reseteo de no_leidos de arriba).
       if ((contacto.no_leidos || 0) > 0) {
-        await supabase.from("contactos").update({ leido_at: new Date().toISOString() }).eq("id", contacto.id);
+        const leidoAt = new Date().toISOString();
+        await supabase.from("contactos").update({ leido_at: leidoAt }).eq("id", contacto.id);
+        // Reflejarlo ya en la lista de chats sin esperar al realtime: se apaga el
+        // globo verde de no leídos y el cronómetro se congela en el acto.
+        onUpdateContacto({ ...contacto, no_leidos: 0, leido_at: leidoAt });
+      } else if (contacto.no_leidos !== 0) {
+        onUpdateContacto({ ...contacto, no_leidos: 0 });
       }
     }
-  }, [contacto.id, rol]);
+  }, [contacto.id, rol]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     cargar();
@@ -1648,6 +1654,11 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
           if (p.new.direccion === "in" || p.new.origen === "bot" || p.new.origen === "n8n") {
             setNewMsgIds((s) => new Set([...s, p.new.id]));
             setTimeout(() => setNewMsgIds((s) => { const n = new Set(s); n.delete(p.new.id); return n; }), 2500);
+          }
+          // Si el mensaje entra con el chat abierto en Administración ya está
+          // leído: no debe volver a arrancar el cronómetro ni el globo verde.
+          if (p.new.direccion === "in" && rol === "administracion") {
+            supabase.from("contactos").update({ no_leidos: 0, leido_at: new Date().toISOString() }).eq("id", contacto.id).then(() => {});
           }
         })
       .subscribe();
