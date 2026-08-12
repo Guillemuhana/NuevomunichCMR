@@ -96,7 +96,8 @@ begin
   insert into contactos (telefono, nombre)
   values (p_telefono, nullif(p_nombre,''))
   on conflict (telefono) do update
-    set nombre = coalesce(nullif(excluded.nombre,''), contactos.nombre)
+    -- El nombre cargado a mano en el CRM manda; el de WhatsApp rellena vacíos
+    set nombre = coalesce(nullif(trim(contactos.nombre), ''), nullif(excluded.nombre,''))
   returning id into v_id;
 
   if v_id is null then

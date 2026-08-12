@@ -357,16 +357,20 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 
   const handleSave = async () => {
     setSaving(true); setErr("");
-    const { error } = await supabase.from("contactos").update(form).eq("id", contacto.id);
+    // El nombre se guarda limpio: si queda vacío va como null para que el
+    // nombre del perfil de WhatsApp vuelva a completarlo. Si tiene texto,
+    // manda sobre el de WhatsApp y queda registrado para siempre.
+    const datos = { ...form, nombre: form.nombre.trim() || null };
+    const { error } = await supabase.from("contactos").update(datos).eq("id", contacto.id);
     if (error) {
       if (error.code === "PGRST204" || (error.message && error.message.includes("column"))) {
         const { error: e2 } = await supabase.from("contactos")
-          .update({ nombre: form.nombre, nota_seguimiento: form.nota_seguimiento }).eq("id", contacto.id);
-        if (!e2) { onSave({ ...contacto, nombre: form.nombre, nota_seguimiento: form.nota_seguimiento }); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+          .update({ nombre: datos.nombre, nota_seguimiento: datos.nota_seguimiento }).eq("id", contacto.id);
+        if (!e2) { onSave({ ...contacto, nombre: datos.nombre, nota_seguimiento: datos.nota_seguimiento }); setSaved(true); setTimeout(() => setSaved(false), 2500); }
         else setErr("Ejecutá la migración en supabase_schema.sql para guardar todos los campos.");
       } else setErr("Error: " + error.message);
     } else {
-      onSave({ ...contacto, ...form }); setSaved(true); setTimeout(() => setSaved(false), 2500);
+      onSave({ ...contacto, ...datos }); setSaved(true); setTimeout(() => setSaved(false), 2500);
     }
     setSaving(false);
   };
