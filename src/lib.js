@@ -39,7 +39,7 @@ export function limpiarPrecios(txt) {
     .trim();
 }
 
-export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra"];
+export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra", "Oficina"];
 
 // Vendedores externos con panel propio
 export const VENDEDORES_INFO = [
