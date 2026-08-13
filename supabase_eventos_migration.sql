@@ -52,5 +52,17 @@ drop policy if exists "eventos_delete" on public.eventos;
 create policy "eventos_delete" on public.eventos
   for delete to authenticated using (true);
 
--- Realtime (opcional, para que el calendario se actualice solo)
-alter publication supabase_realtime add table public.eventos;
+-- Realtime (opcional, para que el calendario se actualice solo).
+-- Se agrega sólo si todavía no está en la publicación: si no, Postgres
+-- tira "relation is already member of publication" al re-correr el script.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'eventos'
+  ) then
+    alter publication supabase_realtime add table public.eventos;
+  end if;
+end $$;
