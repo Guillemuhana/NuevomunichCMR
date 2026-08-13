@@ -183,8 +183,8 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
           <motion.div animate={{ width: expandido ? W_OPEN - 28 : W_MINI - 20 }} transition={SPRING}
             style={{
               height: 62, borderRadius: 14, overflow: "hidden", position: "relative", flexShrink: 0,
-              background: "#0A0C10", border: "1px solid rgba(255,255,255,.09)",
-              boxShadow: "0 10px 26px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08)",
+              background: "#FFFFFF", border: "1px solid rgba(255,255,255,.55)",
+              boxShadow: "0 10px 26px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.25)",
             }}>
             {/* Logo fijo mientras está colapsado (el video se recortaría) */}
             <img src={LOGO_URL} alt="Nuevo Munich"
@@ -201,8 +201,8 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               )}
             </AnimatePresence>
-            {/* Velo sutil para integrar el video con el rail */}
-            <span style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.22))" }} />
+            {/* Borde interno suave para que el recorte no se vea duro */}
+            <span style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 14, boxShadow: "inset 0 0 0 1px rgba(16,24,40,.07)" }} />
           </motion.div>
         </div>
 
