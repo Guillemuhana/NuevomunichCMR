@@ -179,16 +179,14 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
         <span style={{ position: "absolute", top: 0, right: 0, width: 1, height: "100%", background: "linear-gradient(180deg, rgba(255,255,255,.10), transparent 45%, rgba(168,31,31,.35))" }} />
 
         {/* ── Marca ── */}
-        <div style={{ height: 84, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderBottom: `1px solid ${RAIL.line}`, padding: "0 14px" }}>
-          <motion.div animate={{ width: expandido ? W_OPEN - 28 : W_MINI - 20 }} transition={SPRING}
-            style={{
-              height: 62, borderRadius: 14, overflow: "hidden", position: "relative", flexShrink: 0,
-              background: "#FFFFFF", border: "1px solid rgba(255,255,255,.55)",
-              boxShadow: "0 10px 26px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.25)",
-            }}>
+        <motion.div animate={{ width: expandido ? W_OPEN : W_MINI }} transition={SPRING}
+          style={{
+            height: 86, overflow: "hidden", position: "relative", flexShrink: 0,
+            background: "#FFFFFF", borderBottom: "1px solid rgba(0,0,0,.28)",
+          }}>
             {/* Logo fijo mientras está colapsado (el video se recortaría) */}
             <img src={LOGO_URL} alt="Nuevo Munich"
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 4 }} />
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 6 }} />
 
             {/* El video sólo corre con el menú desplegado, y arranca desde cero */}
             <AnimatePresence>
@@ -201,10 +199,7 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               )}
             </AnimatePresence>
-            {/* Borde interno suave para que el recorte no se vea duro */}
-            <span style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 14, boxShadow: "inset 0 0 0 1px rgba(16,24,40,.07)" }} />
-          </motion.div>
-        </div>
+        </motion.div>
 
         {/* ── Navegación ── */}
         <div className="strip" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "10px 0" }}>
