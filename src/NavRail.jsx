@@ -4,7 +4,7 @@ import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
   BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X,
 } from "lucide-react";
-import { C, FONT_DISPLAY, FONT_BODY } from "./lib";
+import { C, LOGO_URL, FONT_DISPLAY, FONT_BODY } from "./lib";
 
 // ============================================================
 // NAV RAIL — barra lateral de navegación estilo CRM moderno.
@@ -177,24 +177,14 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
         <span style={{ position: "absolute", top: 0, right: 0, width: 1, height: "100%", background: "linear-gradient(180deg, rgba(255,255,255,.10), transparent 45%, rgba(168,31,31,.35))" }} />
 
         {/* ── Marca ── */}
-        <div style={{ height: 66, display: "flex", alignItems: "center", flexShrink: 0, borderBottom: `1px solid ${RAIL.line}` }}>
-          <div style={{ width: W_MINI, flexShrink: 0, display: "flex", justifyContent: "center" }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 13, display: "grid", placeItems: "center",
-              background: "linear-gradient(140deg,#C9302C,#7F1414)", color: "#fff",
-              fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
-              boxShadow: "0 8px 20px rgba(168,31,31,.45), inset 0 1px 0 rgba(255,255,255,.28)",
-            }}>NM</div>
-          </div>
-          <motion.div animate={{ opacity: expandido ? 1 : 0, x: expandido ? 0 : -10 }}
-            transition={{ duration: 0.18 }} style={{ whiteSpace: "nowrap", pointerEvents: "none" }}>
-            <div style={{ color: "#fff", fontFamily: FONT_DISPLAY, fontWeight: 750, fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase" }}>Nuevo Munich</div>
-            <div style={{ color: RAIL.dim, fontSize: 10, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 600, marginTop: 1 }}>Sistema CRM</div>
-          </motion.div>
+        <div style={{ height: 78, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderBottom: `1px solid ${RAIL.line}`, padding: "0 12px" }}>
+          <motion.img src={LOGO_URL} alt="Nuevo Munich"
+            animate={{ width: expandido ? W_OPEN - 40 : W_MINI - 20 }} transition={SPRING}
+            style={{ height: 58, objectFit: "contain", filter: "drop-shadow(0 4px 14px rgba(0,0,0,.5))" }} />
         </div>
 
         {/* ── Navegación ── */}
-        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "10px 0" }}>
+        <div className="strip" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "10px 0" }}>
           {secciones.map((sec, i) => (
             <div key={sec.titulo || i} style={{ marginBottom: 10 }}>
               {sec.titulo && (

@@ -1330,7 +1330,8 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
 
       {/* ── Cabecera compacta: marca + acciones ── */}
       <div style={{ padding: "9px 12px 9px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${L.border}`, background: L.white, flexShrink: 0 }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 46, objectFit: "contain", maxWidth: 168, filter: "drop-shadow(0 2px 6px rgba(16,24,40,.12))" }} />
+        {/* En desktop el logo vive en el rail; acá sólo hace falta en mobile */}
+        {isMobile && <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 46, objectFit: "contain", maxWidth: 168, filter: "drop-shadow(0 2px 6px rgba(16,24,40,.12))" }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 750, fontSize: 13, letterSpacing: 0.9, textTransform: "uppercase", color: L.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {TITULO_VISTA[vista] || "Chats"}
