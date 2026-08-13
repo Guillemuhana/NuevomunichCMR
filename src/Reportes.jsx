@@ -11,7 +11,7 @@ import {
   TrendingUp, Download, FileText, ArrowDownToLine,
 } from "lucide-react";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
   rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV,
 } from "./lib";
 
@@ -436,7 +436,7 @@ export default function Reportes() {
 
   // ── Estilos comunes ──────────────────────────────────────────────────────
   const inputStyle = {
-    padding: "9px 13px", borderRadius: 8, border: `1.5px solid ${T.border}`,
+    padding: "9px 13px", borderRadius: 8, border: `1px solid ${T.border}`,
     fontSize: 13.5, fontFamily: FONT_BODY, color: T.text, outline: "none",
     background: T.soft, transition: "border .15s",
   };

@@ -6,16 +6,11 @@ import {
   Phone, Download, MapPin, FileDown, FileText,
 } from "lucide-react";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   limpiarPrecios, LOGO_URL, exportarCSV,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 
-const L = {
-  bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
-  text: "#0F172A", muted: "#64748B", light: "#94A3B8",
-  soft: "#F1F5F9",
-};
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -237,7 +232,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* Header */}
-      <div style={{ background: L.white, borderBottom: `3px solid ${C.gold}`, padding: "10px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0, boxShadow: SH.xs }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 52, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Administración</div>
@@ -250,12 +245,12 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
           </button>
         )}
         <button onClick={handleExportCSV} title="Exportar CSV"
-          style={{ background: "#EFF6FF", border: "1.5px solid #BFDBFE", color: "#1D4ED8", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
+          style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1D4ED8", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
           <FileDown size={15} /> Exportar
         </button>
         {onLogout && (
           <button onClick={onLogout} title="Cerrar sesión"
-            style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <LogOut size={16} />
           </button>
         )}
@@ -289,15 +284,15 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                 <Search size={13} color={L.light} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                   placeholder="Buscar vendedor, cliente, producto…"
-                  style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px 8px 29px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+                  style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px 8px 29px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
               <select value={filtroVendedor} onChange={e => setFiltroVendedor(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 9, border: `1.5px solid ${filtroVendedor !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroVendedor !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                style={{ padding: "8px 12px", borderRadius: 9, border: `1px solid ${filtroVendedor !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroVendedor !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los vendedores</option>
                 {vendedoresList.map(v => <option key={v.nombre} value={v.nombre}>{v.nombre}</option>)}
               </select>
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 9, border: `1.5px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                style={{ padding: "8px 12px", borderRadius: 9, border: `1px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los estados</option>
                 {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
@@ -313,15 +308,15 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
               {/* Rango de fechas */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", opacity: selectedDate ? 0.4 : 1, pointerEvents: selectedDate ? "none" : "auto" }}>
                 <select value={fechaCampo} onChange={e => setFechaCampo(e.target.value)} title="Campo de fecha"
-                  style={{ padding: "8px 10px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                  style={{ padding: "8px 10px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                   <option value="entrega">Entrega</option>
                   <option value="creado">Creado</option>
                 </select>
                 <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} title="Desde"
-                  style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${fechaDesde ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaDesde ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
+                  style={{ padding: "7px 10px", borderRadius: 9, border: `1px solid ${fechaDesde ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaDesde ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
                 <span style={{ fontSize: 12, color: L.light }}>→</span>
                 <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} title="Hasta"
-                  style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${fechaHasta ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaHasta ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
+                  style={{ padding: "7px 10px", borderRadius: 9, border: `1px solid ${fechaHasta ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaHasta ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
               </div>
 
               {(busqueda || filtroVendedor !== "todos" || filtroEstado !== "todos" || fechaDesde || fechaHasta || selectedDate) && (
@@ -430,7 +425,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
                             onBlur={e => updateFechaEntrega(ped.id, ped.detalle, e.target.value)}
                             onKeyDown={e => e.key === "Enter" && updateFechaEntrega(ped.id, ped.detalle, e.target.value)}
                             autoFocus
-                            style={{ padding: "6px 10px", borderRadius: 8, border: `1.5px solid ${C.red}`, fontSize: 13, fontFamily: FONT_BODY, outline: "none", background: "#FEF2F2" }} />
+                            style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.red}`, fontSize: 13, fontFamily: FONT_BODY, outline: "none", background: "#FEF2F2" }} />
                           <button onClick={() => setEditandoFecha(null)} style={{ background: "none", border: "none", cursor: "pointer", color: L.muted }}>
                             <X size={14} />
                           </button>

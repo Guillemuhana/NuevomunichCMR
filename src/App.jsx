@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./Pedidos";
 import {
-  supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, FONT_DISPLAY, FONT_BODY,
+  supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
@@ -19,6 +19,7 @@ import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
 import AdministracionPanel from "./AdministracionPanel";
+const Calendario = lazy(() => import("./Calendario"));
 
 // ============================================================
 // HELPERS DE MENSAJES
@@ -69,27 +70,12 @@ const resolverMedia = (m) => {
   return { url, tipo, nombre: m.media_nombre || m.media_name || m.nombre_archivo || "archivo" };
 };
 
-// ============================================================
-// PALETA LIGHT — tema claro profesional
-// ============================================================
-const L = {
-  bg:     "#F5F6F8",
-  white:  "#FFFFFF",
-  border: "#E4E8ED",
-  text:   "#0F172A",
-  muted:  "#64748B",
-  light:  "#94A3B8",
-  soft:   "#F1F5F9",
-  hover:  "#FEF2F2",
-  active: "#FFF1F0",
-};
-
-// Avatares — colores consistentes por nombre
+// Avatares — colores consistentes por nombre (tonos sobrios)
 const AVT = [
-  ["#B91C1C","#fff"],["#1D4ED8","#fff"],["#15803D","#fff"],
-  ["#7C3AED","#fff"],["#B45309","#fff"],["#0E7490","#fff"],
-  ["#9D174D","#fff"],["#374151","#fff"],["#C2410C","#fff"],
-  ["#1E40AF","#fff"],
+  ["#A81F1F","#fff"],["#2A4E8F","#fff"],["#2F6B46","#fff"],
+  ["#5B4B8A","#fff"],["#8A5A22","#fff"],["#1F5F6B","#fff"],
+  ["#8A3357","#fff"],["#3B4451","#fff"],["#96501F","#fff"],
+  ["#2C3E7A","#fff"],
 ];
 
 // ============================================================
@@ -168,10 +154,7 @@ function ContadorEspera({ desde, hasta }) {
 // ============================================================
 function FontLoader() {
   useEffect(() => {
-    const l = document.createElement("link");
-    l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&display=swap";
-    document.head.appendChild(l);
+    // Las tipografías (Inter / Inter Tight) se empaquetan con la app — sin CDN.
     document.body.style.background = L.bg;
   }, []);
   return null;
@@ -218,34 +201,34 @@ function Login() {
     setLoad(false);
   };
 
-  const inp = { width: "100%", boxSizing: "border-box", padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft, transition: "border-color .2s" };
+  const inp = { width: "100%", boxSizing: "border-box", padding: "12px 15px", borderRadius: R.sm, border: `1px solid ${L.border}`, fontSize: 14.5, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.white, transition: "border-color .18s, box-shadow .18s" };
 
   return (
-    <div className="login-scroll" style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#fff", fontFamily: FONT_BODY, padding: "40px 20px" }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
+    <div className="login-scroll" style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: L.bg, fontFamily: FONT_BODY, padding: "40px 20px" }}>
+      <div style={{ width: "100%", maxWidth: 400, background: L.white, border: `1px solid ${L.border}`, borderRadius: R.xl, boxShadow: SH.md, padding: "34px 32px 32px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 36 }}>
           <img src={LOGO_URL} alt="Nuevo Munich" style={{ width: "100%", maxWidth: 320, height: "auto", display: "block" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
             <div style={{ height: 1, width: 28, background: L.border }} />
-            <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 4, color: L.light, textTransform: "uppercase" }}>CRM</span>
+            <span style={{ fontFamily: FONT_DISPLAY, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.3em", color: L.light, textTransform: "uppercase" }}>CRM</span>
             <div style={{ height: 1, width: 28, background: L.border }} />
           </div>
         </div>
 
         {err && (
-          <div style={{ color: C.red, fontSize: 13, marginBottom: 16, padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ color: C.red, fontSize: 13, marginBottom: 16, padding: "10px 14px", background: C.redSoft, borderRadius: R.sm, border: `1px solid ${C.red}22`, display: "flex", alignItems: "center", gap: 8 }}>
             <AlertCircle size={15} /> {err}
           </div>
         )}
 
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>Email</label>
+          <label style={{ display: "block", fontSize: 10.5, fontWeight: 600, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.07em" }}>Email</label>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="tu@nuevomunich.com.ar"
             style={inp} autoFocus />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>Contraseña</label>
+          <label style={{ display: "block", fontSize: 10.5, fontWeight: 600, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.07em" }}>Contraseña</label>
           <div style={{ position: "relative" }}>
             <input type={showPass ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="••••••••"
@@ -257,8 +240,8 @@ function Login() {
         </div>
 
         <button onClick={handleLogin} disabled={loading}
-          style={{ width: "100%", background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 1.5, boxShadow: loading ? "none" : "0 4px 16px rgba(156,27,27,.3)", transition: "all .2s" }}>
-          {loading ? "Entrando…" : "ENTRAR"}
+          style={{ width: "100%", background: loading ? L.light : C.red, color: "#fff", border: "none", borderRadius: R.sm, padding: "13px", fontSize: 14.5, fontWeight: 600, cursor: loading ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: "0.01em", boxShadow: loading ? "none" : SH.sm, transition: "all .18s" }}>
+          {loading ? "Entrando…" : "Entrar"}
         </button>
       </div>
     </div>
@@ -270,7 +253,7 @@ function Login() {
 // ============================================================
 function MobileBack({ title, onBack }) {
   return (
-    <div style={{ padding: "11px 16px", background: L.white, borderBottom: `3px solid ${C.gold}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+    <div style={{ padding: "11px 16px", background: L.white, borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
       <button onClick={onBack}
         style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
         <ChevronLeft size={20} />
@@ -375,7 +358,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
     setSaving(false);
   };
 
-  const inputSt = { width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
+  const inputSt = { width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
   const labelSt = { display: "block", fontSize: 11, color: L.muted, marginBottom: 6, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" };
   const fields = [
     { label: "Nombre completo", key: "nombre", icon: <User size={14} />, type: "text", ph: "Ej: Juan García" },
@@ -390,7 +373,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
       <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: isMobile ? "100%" : 390, background: L.white, boxShadow: "-6px 0 40px rgba(0,0,0,.18)", zIndex: 201, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
         {/* Header */}
         <div style={{ padding: "20px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 14 }}>
-          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={52} border={`2px solid ${C.gold}`} />
+          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={52} border={`1px solid ${L.border}`} />
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, color: L.text }}>{contacto.nombre || "Nuevo contacto"}</div>
             <div style={{ fontSize: 12.5, color: L.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
@@ -419,7 +402,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
               rows={4} style={{ ...inputSt, resize: "vertical", lineHeight: 1.55 }} />
           </div>
           {/* Toggle Es Vendedor */}
-          <div style={{ marginBottom: 18, padding: "13px 16px", background: esVend ? "#DCFCE7" : L.soft, borderRadius: 10, border: `1.5px solid ${esVend ? "#86EFAC" : L.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, transition: "all .2s" }}>
+          <div style={{ marginBottom: 18, padding: "13px 16px", background: esVend ? "#DCFCE7" : L.soft, borderRadius: 10, border: `1px solid ${esVend ? "#86EFAC" : L.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, transition: "all .2s" }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: esVend ? "#15803D" : L.muted, textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6 }}>
                 <UserCheck size={13} /> Es Vendedor / Interno
@@ -445,7 +428,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
         </div>
         {/* Footer */}
         <div style={{ padding: "16px 22px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: 11, fontSize: 14, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>Cancelar</button>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: 11, fontSize: 14, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>Cancelar</button>
           <button onClick={handleSave} disabled={saving}
             style={{ flex: 2, background: saved ? "#16A34A" : C.red, color: "#fff", border: "none", borderRadius: 9, padding: 11, fontSize: 14, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.5, opacity: saving ? 0.75 : 1, transition: "background .3s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             {saved ? <><Check size={16} /> Guardado</> : saving ? "Guardando…" : "Guardar Contacto"}
@@ -803,11 +786,11 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
             </div>
             {/* Toggle voz */}
             <button onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "Silenciar voz" : "Activar voz"}
-              style={{ background: voiceOn ? "#fef2f2" : "#f8fafc", border: `1.5px solid ${voiceOn ? C.red : "#E2E8F0"}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              style={{ background: voiceOn ? "#fef2f2" : "#f8fafc", border: `1px solid ${voiceOn ? C.red : "#E2E8F0"}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {voiceOn ? <Volume2 size={15} color={C.red} /> : <VolumeX size={15} color="#94a3b8" />}
             </button>
             <button onClick={() => setOpen(false)} title="Cerrar"
-              style={{ background: "#f8fafc", border: "1.5px solid #E2E8F0", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              style={{ background: "#f8fafc", border: "1px solid #E2E8F0", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <X size={15} color="#64748b" />
             </button>
           </div>
@@ -879,7 +862,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
           <div style={{ padding: "10px 12px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff", alignItems: "flex-end" }}>
             {/* Botón micrófono */}
             <button onClick={toggleMic} disabled={transcribing} title={recording ? "Detener grabación" : "Hablar"}
-              style={{ background: recording ? "#fef2f2" : transcribing ? "#fff7ed" : "#f8fafc", border: `1.5px solid ${recording ? C.red : transcribing ? "#f97316" : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
+              style={{ background: recording ? "#fef2f2" : transcribing ? "#fff7ed" : "#f8fafc", border: `1px solid ${recording ? C.red : transcribing ? "#f97316" : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
               {transcribing
                 ? <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316", letterSpacing: 2 }}>···</span>
                 : recording ? <MicOff size={16} color={C.red} /> : <Mic size={16} color="#64748b" />}
@@ -888,7 +871,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
               placeholder={transcribing ? "Procesando audio…" : recording ? "Grabando… tocá para detener" : "Preguntame algo… (Enter para enviar)"}
               rows={1}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1.5px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc", resize: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }} />
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc", resize: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }} />
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={() => enviar()} disabled={typing}
                 style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, width: 40, height: 40, cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -896,7 +879,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
               </button>
               {msgs.length > 1 && (
                 <button onClick={() => { setMsgs([msgs[0]]); setInput(""); }} title="Limpiar conversación"
-                  style={{ background: "#f8fafc", border: "1.5px solid #E2E8F0", color: "#94a3b8", borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  style={{ background: "#f8fafc", border: "1px solid #E2E8F0", color: "#94a3b8", borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <RotateCcw size={14} />
                 </button>
               )}
@@ -1347,7 +1330,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
     <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
 
       {/* ── Brand bar ── */}
-      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.gold}`, background: L.white }}>
+      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${L.border}`, background: L.white }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 118, objectFit: "contain", maxWidth: 240 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
@@ -1364,7 +1347,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           ["pedidos",    <Package size={14} />,       "Pedidos"],
         ].filter(([k]) => rol !== "administracion" || k !== "vendedores").map(([k, icon, l]) => (
           <button key={k} onClick={() => setVista(k)}
-            style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0 10px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: "transparent", borderBottom: vista === k ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
+            style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0 10px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
             {icon} {l}
           </button>
         ))}
@@ -1377,7 +1360,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
 
         <div ref={menuRef} style={{ position: "relative" }}>
           <button onClick={() => setMenuOpen(v => !v)}
-            style={{ width: 46, height: "100%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: menuOpen ? "#FFF5F5" : "transparent", color: ["contactos","reportes","ajustes","admin"].includes(vista) ? C.red : L.muted, transition: "all .15s", borderBottom: ["contactos","reportes","ajustes","admin"].includes(vista) ? `2.5px solid ${C.red}` : "2.5px solid transparent" }}>
+            style={{ width: 46, height: "100%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: menuOpen ? "#FFF5F5" : "transparent", color: ["calendario","contactos","reportes","ajustes","admin"].includes(vista) ? C.red : L.muted, transition: "all .15s", borderBottom: ["calendario","contactos","reportes","ajustes","admin"].includes(vista) ? `2px solid ${C.red}` : "2px solid transparent" }}>
             <Menu size={17} />
           </button>
 
@@ -1385,6 +1368,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           {menuOpen && (
             <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", width: 180, background: L.white, borderRadius: 12, boxShadow: "0 8px 30px rgba(0,0,0,.14)", border: `1px solid ${L.border}`, zIndex: 200, overflow: "hidden" }}>
               {[
+                ["calendario", <CalendarCheck size={14} />, "Calendario"],
                 ["contactos",  <Users size={14} />,    "Contactos"],
                 ["reportes",   <BarChart2 size={14} />, "Reportes"],
                 ["ajustes",    <Settings size={14} />,  "Ajustes"],
@@ -1413,12 +1397,12 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
                 <Search size={15} color={L.light} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
                   placeholder={vista === "contactos" ? "Buscar contacto…" : "Buscar conversación…"}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
               {/* Botón importar solo en pestaña Contactos */}
               {vista === "contactos" && (
                 <button onClick={() => setShowImportar(true)} title="Importar contactos desde CSV o VCF"
-                  style={{ flexShrink: 0, height: 38, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s", padding: "0 11px", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap" }}
+                  style={{ flexShrink: 0, height: 38, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: L.soft, border: `1px solid ${L.border}`, borderRadius: 10, cursor: "pointer", color: L.muted, transition: "all .15s", padding: "0 11px", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#93C5FD"; e.currentTarget.style.color = "#1D4ED8"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
                   <Upload size={14} /> Importar
@@ -1430,7 +1414,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           {/* ── Filtro estado (desplegable) + importantes ── */}
           <div style={{ padding: "8px 14px", borderBottom: `1px solid ${L.border}`, display: "flex", gap: 8, alignItems: "center" }}>
             <select value={filtro} onChange={(e) => setFiltro(e.target.value)}
-              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtro !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, color: filtro !== "todos" ? C.red : L.muted, background: L.white, cursor: "pointer", outline: "none" }}>
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: `1px solid ${filtro !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, fontWeight: 700, color: filtro !== "todos" ? C.red : L.muted, background: L.white, cursor: "pointer", outline: "none" }}>
               <option value="todos">Todos los estados</option>
               {ESTADOS_ACTIVOS.map((f) => (
                 <option key={f} value={f}>{ESTADOS[f]?.label || f}</option>
@@ -1438,7 +1422,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
             </select>
             <button onClick={() => setSoloDestacados(v => !v)}
               title={soloDestacados ? "Mostrar todos" : "Mostrar solo importantes"}
-              style={{ flexShrink: 0, height: 34, display: "flex", alignItems: "center", gap: 5, padding: "0 11px", borderRadius: 8, border: `1.5px solid ${soloDestacados ? "#F59E0B" : L.border}`, background: soloDestacados ? "#FFFBEB" : L.white, color: soloDestacados ? "#B45309" : L.muted, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap", outline: "none" }}>
+              style={{ flexShrink: 0, height: 34, display: "flex", alignItems: "center", gap: 5, padding: "0 11px", borderRadius: 8, border: `1px solid ${soloDestacados ? "#F59E0B" : L.border}`, background: soloDestacados ? "#FFFBEB" : L.white, color: soloDestacados ? "#B45309" : L.muted, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY, whiteSpace: "nowrap", outline: "none" }}>
               <Star size={14} fill={soloDestacados ? "#F59E0B" : "none"} color={soloDestacados ? "#F59E0B" : L.muted} /> Importantes
             </button>
           </div>
@@ -1514,7 +1498,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           </div>
         </>
       )}
-      {(vista === "reportes" || vista === "vendedores" || vista === "pedidos") && <div style={{ flex: 1 }} />}
+      {(vista === "reportes" || vista === "vendedores" || vista === "pedidos" || vista === "calendario") && <div style={{ flex: 1 }} />}
 
       {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
 
@@ -1528,7 +1512,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           <div style={{ fontSize: 11, color: L.light, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
         </div>
         <button onClick={onLogout} title="Cerrar sesión"
-          style={{ background: "transparent", border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}
+          style={{ background: "transparent", border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}
           onMouseEnter={(e) => { e.currentTarget.style.background = L.hover; e.currentTarget.style.color = C.red; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = L.muted; }}>
           <LogOut size={16} />
@@ -1813,7 +1797,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
               <ChevronLeft size={20} />
             </button>
           )}
-          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={isMobile ? 38 : 48} border={`2px solid ${C.gold}`} />
+          <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={isMobile ? 38 : 48} border={`1px solid ${L.border}`} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? 15 : 18, fontWeight: 700, color: L.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 160 : "none" }}>{contacto.nombre || contacto.telefono}</span>
@@ -1827,13 +1811,13 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
           {!isMobile && (
             <>
               <button onClick={() => setDrawer(true)}
-                style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
+                style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; }}>
                 <Pencil size={14} /> Editar
               </button>
               <button onClick={eliminarChat} title="Eliminar chat completo"
-                style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: "#EF4444", borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
+                style={{ background: L.soft, border: `1px solid ${L.border}`, color: "#EF4444", borderRadius: 9, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s", flexShrink: 0 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#EF4444"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.borderColor = L.border; }}>
                 <Trash2 size={14} /> Eliminar
@@ -1872,7 +1856,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
             style={{
               flexShrink: 0, display: "flex", alignItems: "center", gap: 9,
               padding: isMobile ? "9px 16px" : "10px 20px", borderRadius: 14,
-              border: `1.5px solid ${contacto.bot_activo ? "#A7F3D0" : "#E2E8F0"}`,
+              border: `1px solid ${contacto.bot_activo ? "#A7F3D0" : "#E2E8F0"}`,
               background: contacto.bot_activo ? "#F0FDF4" : "#F8FAFC",
               color: contacto.bot_activo ? "#15803D" : "#475569",
               cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700,
@@ -1967,7 +1951,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
               const media = resolverMedia(m);
               const txt = limpiarPrecios(m.contenido || m.body || m.message || m.texto);
               return (
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: media ? "6px 6px 8px" : "10px 14px", fontSize: 14, color: L.text, boxShadow: "0 1px 4px rgba(0,0,0,.07)", lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: media ? "6px 6px 8px" : "10px 14px", fontSize: 14, color: L.text, boxShadow: SH.xs, lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
                 {m.cita_texto && (
                   <div style={{ borderLeft: `3px solid ${C.gold}`, background: "rgba(0,0,0,.04)", borderRadius: 7, padding: "5px 9px", marginBottom: 6, fontSize: 12.5, color: L.muted, whiteSpace: "pre-wrap" }}>
                     <div style={{ fontWeight: 700, color: C.red, fontSize: 11.5, marginBottom: 1 }}>{m.cita_autor || "Mensaje"}</div>
@@ -2092,14 +2076,14 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
 
         {/* Botón + adjuntar */}
         <button onClick={() => setMenuAdjuntar((v) => !v)} disabled={subiendo} title="Adjuntar"
-          style={{ background: menuAdjuntar ? C.red : L.soft, color: menuAdjuntar ? "#fff" : L.muted, border: `1.5px solid ${menuAdjuntar ? C.red : L.border}`, borderRadius: 11, width: 44, height: 44, cursor: subiendo ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .18s", transform: menuAdjuntar ? "rotate(45deg)" : "none" }}>
+          style={{ background: menuAdjuntar ? C.red : L.soft, color: menuAdjuntar ? "#fff" : L.muted, border: `1px solid ${menuAdjuntar ? C.red : L.border}`, borderRadius: 11, width: 44, height: 44, cursor: subiendo ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .18s", transform: menuAdjuntar ? "rotate(45deg)" : "none" }}>
           {subiendo ? <Upload size={18} className="spin" /> : <Plus size={22} />}
         </button>
 
         <textarea value={texto} onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
           placeholder={isMobile ? "Escribí un mensaje…" : "Escribí un mensaje… (Enter para enviar · Shift+Enter = nueva línea)"} rows={1}
-          style={{ flex: 1, resize: "none", border: `1.5px solid ${L.border}`, borderRadius: 11, padding: "11px 14px", fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none", maxHeight: 120, lineHeight: 1.5 }} />
+          style={{ flex: 1, resize: "none", border: `1px solid ${L.border}`, borderRadius: 11, padding: "11px 14px", fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none", maxHeight: 120, lineHeight: 1.5 }} />
         <button onClick={enviar} disabled={enviando}
           style={{ background: enviando ? L.light : C.red, color: "#fff", border: "none", borderRadius: 11, padding: isMobile ? "11px 16px" : "11px 22px", fontSize: 14, fontWeight: 700, cursor: enviando ? "default" : "pointer", fontFamily: FONT_DISPLAY, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 7, boxShadow: enviando ? "none" : "0 2px 10px rgba(185,28,28,.3)", transition: "all .2s", flexShrink: 0 }}>
           <Send size={16} /> {enviando || isMobile ? (enviando ? "…" : "") : "Enviar"}
@@ -2135,7 +2119,7 @@ function VendedoresPanel({ isMobile }) {
           const esTodos = v === "__todos__";
           return (
             <button key={v} onClick={() => setSel(v)}
-              style={{ flexShrink: 0, padding: "9px 18px", borderRadius: 8, border: `1.5px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", transition: "all .15s" }}>
+              style={{ flexShrink: 0, padding: "9px 18px", borderRadius: 8, border: `1px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", transition: "all .15s" }}>
               {esTodos ? "Todos" : v}
             </button>
           );
@@ -2207,7 +2191,7 @@ function PedidosDelDia({ isMobile }) {
           const on = tab === k;
           return (
             <button key={k} onClick={() => setTab(k)}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 9, border: `1.5px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 9, border: `1px solid ${on ? C.red : L.border}`, background: on ? C.red : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
               {icon} {label}
               <span style={{ background: on ? "rgba(255,255,255,.25)" : L.soft, color: on ? "#fff" : L.muted, borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>{count}</span>
             </button>
@@ -2359,7 +2343,7 @@ export default function App() {
   // con el panel de gestión de pedidos en la pestaña Pedidos.
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario");
 
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
@@ -2390,6 +2374,13 @@ export default function App() {
           <>
             {isMobile && <MobileBack title="Admin" onBack={() => setVista("chat")} />}
             <AdminPanel userName={userName} isMobile={isMobile} />
+          </>
+        ) : vista === "calendario" ? (
+          <>
+            {isMobile && <MobileBack title="Calendario" onBack={() => setVista("chat")} />}
+            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+              <Calendario userEmail={userEmail} isMobile={isMobile} />
+            </Suspense>
           </>
         ) : vista === "reportes" ? (
           <>
@@ -2444,6 +2435,6 @@ export default function App() {
 // ESTILOS BASE
 // ============================================================
 const lblSt  = { display: "block", fontSize: 11.5, color: L.muted, marginBottom: 6, fontWeight: 700, letterSpacing: 0.3 };
-const inpSt  = { width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 8, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, background: L.white, color: L.text, outline: "none" };
-const selSt  = { border: `1.5px solid ${L.border}`, borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", fontWeight: 500, outline: "none" };
-const btnSt  = { border: "1.5px solid", borderRadius: 8, padding: "7px 13px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 6, transition: "all .15s" };
+const inpSt  = { width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, background: L.white, color: L.text, outline: "none" };
+const selSt  = { border: `1px solid ${L.border}`, borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", fontWeight: 500, outline: "none" };
+const btnSt  = { border: "1px solid", borderRadius: 8, padding: "7px 13px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 6, transition: "all .15s" };

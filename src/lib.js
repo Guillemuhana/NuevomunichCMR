@@ -109,23 +109,48 @@ export const ESTADOS = {
 // Estados mostrados en dropdowns (sin estados legacy ni perdido)
 export const ESTADOS_ACTIVOS = ["nuevo", "contactado", "interesado", "pendiente", "vendido", "finalizado"];
 
-// Paleta de marca (rojo bávaro / dorado / crema)
+// Paleta de marca — rojo Munich como acento, base sobria
 export const C = {
-  red: "#9c1b1b",
-  redDark: "#7a1212",
-  gold: "#d4a13a",
-  goldSoft: "#e8c878",
-  cream: "#f7f1e4",
-  paper: "#fffaf0",
-  ink: "#241c16",
-  charcoal: "#2b2520",
-  border: "#e3d8c2",
-  muted: "#8f8470",
-  sage: "#5d6b3a",
+  red: "#A81F1F",
+  redDark: "#7F1414",
+  redSoft: "#FDF2F2",
+  gold: "#C08A2E",
+  goldSoft: "#F3E7CC",
+  cream: "#FAF8F4",
+  paper: "#FFFFFF",
+  ink: "#101828",
+  charcoal: "#1D2939",
+  border: "#E6E9EF",
+  muted: "#667085",
+  sage: "#5D6B3A",
 };
 
-export const FONT_DISPLAY = "'Oswald', system-ui, sans-serif";
-export const FONT_BODY = "'Libre Franklin', system-ui, sans-serif";
+// ── Paleta neutra compartida (tema claro) ───────────────────
+export const L = {
+  bg:     "#F7F8FA",
+  white:  "#FFFFFF",
+  border: "#E6E9EF",
+  text:   "#101828",
+  muted:  "#667085",
+  light:  "#98A2B3",
+  soft:   "#F4F6F8",
+  hover:  "#FBF4F4",
+  active: "#FDF2F2",
+};
+
+// ── Tokens de forma y profundidad ───────────────────────────
+export const R = { xs: 6, sm: 8, md: 12, lg: 16, xl: 20, pill: 999 };
+
+export const SH = {
+  xs: "0 1px 2px rgba(16,24,40,.05)",
+  sm: "0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04)",
+  md: "0 4px 14px rgba(16,24,40,.07)",
+  lg: "0 12px 32px rgba(16,24,40,.12)",
+  xl: "0 24px 64px rgba(16,24,40,.16)",
+};
+
+export const FONT_DISPLAY = "'Inter Tight Variable', 'Inter Variable', system-ui, sans-serif";
+export const FONT_BODY = "'Inter Variable', system-ui, -apple-system, sans-serif";
 
 // ---------- Utilidades de fecha ----------
 export function rangoFechas(periodo) {

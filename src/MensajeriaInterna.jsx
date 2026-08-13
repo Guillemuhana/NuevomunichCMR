@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
-import { supabase, C, FONT_DISPLAY, FONT_BODY, getContactosInternos } from "./lib";
+import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, getContactosInternos } from "./lib";
 
-const L = {
-  bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
-  text: "#0F172A", muted: "#64748B", light: "#94A3B8", soft: "#F1F5F9",
-};
 
 // Avatar con iniciales
 function Ini({ nombre, size = 38, activo }) {
@@ -114,7 +110,7 @@ function PanelMensajeria({ self, onClose, onLeer }) {
             ) : msgs.map(m => {
               const mio = m.de_key === self.key;
               return (
-                <div key={m.id} style={{ alignSelf: mio ? "flex-end" : "flex-start", maxWidth: "72%", background: mio ? C.red : L.white, color: mio ? "#fff" : L.text, borderRadius: mio ? "14px 4px 14px 14px" : "4px 14px 14px 14px", padding: "9px 13px", fontSize: 14, lineHeight: 1.45, boxShadow: "0 1px 4px rgba(0,0,0,.07)", whiteSpace: "pre-wrap", border: mio ? "none" : `1px solid ${L.border}` }}>
+                <div key={m.id} style={{ alignSelf: mio ? "flex-end" : "flex-start", maxWidth: "72%", background: mio ? C.red : L.white, color: mio ? "#fff" : L.text, borderRadius: mio ? "14px 4px 14px 14px" : "4px 14px 14px 14px", padding: "9px 13px", fontSize: 14, lineHeight: 1.45, boxShadow: SH.xs, whiteSpace: "pre-wrap", border: mio ? "none" : `1px solid ${L.border}` }}>
                   {m.texto}
                   <div style={{ fontSize: 10, marginTop: 4, color: mio ? "rgba(255,255,255,.7)" : L.light, textAlign: "right" }}>
                     {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
@@ -130,7 +126,7 @@ function PanelMensajeria({ self, onClose, onLeer }) {
               <textarea value={texto} onChange={e => setTexto(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
                 placeholder="Escribí un mensaje…" rows={1}
-                style={{ flex: 1, resize: "none", border: `1.5px solid ${L.border}`, borderRadius: 11, padding: "11px 14px", fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none", maxHeight: 110, lineHeight: 1.4 }} />
+                style={{ flex: 1, resize: "none", border: `1px solid ${L.border}`, borderRadius: 11, padding: "11px 14px", fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none", maxHeight: 110, lineHeight: 1.4 }} />
               <button onClick={enviar}
                 style={{ background: C.red, color: "#fff", border: "none", borderRadius: 11, width: 44, height: 44, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <Send size={18} />
@@ -166,7 +162,7 @@ export default function BotonMensajes({ self, compact }) {
   return (
     <>
       <button onClick={() => setOpen(true)} title="Mensajes internos"
-        style={{ position: "relative", display: "flex", alignItems: "center", gap: compact ? 0 : 8, background: L.white, border: `1.5px solid ${L.border}`, color: C.red, borderRadius: 10, padding: compact ? 0 : "0 14px", width: compact ? 38 : undefined, height: 38, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, justifyContent: "center" }}>
+        style={{ position: "relative", display: "flex", alignItems: "center", gap: compact ? 0 : 8, background: L.white, border: `1px solid ${L.border}`, color: C.red, borderRadius: 10, padding: compact ? 0 : "0 14px", width: compact ? 38 : undefined, height: 38, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, justifyContent: "center" }}>
         <MessageCircle size={17} />
         {!compact && "Mensajes"}
         {unread > 0 && (

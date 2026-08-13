@@ -11,7 +11,30 @@
     <style>
       *, *::before, *::after { box-sizing: border-box; }
       html { height: 100%; overflow: hidden; }
-      body { height: 100%; margin: 0; overflow: hidden; overflow-x: hidden; overscroll-behavior: none; }
+      body {
+        height: 100%; margin: 0; overflow: hidden; overflow-x: hidden; overscroll-behavior: none;
+        font-family: 'Inter Variable', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        background: #F7F8FA; color: #101828;
+      }
+
+      /* ── Refinamientos minimalistas ── */
+      ::selection { background: rgba(168,31,31,.14); }
+      button, input, textarea, select { font-family: inherit; }
+      button { -webkit-tap-highlight-color: transparent; }
+      :focus-visible { outline: 2px solid rgba(168,31,31,.45); outline-offset: 2px; }
+
+      /* Scrollbars finas y discretas */
+      * { scrollbar-width: thin; scrollbar-color: #D3D8E0 transparent; }
+      *::-webkit-scrollbar { width: 8px; height: 8px; }
+      *::-webkit-scrollbar-track { background: transparent; }
+      *::-webkit-scrollbar-thumb { background: #D3D8E0; border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+      *::-webkit-scrollbar-thumb:hover { background: #B6BDC9; background-clip: content-box; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      }
       #root { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
       /* Login puede scrollear aunque el root esté locked */
       .login-scroll { overflow-y: auto !important; -webkit-overflow-scrolling: touch; }

@@ -1,22 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Package, Search, Clock, Check, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
-  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save,
+  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays,
 } from "lucide-react";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import BotonMensajes from "./MensajeriaInterna";
 
-const L = {
-  bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
-  text: "#0F172A", muted: "#64748B", light: "#94A3B8",
-  soft: "#F1F5F9",
-};
+
+
+const Calendario = lazy(() => import("./Calendario"));
 
 const TIPOS = [
   { k: "pedido",   label: "Pedido",   icon: <Package size={14} />,   color: "#1D4ED8", bg: "#DBEAFE" },
@@ -151,13 +149,13 @@ function PerfilModal({ vendorInfo, userEmail, onClose }) {
     setTimeout(() => { setOk(false); onClose(); }, 1200);
   };
 
-  const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
+  const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
 
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
       <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(420px, 94vw)", background: L.white, borderRadius: 18, zIndex: 401, boxShadow: "0 24px 80px rgba(0,0,0,.25)", fontFamily: FONT_BODY, overflow: "hidden" }}>
-        <div style={{ padding: "18px 22px", borderBottom: `3px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.white }}>
+        <div style={{ padding: "18px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.white }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <UserCircle size={22} color={C.red} />
             <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: L.text }}>Mis datos personales</span>
@@ -293,7 +291,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
     }
   };
 
-  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
+  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
 
   return (
     <>
@@ -306,7 +304,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: `3px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.white }}>
+        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.white }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: L.text }}>
             {editando ? "Editar entrada" : "Cargar nueva entrada"}
           </div>
@@ -451,7 +449,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
 
         {/* Footer */}
         <div style={{ padding: "14px 20px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY, fontWeight: 600 }}>Cancelar</button>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY, fontWeight: 600 }}>Cancelar</button>
           <button onClick={guardar} disabled={guardando}
             style={{ flex: 2, background: guardando ? L.light : C.red, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontSize: 14, cursor: guardando ? "default" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             {guardando ? "Guardando…" : <><Check size={16} /> Guardar entrada</>}
@@ -481,6 +479,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [showNotifs, setShowNotifs] = useState(true);
   const [confirmElim, setConfirmElim] = useState(null);
   const [showPerfil, setShowPerfil] = useState(false);
+  const [agenda, setAgenda] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -573,7 +572,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* Header */}
-      <div style={{ background: L.white, borderBottom: `3px solid ${C.gold}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.xs }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 48, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Vendedor</div>
@@ -586,8 +585,12 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           </button>
         )}
         {userEmail && !vendorAliasOverride && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
+        <button onClick={() => setAgenda(v => !v)} title="Calendario"
+          style={{ background: agenda ? C.red : L.soft, border: `1px solid ${agenda ? C.red : L.border}`, color: agenda ? "#fff" : L.muted, borderRadius: R.sm, padding: "0 13px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
+          <CalendarDays size={16} /> Agenda
+        </button>
         <button onClick={() => setShowPerfil(true)} title="Mis datos"
-          style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <UserCircle size={18} />
         </button>
         <button onClick={() => { setEditando(null); setShowForm(true); }}
@@ -596,12 +599,17 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
         </button>
         {onLogout && (
           <button onClick={onLogout} title="Cerrar sesión"
-            style={{ background: L.soft, border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <LogOut size={15} />
           </button>
         )}
       </div>
 
+      {agenda ? (
+        <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+          <Calendario userEmail={userEmail} vendedorFijo={vendorInfo.alias || vendorInfo.nombre} />
+        </Suspense>
+      ) : (
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
 
         {/* Alertas */}
@@ -648,7 +656,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                 const activa = tab === t.k;
                 return (
                   <button key={t.k} onClick={() => setTab(t.k)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", borderRadius: 11, border: `1.5px solid ${activa ? C.red : L.border}`, background: activa ? C.red : L.white, color: activa ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, letterSpacing: 0.3, boxShadow: activa ? "0 2px 10px rgba(185,28,28,.25)" : "0 1px 4px rgba(0,0,0,.04)", transition: "all .15s" }}>
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", borderRadius: 11, border: `1px solid ${activa ? C.red : L.border}`, background: activa ? C.red : L.white, color: activa ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, letterSpacing: 0.3, boxShadow: activa ? "0 2px 10px rgba(185,28,28,.25)" : "0 1px 4px rgba(0,0,0,.04)", transition: "all .15s" }}>
                     {t.icon} {t.label}
                     <span style={{ fontSize: 12, fontWeight: 800, padding: "1px 8px", borderRadius: 8, background: activa ? "rgba(255,255,255,.25)" : L.soft, color: activa ? "#fff" : L.muted }}>{t.count}</span>
                   </button>
@@ -662,10 +670,10 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                 <Search size={12} color={L.light} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                   placeholder="Buscar cliente, producto…"
-                  style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px 7px 26px", borderRadius: 8, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+                  style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px 7px 26px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-                style={{ padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los estados</option>
                 {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
@@ -699,7 +707,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
               return (
                 <div key={ped.id}
-                  style={{ background: L.white, border: `1.5px solid ${borderCol}`, borderLeft: `4px solid ${TIPOS.find(t=>t.k===det.tipo)?.color || C.red}`, borderRadius: 11, marginBottom: 9, padding: "14px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)", transition: "box-shadow .15s" }}
+                  style={{ background: L.white, border: `1px solid ${borderCol}`, borderLeft: `4px solid ${TIPOS.find(t=>t.k===det.tipo)?.color || C.red}`, borderRadius: 11, marginBottom: 9, padding: "14px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)", transition: "box-shadow .15s" }}
                   onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)"}
                   onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)"}>
 
@@ -812,6 +820,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           </div>
         </div>
       </div>
+      )}
 
       {/* Modal formulario */}
       {showForm && (
@@ -838,7 +847,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: L.text, marginBottom: 8 }}>Eliminar entrada</div>
             <div style={{ color: L.muted, fontSize: 13, marginBottom: 20 }}>¿Seguro? Esta acción no se puede deshacer.</div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmElim(null)} style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, borderRadius: 9, padding: 11, cursor: "pointer", color: L.muted, fontWeight: 600, fontFamily: FONT_BODY }}>Cancelar</button>
+              <button onClick={() => setConfirmElim(null)} style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 9, padding: 11, cursor: "pointer", color: L.muted, fontWeight: 600, fontFamily: FONT_BODY }}>Cancelar</button>
               <button onClick={() => eliminar(confirmElim)} style={{ flex: 1, background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: 11, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700 }}>Eliminar</button>
             </div>
           </div>

@@ -7,15 +7,10 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios,
 } from "./lib";
 
 // Paleta light (igual que App.jsx)
-const L = {
-  bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
-  text: "#0F172A", muted: "#64748B", light: "#94A3B8",
-  soft: "#F1F5F9", hover: "#FEF2F2",
-};
 
 // Estados del pedido
 export const EP = {
@@ -228,7 +223,7 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
     onClose();
   };
 
-  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `1.5px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
+  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none", background: L.soft };
   const lbl = { display: "block", fontSize: 11, color: L.muted, marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 };
 
   return (
@@ -332,11 +327,11 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
         {/* Footer */}
         <div style={{ padding: "16px 24px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 10 }}>
           <button onClick={onClose}
-            style={{ background: "transparent", border: `1.5px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "11px 20px", fontSize: 14, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>
+            style={{ background: "transparent", border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, padding: "11px 20px", fontSize: 14, cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 600 }}>
             Cancelar
           </button>
           <button onClick={() => guardar(false)} disabled={saving}
-            style={{ flex: 1, background: L.soft, border: `1.5px solid ${L.border}`, color: L.text, borderRadius: 9, padding: "11px", fontSize: 14, cursor: saving ? "default" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, opacity: saving ? 0.7 : 1 }}>
+            style={{ flex: 1, background: L.soft, border: `1px solid ${L.border}`, color: L.text, borderRadius: 9, padding: "11px", fontSize: 14, cursor: saving ? "default" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, opacity: saving ? 0.7 : 1 }}>
             {saving ? "Guardando…" : "Guardar"}
           </button>
           <button onClick={() => guardar(true)} disabled={saving}
@@ -445,7 +440,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
               <Search size={14} color={L.light} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar cliente o vendedor…"
-                style={{ width: 200, boxSizing: "border-box", padding: "8px 12px 8px 30px", borderRadius: 9, border: `1.5px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+                style={{ width: 200, boxSizing: "border-box", padding: "8px 12px 8px 30px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
             </div>
             {/* Botón Nuevo Pedido */}
             <button onClick={abrirNuevoPedido}
@@ -458,7 +453,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
         {/* Filtros por estado */}
         <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
           <button onClick={() => setFiltro("todos")}
-            style={{ fontSize: 11.5, padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${filtro === "todos" ? C.red : L.border}`, cursor: "pointer", fontWeight: 700, background: filtro === "todos" ? "#FEF2F2" : L.white, color: filtro === "todos" ? C.red : L.muted, transition: "all .15s" }}>
+            style={{ fontSize: 11.5, padding: "5px 14px", borderRadius: 20, border: `1px solid ${filtro === "todos" ? C.red : L.border}`, cursor: "pointer", fontWeight: 700, background: filtro === "todos" ? "#FEF2F2" : L.white, color: filtro === "todos" ? C.red : L.muted, transition: "all .15s" }}>
             Todos <span style={{ background: filtro === "todos" ? C.red : L.light, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10, marginLeft: 3 }}>{pedidos.length}</span>
           </button>
           {Object.entries(EP).map(([k, v]) => {
@@ -467,7 +462,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
             const on = filtro === k;
             return (
               <button key={k} onClick={() => setFiltro(k)}
-                style={{ fontSize: 11.5, padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${on ? v.color : L.border}`, cursor: "pointer", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
+                style={{ fontSize: 11.5, padding: "5px 14px", borderRadius: 20, border: `1px solid ${on ? v.color : L.border}`, cursor: "pointer", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
                 {v.label} <span style={{ background: on ? v.color : L.light, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10, marginLeft: 3 }}>{cnt}</span>
               </button>
             );
@@ -496,7 +491,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
 
             return (
               <div key={ped.id}
-                style={{ background: L.white, borderRadius: 14, border: `1.5px solid ${L.border}`, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.05)", transition: "box-shadow .2s" }}
+                style={{ background: L.white, borderRadius: 14, border: `1px solid ${L.border}`, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.05)", transition: "box-shadow .2s" }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,.1)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,.05)"; }}>
 
@@ -535,14 +530,14 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <button onClick={(e) => { e.stopPropagation(); imprimirPedido(ped, cont); }}
                         title="Descargar PDF"
-                        style={{ background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: L.muted, fontFamily: FONT_BODY, fontWeight: 600, transition: "all .15s" }}
+                        style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: L.muted, fontFamily: FONT_BODY, fontWeight: 600, transition: "all .15s" }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
                         <Printer size={13} /> PDF
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); eliminarPedido(ped.id); }}
                         title="Eliminar pedido"
-                        style={{ background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#EF4444", fontFamily: FONT_BODY, fontWeight: 600, transition: "all .15s" }}
+                        style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#EF4444", fontFamily: FONT_BODY, fontWeight: 600, transition: "all .15s" }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#EF4444"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = L.border; }}>
                         <Trash2 size={13} /> Eliminar
@@ -605,7 +600,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                         return (
                           <button key={k} onClick={() => puedeEditar && cambiarEstado(ped.id, k)}
                             disabled={!puedeEditar}
-                            style={{ fontSize: 11.5, padding: "5px 13px", borderRadius: 20, border: `1.5px solid ${on ? v.color : L.border}`, cursor: puedeEditar ? "pointer" : "default", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
+                            style={{ fontSize: 11.5, padding: "5px 13px", borderRadius: 20, border: `1px solid ${on ? v.color : L.border}`, cursor: puedeEditar ? "pointer" : "default", fontWeight: 700, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
                             {on && <Check size={11} style={{ display: "inline", marginRight: 4 }} />}{v.label}
                           </button>
                         );
@@ -643,7 +638,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                 <input value={busqContacto} onChange={(e) => buscarContactos(e.target.value)}
                   placeholder="Nombre o teléfono del cliente…"
                   autoFocus
-                  style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px 11px 32px", borderRadius: 10, border: `1.5px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
+                  style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px 11px 32px", borderRadius: 10, border: `1px solid ${L.border}`, fontSize: 14, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
                 {listaContactos.length === 0 && busqContacto.length > 0 && (
@@ -654,7 +649,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                 )}
                 {listaContactos.map(c => (
                   <button key={c.id} onClick={() => setContactoSelec(c)}
-                    style={{ background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, textAlign: "left", transition: "border-color .15s" }}
+                    style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, textAlign: "left", transition: "border-color .15s" }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = C.red}
                     onMouseLeave={e => e.currentTarget.style.borderColor = L.border}>
                     <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>

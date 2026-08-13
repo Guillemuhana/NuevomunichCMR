@@ -4,17 +4,13 @@ import {
   X, AlertCircle, Plus, TrendingUp, UserCheck,
   ChevronDown, Check, RefreshCw,
 } from "lucide-react";
-import { supabase, C, FONT_DISPLAY, FONT_BODY, VENDEDORES, VENDEDORES_INFO, ESTADOS, fmtMoneda } from "./lib";
+import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, VENDEDORES_INFO, ESTADOS, fmtMoneda } from "./lib";
 import VendedorDashboard from "./VendedorPanel";
 
-const L = {
-  bg: "#F5F6F8", white: "#FFFFFF", border: "#E4E8ED",
-  text: "#0F172A", muted: "#64748B", light: "#94A3B8", soft: "#F1F5F9",
-};
 
 const inputSt = {
   width: "100%", boxSizing: "border-box", padding: "11px 14px",
-  borderRadius: 10, border: `1.5px solid ${L.border}`,
+  borderRadius: 10, border: `1px solid ${L.border}`,
   fontSize: 14, fontFamily: FONT_BODY, color: L.text, outline: "none",
   background: L.soft,
 };
@@ -215,7 +211,7 @@ export default function AdminPanel({ userName, isMobile }) {
 
       {/* ── HEADER ── */}
       <div style={{
-        background: L.white, borderBottom: `3px solid ${C.gold}`,
+        background: L.white, borderBottom: `1px solid ${L.border}`,
         padding: isMobile ? "12px 14px" : "16px 24px",
         position: "sticky", top: 0, zIndex: 10,
         boxShadow: "0 2px 8px rgba(0,0,0,.05)",
@@ -449,7 +445,7 @@ export default function AdminPanel({ userName, isMobile }) {
                   <button
                     onClick={() => setVendedorPanel(null)}
                     style={{
-                      background: L.soft, border: `1.5px solid ${L.border}`, borderRadius: 10,
+                      background: L.soft, border: `1px solid ${L.border}`, borderRadius: 10,
                       padding: "8px 16px", fontSize: 13, cursor: "pointer", color: L.muted,
                       fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
                     }}>
@@ -558,7 +554,7 @@ export default function AdminPanel({ userName, isMobile }) {
               )}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setModalV(null)}
-                  style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY, fontWeight: 600 }}>
+                  style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY, fontWeight: 600 }}>
                   Cancelar
                 </button>
                 <button onClick={guardarVendedor} disabled={guardandoV}
@@ -590,7 +586,7 @@ export default function AdminPanel({ userName, isMobile }) {
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setConfirmarElim(null)}
-                  style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY }}>
+                  style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY }}>
                   Cancelar
                 </button>
                 <button onClick={() => eliminarVendedor(confirmarElim)}
@@ -633,7 +629,7 @@ export default function AdminPanel({ userName, isMobile }) {
               </select>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setReasignar(null)}
-                  style={{ flex: 1, background: "transparent", border: `1.5px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY }}>
+                  style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY }}>
                   Cancelar
                 </button>
                 <button onClick={confirmarReasignacion} disabled={guardandoReas}
