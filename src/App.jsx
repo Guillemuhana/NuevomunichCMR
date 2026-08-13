@@ -1448,9 +1448,21 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
               })() : "";
               return (
                 <div key={c.id} onClick={() => onSelect(c)}
-                  style={{ padding: "13px 14px", borderBottom: `1px solid ${L.border}`, cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start", background: sel ? L.active : "transparent", borderLeft: sel ? `3px solid ${C.red}` : "3px solid transparent", transition: "background .12s" }}
-                  onMouseEnter={(e) => { if (!sel) e.currentTarget.style.background = L.hover; }}
-                  onMouseLeave={(e) => { if (!sel) e.currentTarget.style.background = "transparent"; }}>
+                  style={{
+                    position: "relative", padding: "13px 14px", margin: "0 6px", borderRadius: R.md,
+                    cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start",
+                    background: sel ? L.white : "transparent",
+                    // El divisor va como sombra interna: así el estado seleccionado
+                    // puede escalar sin que la fila cambie de alto.
+                    boxShadow: sel ? SH.md : `inset 0 -1px 0 ${L.border}`,
+                    transform: sel ? "scale(1.025)" : "scale(1)",
+                    zIndex: sel ? 2 : 1, willChange: "transform",
+                    transition: "transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s ease, background .16s ease",
+                  }}
+                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.background = L.soft; e.currentTarget.style.transform = "scale(1.008)"; } }}
+                  onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "scale(1)"; } }}>
+                  {/* Acento lateral que crece al seleccionar */}
+                  <span style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", width: 3, height: sel ? "62%" : 0, background: C.red, borderRadius: "0 3px 3px 0", opacity: sel ? 1 : 0, transition: "height .24s cubic-bezier(.22,1,.36,1), opacity .18s ease" }} />
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <Avatar nombre={c.nombre || c.telefono} foto={c.foto_url} size={46} />
                     {!c.bot_activo && (
