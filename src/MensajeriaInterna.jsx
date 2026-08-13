@@ -13,8 +13,31 @@ function Ini({ nombre, size = 38, activo }) {
   );
 }
 
+// ── Contador de mensajes internos sin leer (se actualiza en vivo) ──
+// canal: sufijo para no chocar con otra suscripción del mismo usuario.
+export function useUnreadInternos(selfKey, canal = "badge") {
+  const [unread, setUnread] = useState(0);
+
+  const recargar = useCallback(async () => {
+    const { count } = await supabase.from("mensajes_internos")
+      .select("id", { count: "exact", head: true })
+      .eq("para_key", selfKey).eq("leido", false);
+    setUnread(count || 0);
+  }, [selfKey]);
+
+  useEffect(() => {
+    recargar();
+    const ch = supabase.channel(`mi-${canal}-${selfKey}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mensajes_internos" }, recargar)
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [recargar, canal, selfKey]);
+
+  return [unread, recargar];
+}
+
 // ── Panel de conversaciones internas ──
-function PanelMensajeria({ self, onClose, onLeer }) {
+export function PanelMensajeria({ self, onClose, onLeer }) {
   const contactos = getContactosInternos(self.key);
   const [sel, setSel] = useState(null);
   const [msgs, setMsgs] = useState([]);
@@ -142,22 +165,7 @@ function PanelMensajeria({ self, onClose, onLeer }) {
 // ── Botón "Mensajes" con badge de no leídos ──
 export default function BotonMensajes({ self, compact }) {
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
-
-  const cargarUnread = useCallback(async () => {
-    const { count } = await supabase.from("mensajes_internos")
-      .select("id", { count: "exact", head: true })
-      .eq("para_key", self.key).eq("leido", false);
-    setUnread(count || 0);
-  }, [self.key]);
-
-  useEffect(() => {
-    cargarUnread();
-    const ch = supabase.channel(`mi-badge-${self.key}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mensajes_internos" }, cargarUnread)
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [cargarUnread]);
+  const [unread, cargarUnread] = useUnreadInternos(self.key, "badge");
 
   return (
     <>

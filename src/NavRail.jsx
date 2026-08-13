@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
-  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X,
+  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle,
 } from "lucide-react";
-import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna } from "./lib";
+import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
 
 // ============================================================
 // NAV RAIL — barra lateral de navegación estilo CRM moderno.
@@ -25,12 +26,16 @@ const RAIL = {
 
 const SPRING = { type: "spring", stiffness: 420, damping: 38, mass: 0.9 };
 
+// El chat interno no es una vista: abre su propio panel flotante.
+const ITEM_MENSAJES = { key: "mensajes", icon: MessageCircle, label: "Mensajes", panel: true };
+
 // Ítems de navegación agrupados en secciones
 function getSecciones(rol) {
   const principal = [
     { key: "chat",       icon: MessageSquare,  label: "Chats" },
     { key: "vendedores", icon: UserCheck,      label: "Vendedores" },
     { key: "pedidos",    icon: Package,        label: "Pedidos" },
+    ITEM_MENSAJES,
   ];
   const gestion = [
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
@@ -42,9 +47,15 @@ function getSecciones(rol) {
     ...(rol === "admin" ? [{ key: "admin", icon: Shield, label: "Admin" }] : []),
   ];
 
-  // Administración sólo opera chats y pedidos
+  // Administración: chats, pedidos, mensajes internos y calendario (recordatorios)
   if (rol === "administracion") {
-    return [{ titulo: null, items: principal.filter(i => i.key !== "vendedores") }];
+    return [{
+      titulo: null,
+      items: [
+        ...principal.filter(i => i.key !== "vendedores"),
+        { key: "calendario", icon: CalendarCheck, label: "Calendario" },
+      ],
+    }];
   }
   return [
     { titulo: "Principal", items: principal },
@@ -108,7 +119,7 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
           <motion.span animate={{ scale: hover && !activo ? 1.14 : 1 }} transition={SPRING}
             style={{ position: "relative", display: "flex" }}>
             <Icon size={19} strokeWidth={activo ? 2.4 : 1.9} />
-            <Badge n={badge} tono={item.key === "chat" ? "verde" : "rojo"} />
+            <Badge n={badge} tono={item.key === "chat" || item.key === "mensajes" ? "verde" : "rojo"} />
           </motion.span>
         </span>
 
@@ -154,15 +165,20 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
   const [pin, setPin]     = useState(() => localStorage.getItem("munich-rail-pin") === "1");
   const [hover, setHover] = useState(false);
   const [videoOk, setVideoOk] = useState(true);
+  const [msgOpen, setMsgOpen] = useState(false);
   const reduceMotion = useReducedMotion();
   const expandido = pin || hover;
+
+  const identidad = getIdentidadInterna(userEmail);
+  const [unread, recargarUnread] = useUnreadInternos(identidad.key, "rail");
 
   useEffect(() => { localStorage.setItem("munich-rail-pin", pin ? "1" : "0"); }, [pin]);
 
   const secciones = getSecciones(rol);
 
   return (
-    // El hueco en el flujo crece sólo cuando el rail está fijado
+    <>
+    {/* El hueco en el flujo crece sólo cuando el rail está fijado */}
     <motion.div animate={{ width: pin ? W_OPEN : W_MINI }} transition={SPRING}
       style={{ flexShrink: 0, height: "100%", position: "relative", zIndex: 60 }}>
       <motion.nav
@@ -216,9 +232,11 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
                 </motion.div>
               )}
               {sec.items.map((item) => (
-                <RailItem key={item.key} item={item} activo={vista === item.key}
-                  expandido={expandido} badge={badges[item.key]}
-                  onClick={() => setVista(item.key)} />
+                <RailItem key={item.key} item={item}
+                  activo={item.panel ? msgOpen : vista === item.key}
+                  expandido={expandido}
+                  badge={item.key === "mensajes" ? unread : badges[item.key]}
+                  onClick={() => (item.panel ? setMsgOpen(true) : setVista(item.key))} />
               ))}
             </div>
           ))}
@@ -272,6 +290,14 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
         </div>
       </motion.nav>
     </motion.div>
+
+    {/* Chat interno — se abre desde el ítem "Mensajes" del menú */}
+    {msgOpen && (
+      <PanelMensajeria self={identidad}
+        onClose={() => { setMsgOpen(false); recargarUnread(); }}
+        onLeer={recargarUnread} />
+    )}
+    </>
   );
 }
 
@@ -281,7 +307,8 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
 export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {} }) {
   const [sheet, setSheet] = useState(false);
   const secciones = getSecciones(rol);
-  const todos = secciones.flatMap(s => s.items);
+  // En mobile el chat interno sigue en el botón de la cabecera
+  const todos = secciones.flatMap(s => s.items).filter(i => !i.panel);
   const principales = todos.slice(0, 4);
   const resto = todos.slice(4);
   const enResto = resto.some(i => i.key === vista);

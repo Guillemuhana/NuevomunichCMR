@@ -1339,7 +1339,8 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           <div style={{ fontSize: 11, color: L.light, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{userName}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
+          {/* En desktop el chat interno vive en el menú lateral */}
+          {isMobile && userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
           <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
         </div>
       </div>
