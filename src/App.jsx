@@ -15,6 +15,7 @@ import {
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
+import NavRail, { NavMobile } from "./NavRail";
 import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
@@ -1275,19 +1276,17 @@ function AjustesPanel({ userName, userEmail, rol }) {
   );
 }
 
+// Título mostrado en la cabecera del panel lateral según la vista activa
+const TITULO_VISTA = {
+  chat: "Chats", vendedores: "Vendedores", pedidos: "Pedidos", calendario: "Calendario",
+  contactos: "Contactos", reportes: "Reportes", ajustes: "Ajustes", admin: "Admin",
+};
+
 function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
   const [filtro, setFiltro]           = useState("todos");
   const [soloDestacados, setSoloDestacados] = useState(false);
   const [busqueda, setBusqueda]       = useState("");
   const [showImportar, setShowImportar] = useState(false);
-  const [menuOpen, setMenuOpen]       = useState(false);
-  const menuRef                       = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
 
   // Detecta si un contacto ES un vendedor (no solo asignado a uno)
   // Chequea: flag manual es_vendedor, nombre exacto/parcial, o alias al inicio
@@ -1329,63 +1328,19 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
   return (
     <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, boxShadow: "6px 0 28px rgba(16,24,40,.05)", display: "flex", flexDirection: "column", position: "relative", zIndex: 3 }}>
 
-      {/* ── Brand bar ── */}
-      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${L.border}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 150, objectFit: "contain", maxWidth: 300, filter: "drop-shadow(0 2px 6px rgba(16,24,40,.12))" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* ── Cabecera compacta: marca + acciones ── */}
+      <div style={{ padding: "9px 12px 9px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${L.border}`, background: L.white, flexShrink: 0 }}>
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 46, objectFit: "contain", maxWidth: 168, filter: "drop-shadow(0 2px 6px rgba(16,24,40,.12))" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 750, fontSize: 13, letterSpacing: 0.9, textTransform: "uppercase", color: L.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {TITULO_VISTA[vista] || "Chats"}
+          </div>
+          <div style={{ fontSize: 11, color: L.light, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{userName}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
           <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
         </div>
-      </div>
-
-      {/* ── Tabs principales + menú hamburguesa ── */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${L.border}`, background: L.white, flexShrink: 0 }}>
-        {/* 3 tabs principales */}
-        {[
-          ["chat",       <MessageSquare size={14} />, "Chats"],
-          ["vendedores", <UserCheck size={14} />,     "Vendedores"],
-          ["pedidos",    <Package size={14} />,       "Pedidos"],
-        ].filter(([k]) => rol !== "administracion" || k !== "vendedores").map(([k, icon, l]) => (
-          <button key={k} onClick={() => setVista(k)}
-            style={{ flex: 1, border: "none", cursor: "pointer", padding: "12px 0 10px", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: vista === k ? C.red : L.muted, background: "transparent", borderBottom: vista === k ? `2px solid ${C.red}` : "2px solid transparent" }}>
-            {icon} {l}
-          </button>
-        ))}
-
-        {/* Hamburguesa — oculto para administración */}
-        {rol !== "administracion" && (
-        <>
-        {/* Separador */}
-        <div style={{ width: 1, background: L.border, margin: "8px 0" }} />
-
-        <div ref={menuRef} style={{ position: "relative" }}>
-          <button onClick={() => setMenuOpen(v => !v)}
-            style={{ width: 46, height: "100%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: menuOpen ? "#FFF5F5" : "transparent", color: ["calendario","contactos","reportes","ajustes","admin"].includes(vista) ? C.red : L.muted, transition: "all .15s", borderBottom: ["calendario","contactos","reportes","ajustes","admin"].includes(vista) ? `2px solid ${C.red}` : "2px solid transparent" }}>
-            <Menu size={17} />
-          </button>
-
-          {/* Dropdown */}
-          {menuOpen && (
-            <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", width: 180, background: L.white, borderRadius: 12, boxShadow: "0 8px 30px rgba(0,0,0,.14)", border: `1px solid ${L.border}`, zIndex: 200, overflow: "hidden" }}>
-              {[
-                ["calendario", <CalendarCheck size={14} />, "Calendario"],
-                ["contactos",  <Users size={14} />,    "Contactos"],
-                ["reportes",   <BarChart2 size={14} />, "Reportes"],
-                ["ajustes",    <Settings size={14} />,  "Ajustes"],
-                ...(rol === "admin" ? [["admin", <Shield size={14} />, "Admin"]] : []),
-              ].map(([k, icon, l]) => (
-                <button key={k} onClick={() => { setVista(k); setMenuOpen(false); }}
-                  style={{ width: "100%", border: "none", cursor: "pointer", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, background: vista === k ? "#FFF5F5" : "transparent", color: vista === k ? C.red : L.text, borderLeft: vista === k ? `3px solid ${C.red}` : "3px solid transparent", transition: "background .12s" }}
-                  onMouseEnter={e => { if (vista !== k) e.currentTarget.style.background = L.soft; }}
-                  onMouseLeave={e => { if (vista !== k) e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ color: vista === k ? C.red : L.muted }}>{icon}</span> {l}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        </>
-        )}
       </div>
 
       {(vista === "chat" || vista === "contactos") && (
@@ -1428,7 +1383,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           </div>
 
           {/* ── Lista contactos ── */}
-          <div className="scroll-y" style={{ overflowY: "auto", flex: 1 }}>
+          <div className="scroll-y" style={{ overflowY: "auto", flex: 1, paddingBottom: isMobile ? "calc(66px + env(safe-area-inset-bottom))" : 8 }}>
             {lista.length === 0 && (
               <div style={{ padding: 36, color: L.light, fontSize: 13.5, textAlign: "center" }}>
                 {busqueda ? "Sin resultados" : vista === "chat" ? "Sin conversaciones activas" : "Sin contactos"}
@@ -1515,23 +1470,6 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
       {(vista === "reportes" || vista === "vendedores" || vista === "pedidos" || vista === "calendario") && <div style={{ flex: 1 }} />}
 
       {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
-
-      {/* ── Pie usuario ── */}
-      <div style={{ padding: "12px 14px", borderTop: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 11, background: L.white, boxShadow: "0 -4px 18px rgba(16,24,40,.05)", position: "relative", zIndex: 2 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0 }}>
-          {(userName || "U")[0].toUpperCase()}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: L.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userName}</div>
-          <div style={{ fontSize: 11, color: L.light, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
-        </div>
-        <button onClick={onLogout} title="Cerrar sesión"
-          style={{ background: "transparent", border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = L.hover; e.currentTarget.style.color = C.red; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = L.muted; }}>
-          <LogOut size={16} />
-        </button>
-      </div>
     </div>
   );
 }
@@ -2342,6 +2280,10 @@ export default function App() {
   const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
   const rol       = getRol(userEmail);
   const alertas   = calcularAlertas(contactos);
+  // Contadores que muestra el rail de navegación
+  const navBadges = {
+    chat: contactos.reduce((s, c) => s + (c.no_leidos || 0), 0),
+  };
 
   // Vendedores externos ven su propio panel
   if (rol === "vendedor_panel") {
@@ -2365,6 +2307,13 @@ export default function App() {
     <div className={`app-layout${mobileInPanel ? " in-panel" : ""}`}
       style={{ fontFamily: FONT_BODY, background: L.bg }}>
       <FontLoader />
+
+      {/* Rail de navegación — desktop. En mobile va como barra inferior. */}
+      {!isMobile && (
+        <NavRail vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
+          rol={rol} userName={userName} userEmail={userEmail}
+          onLogout={() => supabase.auth.signOut()} badges={navBadges} />
+      )}
 
       {/* Sidebar — CSS lo oculta en mobile cuando hay .in-panel */}
       <div className="app-sidebar">
@@ -2438,6 +2387,13 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Navegación mobile — sólo con la lista visible (el panel usa su propio back) */}
+      {isMobile && !mobileInPanel && (
+        <NavMobile vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
+          rol={rol} userName={userName}
+          onLogout={() => supabase.auth.signOut()} badges={navBadges} />
+      )}
 
       {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />}
       {showImportarApp && <ImportarContactosModal onClose={() => setShowImportarApp(false)} />}
