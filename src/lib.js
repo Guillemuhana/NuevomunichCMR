@@ -17,6 +17,8 @@ export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
 
 // Logo oficial de Nuevo Munich
 export const LOGO_URL = "/logo.png";
+// Video de marca que anima la cabecera del rail (cae al logo si falla)
+export const LOGO_VIDEO_URL = "/cmrvideo.mp4";
 
 // Elimina del texto cualquier referencia a precios, montos, símbolos $ y pesos.
 // En este CRM no se manejan precios, así que se ocultan en mensajes y pedidos.

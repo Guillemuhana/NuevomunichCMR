@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
   BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X,
 } from "lucide-react";
-import { C, LOGO_URL, FONT_DISPLAY, FONT_BODY } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY } from "./lib";
 
 // ============================================================
 // NAV RAIL — barra lateral de navegación estilo CRM moderno.
@@ -153,6 +153,8 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
 export default function NavRail({ vista, setVista, rol, userName, userEmail, onLogout, badges = {} }) {
   const [pin, setPin]     = useState(() => localStorage.getItem("munich-rail-pin") === "1");
   const [hover, setHover] = useState(false);
+  const [videoOk, setVideoOk] = useState(true);
+  const reduceMotion = useReducedMotion();
   const expandido = pin || hover;
 
   useEffect(() => { localStorage.setItem("munich-rail-pin", pin ? "1" : "0"); }, [pin]);
@@ -177,10 +179,24 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
         <span style={{ position: "absolute", top: 0, right: 0, width: 1, height: "100%", background: "linear-gradient(180deg, rgba(255,255,255,.10), transparent 45%, rgba(168,31,31,.35))" }} />
 
         {/* ── Marca ── */}
-        <div style={{ height: 78, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderBottom: `1px solid ${RAIL.line}`, padding: "0 12px" }}>
-          <motion.img src={LOGO_URL} alt="Nuevo Munich"
-            animate={{ width: expandido ? W_OPEN - 40 : W_MINI - 20 }} transition={SPRING}
-            style={{ height: 58, objectFit: "contain", filter: "drop-shadow(0 4px 14px rgba(0,0,0,.5))" }} />
+        <div style={{ height: 84, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderBottom: `1px solid ${RAIL.line}`, padding: "0 14px" }}>
+          <motion.div animate={{ width: expandido ? W_OPEN - 28 : W_MINI - 20 }} transition={SPRING}
+            style={{
+              height: 62, borderRadius: 14, overflow: "hidden", position: "relative", flexShrink: 0,
+              background: "#0A0C10", border: "1px solid rgba(255,255,255,.09)",
+              boxShadow: "0 10px 26px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08)",
+            }}>
+            {videoOk && !reduceMotion ? (
+              <video src={LOGO_VIDEO_URL} autoPlay muted loop playsInline preload="metadata"
+                poster={LOGO_URL} onError={() => setVideoOk(false)}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : (
+              <img src={LOGO_URL} alt="Nuevo Munich"
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 4 }} />
+            )}
+            {/* Velo sutil para integrar el video con el rail */}
+            <span style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.22))" }} />
+          </motion.div>
         </div>
 
         {/* ── Navegación ── */}
