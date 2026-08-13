@@ -572,7 +572,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* Header */}
-      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.xs }}>
+      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.sm }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 48, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Vendedor</div>

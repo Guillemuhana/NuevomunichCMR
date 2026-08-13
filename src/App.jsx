@@ -1327,11 +1327,11 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
     .sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
 
   return (
-    <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, display: "flex", flexDirection: "column" }}>
+    <div style={{ width: "100%", height: "100%", background: L.white, borderRight: `1px solid ${L.border}`, boxShadow: "6px 0 28px rgba(16,24,40,.05)", display: "flex", flexDirection: "column", position: "relative", zIndex: 3 }}>
 
       {/* ── Brand bar ── */}
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${L.border}`, background: L.white }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 118, objectFit: "contain", maxWidth: 240 }} />
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 150, objectFit: "contain", maxWidth: 300, filter: "drop-shadow(0 2px 6px rgba(16,24,40,.12))" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {userEmail && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
           <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
@@ -1449,20 +1449,22 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
               return (
                 <div key={c.id} onClick={() => onSelect(c)}
                   style={{
-                    position: "relative", padding: "13px 14px", margin: "0 6px", borderRadius: R.md,
+                    position: "relative", padding: "13px 14px", margin: "3px 9px", borderRadius: R.md,
                     cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start",
                     background: sel ? L.white : "transparent",
                     // El divisor va como sombra interna: así el estado seleccionado
                     // puede escalar sin que la fila cambie de alto.
-                    boxShadow: sel ? SH.md : `inset 0 -1px 0 ${L.border}`,
-                    transform: sel ? "scale(1.025)" : "scale(1)",
+                    boxShadow: sel
+                      ? `0 10px 30px rgba(16,24,40,.13), 0 2px 8px rgba(16,24,40,.07), inset 0 0 0 1px ${C.red}22`
+                      : `inset 0 -1px 0 ${L.border}`,
+                    transform: sel ? "scale(1.045)" : "scale(1)",
                     zIndex: sel ? 2 : 1, willChange: "transform",
                     transition: "transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s ease, background .16s ease",
                   }}
                   onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.background = L.soft; e.currentTarget.style.transform = "scale(1.008)"; } }}
                   onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "scale(1)"; } }}>
                   {/* Acento lateral que crece al seleccionar */}
-                  <span style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", width: 3, height: sel ? "62%" : 0, background: C.red, borderRadius: "0 3px 3px 0", opacity: sel ? 1 : 0, transition: "height .24s cubic-bezier(.22,1,.36,1), opacity .18s ease" }} />
+                  <span style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", width: 4, height: sel ? "66%" : 0, background: C.red, borderRadius: "0 4px 4px 0", boxShadow: sel ? `0 0 12px ${C.red}66` : "none", opacity: sel ? 1 : 0, transition: "height .24s cubic-bezier(.22,1,.36,1), opacity .18s ease" }} />
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <Avatar nombre={c.nombre || c.telefono} foto={c.foto_url} size={46} />
                     {!c.bot_activo && (
@@ -1515,7 +1517,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
       {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
 
       {/* ── Pie usuario ── */}
-      <div style={{ padding: "12px 14px", borderTop: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 11, background: L.white }}>
+      <div style={{ padding: "12px 14px", borderTop: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 11, background: L.white, boxShadow: "0 -4px 18px rgba(16,24,40,.05)", position: "relative", zIndex: 2 }}>
         <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.red, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0 }}>
           {(userName || "U")[0].toUpperCase()}
         </div>
@@ -1800,7 +1802,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: L.bg, overflow: "hidden" }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: isMobile ? "10px 14px" : "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, boxShadow: "0 1px 6px rgba(0,0,0,.06)", flexShrink: 0 }}>
+      <div style={{ padding: isMobile ? "10px 14px" : "12px 22px", borderBottom: `1px solid ${L.border}`, background: L.white, boxShadow: SH.sm, flexShrink: 0, position: "relative", zIndex: 2 }}>
         {/* Fila 1: contacto info */}
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14 }}>
           {isMobile && onBack && (
@@ -1963,7 +1965,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
               const media = resolverMedia(m);
               const txt = limpiarPrecios(m.contenido || m.body || m.message || m.texto);
               return (
-              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: media ? "6px 6px 8px" : "10px 14px", fontSize: 14, color: L.text, boxShadow: SH.xs, lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
+              <div style={{ background: esCliente ? L.white : esAgente ? "#FEF2E2" : esN8n ? "#EFF6FF" : esBot ? "#FFF7E6" : "#FFFBEB", borderRadius: "14px", borderLeft: esCliente ? `3px solid ${isNew ? C.red : L.border}` : "none", borderRight: !esCliente ? `3px solid ${esN8n ? "#2563eb" : esAgente ? C.red : C.gold}` : "none", padding: media ? "6px 6px 8px" : "10px 14px", fontSize: 14, color: L.text, boxShadow: SH.sm, lineHeight: 1.5, whiteSpace: "pre-wrap", animation: isNew ? "msgGlow 2s ease-out" : "none" }}>
                 {m.cita_texto && (
                   <div style={{ borderLeft: `3px solid ${C.gold}`, background: "rgba(0,0,0,.04)", borderRadius: 7, padding: "5px 9px", marginBottom: 6, fontSize: 12.5, color: L.muted, whiteSpace: "pre-wrap" }}>
                     <div style={{ fontWeight: 700, color: C.red, fontSize: 11.5, marginBottom: 1 }}>{m.cita_autor || "Mensaje"}</div>
@@ -2055,7 +2057,7 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
       )}
 
       {/* ── Input ── */}
-      <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderTop: replyTo ? "none" : `1px solid ${L.border}`, background: L.white, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, position: "relative" }}>
+      <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderTop: replyTo ? "none" : `1px solid ${L.border}`, background: L.white, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, position: "relative", zIndex: 2, boxShadow: "0 -4px 18px rgba(16,24,40,.05)" }}>
         {/* Inputs ocultos para seleccionar archivos */}
         <input ref={fileImagenRef} type="file" accept="image/*" style={{ display: "none" }}
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) subirArchivo(f, "image"); }} />
