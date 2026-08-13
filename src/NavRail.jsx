@@ -186,14 +186,21 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
               background: "#0A0C10", border: "1px solid rgba(255,255,255,.09)",
               boxShadow: "0 10px 26px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08)",
             }}>
-            {videoOk && !reduceMotion ? (
-              <video src={LOGO_VIDEO_URL} autoPlay muted loop playsInline preload="metadata"
-                poster={LOGO_URL} onError={() => setVideoOk(false)}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            ) : (
-              <img src={LOGO_URL} alt="Nuevo Munich"
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 4 }} />
-            )}
+            {/* Logo fijo mientras está colapsado (el video se recortaría) */}
+            <img src={LOGO_URL} alt="Nuevo Munich"
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 4 }} />
+
+            {/* El video sólo corre con el menú desplegado, y arranca desde cero */}
+            <AnimatePresence>
+              {expandido && videoOk && !reduceMotion && (
+                <motion.video key="marca-video"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  src={LOGO_VIDEO_URL} autoPlay muted loop playsInline preload="auto"
+                  onError={() => setVideoOk(false)}
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              )}
+            </AnimatePresence>
             {/* Velo sutil para integrar el video con el rail */}
             <span style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.22))" }} />
           </motion.div>
