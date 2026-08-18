@@ -24,6 +24,7 @@ import { initPush, initNativo, limpiarPush, esNativo } from "./push";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docFichaContacto } from "./documentos";
 import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asistente";
+import { avisar, prepararAudio, sonidoActivado, setSonidoActivado, probarSonido } from "./aviso";
 const Calendario = lazy(() => import("./Calendario"));
 
 // ============================================================
@@ -467,6 +468,164 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 // ============================================================
 // ASISTENTE IA
 // ============================================================
+// ============================================================
+// AVISOS EN VIVO
+// ============================================================
+// Con la app abierta, Android no muestra ni hace sonar las push:
+// las entrega calladas. Así que el aviso con la app en pantalla lo
+// damos nosotros — suena, vibra y aparece un cartel — escuchando
+// Supabase en tiempo real. Y esto también cubre la web de escritorio
+// y el iPhone, donde no hay push nativas.
+function AvisosEnVivo({ userEmail, rol, contactos, onAbrirContacto, onIrA }) {
+  const [avisos, setAvisos] = useState([]);
+  const isMobile = useIsMobile();
+  const contactosRef = useRef(contactos);
+  useEffect(() => { contactosRef.current = contactos; }, [contactos]);
+
+  const mostrar = useCallback((aviso) => {
+    setAvisos((p) => [...p.slice(-2), { ...aviso, id: `${Date.now()}-${Math.random()}` }]);
+  }, []);
+
+  const cerrar = useCallback((id) => {
+    setAvisos((p) => p.filter((a) => a.id !== id));
+  }, []);
+
+  // Los carteles se van solos a los 7 segundos.
+  useEffect(() => {
+    if (!avisos.length) return;
+    const t = setTimeout(() => setAvisos((p) => p.slice(1)), 7000);
+    return () => clearTimeout(t);
+  }, [avisos]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    prepararAudio();
+
+    const miKey    = getIdentidadInterna(userEmail).key;
+    const miAlias  = VENDEDORES_INFO.find((v) => v.emailPrefix === miKey)?.alias || null;
+    const veTodo   = rol === "admin" || rol === "administracion";
+
+    // ── Mensaje de WhatsApp de un cliente ──
+    const canal = supabase.channel("avisos-en-vivo")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, ({ new: m }) => {
+        if (m.direccion !== "in") return;   // sólo lo que entra del cliente
+
+        const c = contactosRef.current.find((x) => x.id === m.contacto_id);
+        // Un vendedor sólo se entera de sus propios clientes.
+        if (!veTodo && miAlias && c?.vendedor !== miAlias) return;
+
+        // La clave va por cliente y no por mensaje: así el aviso que llega por
+        // Supabase y el que llega por la push se reconocen como el mismo.
+        if (!avisar(`wa-${m.contacto_id}`, "mensaje")) return;
+        mostrar({
+          tipo: "mensaje",
+          titulo: c?.nombre || c?.telefono || "Cliente nuevo",
+          texto: String(m.contenido || "").slice(0, 110) || "Te mandó un archivo",
+          contactoId: m.contacto_id,
+        });
+      })
+      // ── Mensaje interno de un compañero ──
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes_internos" }, ({ new: m }) => {
+        if (m.para_key !== miKey) return;
+        if (!avisar(`int-${m.de_key}`, "mensaje")) return;
+        mostrar({
+          tipo: "interno",
+          titulo: m.de_nombre || "Mensaje interno",
+          texto: String(m.texto || "").slice(0, 110),
+        });
+      })
+      // ── Pedido nuevo (sólo para quienes los gestionan) ──
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, ({ new: p }) => {
+        if (!veTodo) return;
+        if (!avisar(`ped-${p.id}`, "pedido")) return;
+        const c = contactosRef.current.find((x) => x.id === p.contacto_id);
+        mostrar({
+          tipo: "pedido",
+          titulo: "Pedido nuevo",
+          texto: `${c?.nombre || "Cliente"} · ${p.vendedor || "sin vendedor"}`,
+          vista: "pedidos",
+        });
+      })
+      .subscribe();
+
+    // En el APK, una push que llega con la app abierta no se muestra sola:
+    // Capacitor nos la pasa por acá y le damos el mismo trato.
+    const desdePush = (e) => {
+      const n = e.detail || {};
+      const clave = n.data?.contacto_id ? `wa-${n.data.contacto_id}`
+        : n.data?.de_key ? `int-${n.data.de_key}`
+        : n.data?.pedido_id ? `ped-${n.data.pedido_id}`
+        : `push-${Date.now()}`;
+      if (!avisar(clave, n.data?.tipo === "pedido" ? "pedido" : "mensaje")) return;
+      mostrar({
+        tipo: n.data?.tipo === "pedido" ? "pedido" : "mensaje",
+        titulo: n.title || "Nuevo Munich",
+        texto: n.body || "",
+        contactoId: n.data?.contacto_id,
+        vista: n.data?.vista,
+      });
+    };
+    window.addEventListener("push:en-primer-plano", desdePush);
+
+    return () => {
+      supabase.removeChannel(canal);
+      window.removeEventListener("push:en-primer-plano", desdePush);
+    };
+  }, [userEmail, rol, mostrar]);
+
+  if (!avisos.length) return null;
+
+  const COLOR = {
+    mensaje: { borde: "#25D366", Icon: MessageSquare },
+    interno: { borde: "#2A4E8F", Icon: Users },
+    pedido:  { borde: C.gold,    Icon: ShoppingBag },
+  };
+
+  return (
+    <div style={{
+      position: "fixed", zIndex: 350, display: "flex", flexDirection: "column", gap: 8,
+      ...(isMobile
+        ? { top: "calc(10px + env(safe-area-inset-top))", left: 10, right: 10 }
+        : { bottom: 24, left: 24, width: 340 }),
+    }}>
+      {avisos.map((a) => {
+        const { borde, Icon } = COLOR[a.tipo] || COLOR.mensaje;
+        const clickeable = !!(a.contactoId || a.vista);
+        return (
+          <div key={a.id} className="muni-burbuja"
+            onClick={() => {
+              if (a.contactoId) onAbrirContacto?.(a.contactoId);
+              else if (a.vista) onIrA?.(a.vista);
+              cerrar(a.id);
+            }}
+            style={{
+              display: "flex", alignItems: "flex-start", gap: 11, padding: "12px 13px",
+              background: L.white, borderRadius: R.md, border: `1px solid ${L.border}`,
+              borderLeft: `3px solid ${borde}`, boxShadow: SH.lg,
+              cursor: clickeable ? "pointer" : "default", fontFamily: FONT_BODY,
+            }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: `${borde}1A`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon size={16} color={borde} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: L.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {a.titulo}
+              </div>
+              <div style={{ fontSize: 12.5, color: L.muted, marginTop: 2, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {a.texto}
+              </div>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); cerrar(a.id); }} title="Cerrar"
+              style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 2, flexShrink: 0 }}>
+              <X size={14} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail }) {
   const isMobile = useIsMobile();
   const [open, setOpen]       = useState(false);
@@ -1289,6 +1448,7 @@ function ImportarContactosModal({ onClose }) {
 // ============================================================
 function AjustesPanel({ userName, userEmail, rol }) {
   const [showImportar, setShowImportar] = useState(false);
+  const [sonido, setSonido] = useState(sonidoActivado());
 
   const card = { background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.04)" };
   const sTitle = { fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 18, display: "flex", alignItems: "center", gap: 8 };
@@ -1311,6 +1471,27 @@ function AjustesPanel({ userName, userEmail, rol }) {
               {rol === "admin" ? "Administrador" : "Vendedor"}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* ── Avisos ── */}
+      <div style={card}>
+        <div style={sTitle}><Bell size={15} color={C.red} /> Avisos y sonido</div>
+        <p style={{ fontSize: 13.5, color: L.muted, margin: "0 0 18px", lineHeight: 1.6 }}>
+          Cuando entra un mensaje de un cliente, un mensaje interno o un pedido nuevo,
+          el CRM hace sonar el aparato y muestra un cartel. Con la app cerrada avisa igual
+          por las notificaciones del celular.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button onClick={() => { const v = !sonido; setSonido(v); setSonidoActivado(v); if (v) probarSonido(); }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "10px 16px", borderRadius: 10, border: `1px solid ${sonido ? C.red : L.border}`, background: sonido ? "#FEF2F2" : L.white, color: sonido ? C.red : L.muted, fontSize: 13.5, fontWeight: 700, fontFamily: FONT_BODY, cursor: "pointer" }}>
+            {sonido ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            {sonido ? "Sonido activado" : "Sonido silenciado"}
+          </button>
+          <button onClick={probarSonido}
+            style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${L.border}`, background: L.white, color: L.muted, fontSize: 13.5, fontWeight: 600, fontFamily: FONT_BODY, cursor: "pointer" }}>
+            Probar sonido
+          </button>
         </div>
       </div>
 
@@ -2512,6 +2693,14 @@ export default function App() {
           rol={rol} userName={userName}
           onLogout={() => cerrarSesion()} badges={navBadges} />
       )}
+
+      <AvisosEnVivo userEmail={userEmail} rol={rol} contactos={contactos}
+        onAbrirContacto={(id) => {
+          const c = contactos.find((x) => x.id === id);
+          setVista("chat");
+          if (c) setActivo(c);
+        }}
+        onIrA={(v) => { setVista(v); setActivo(null); }} />
 
       {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} userName={userName} userEmail={userEmail} />}
       {showImportarApp && <ImportarContactosModal onClose={() => setShowImportarApp(false)} />}

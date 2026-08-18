@@ -96,6 +96,18 @@ export async function initPush(session) {
     lightColor: "#A81F1F",
   }).catch(() => {});
 
+  // Con la app abierta, Android entrega la push callada y sin cartel.
+  // La pasamos a la app para que suene y muestre el aviso ella misma.
+  PushNotifications.addListener("pushNotificationReceived", (n) => {
+    try {
+      window.dispatchEvent(new CustomEvent("push:en-primer-plano", {
+        detail: { title: n?.title, body: n?.body, data: n?.data },
+      }));
+    } catch (e) {
+      console.warn("[push] no se pudo avisar en primer plano:", e);
+    }
+  });
+
   PushNotifications.addListener("registration", (t) => guardarToken(t.value, session));
   PushNotifications.addListener("registrationError", (e) =>
     console.warn("[push] error registrando:", JSON.stringify(e))
