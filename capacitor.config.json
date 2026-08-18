@@ -1,0 +1,24 @@
+{
+  "appId": "ar.com.nuevomunich.crm",
+  "appName": "Nuevo Munich CRM",
+  "webDir": "dist",
+  "server": {
+    "url": "https://munich-crm.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https",
+    "allowNavigation": [
+      "munich-crm.vercel.app",
+      "*.supabase.co",
+      "*.vercel.app"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

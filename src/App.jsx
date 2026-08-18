@@ -20,6 +20,7 @@ import Reportes from "./Reportes";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
 import AdministracionPanel from "./AdministracionPanel";
+import { initPush, initNativo, limpiarPush, esNativo } from "./push";
 const Calendario = lazy(() => import("./Calendario"));
 
 // ============================================================
@@ -2200,6 +2201,12 @@ function PedidosDelDia({ isMobile }) {
 // ============================================================
 // APP
 // ============================================================
+// Cierra sesión y, si estamos en el APK, borra el token push de este celular.
+async function cerrarSesion() {
+  await limpiarPush().catch(() => {});
+  await supabase.auth.signOut();
+}
+
 export default function App() {
   const isMobile = useIsMobile();
   const [session,   setSession]   = useState(null);
@@ -2219,8 +2226,37 @@ export default function App() {
         setSession(s);
       }
     });
+    initNativo();
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Registrar el celular para notificaciones push (solo dentro del APK)
+  useEffect(() => {
+    if (session && esNativo()) initPush(session);
+  }, [session]);
+
+  // Al tocar una notificación push, abrir el chat o la sección correspondiente.
+  useEffect(() => {
+    if (!esNativo()) return;
+    const abrirChat = (e) => {
+      const id = e.detail?.contacto_id;
+      setVista("chat");
+      const c = contactos.find((x) => x.id === id);
+      if (c) setActivo(c);
+    };
+    // Solo vistas reales del layout: "mensajes" es un panel del rail, no una vista.
+    const VISTAS_OK = ["chat", "vendedores", "pedidos", "calendario", "contactos", "reportes", "ajustes", "admin"];
+    const abrirVista = (e) => {
+      const v = e.detail?.vista;
+      if (VISTAS_OK.includes(v)) { setVista(v); setActivo(null); }
+    };
+    window.addEventListener("push:abrir-chat", abrirChat);
+    window.addEventListener("push:abrir-vista", abrirVista);
+    return () => {
+      window.removeEventListener("push:abrir-chat", abrirChat);
+      window.removeEventListener("push:abrir-vista", abrirVista);
+    };
+  }, [contactos]);
 
   useEffect(() => {
     if (!session) return;
@@ -2292,7 +2328,7 @@ export default function App() {
     return (
       <>
         <FontLoader />
-        <VendedorDashboard userEmail={userEmail} onLogout={() => supabase.auth.signOut()} />
+        <VendedorDashboard userEmail={userEmail} onLogout={() => cerrarSesion()} />
       </>
     );
   }
@@ -2314,7 +2350,7 @@ export default function App() {
       {!isMobile && (
         <NavRail vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
           rol={rol} userName={userName} userEmail={userEmail}
-          onLogout={() => supabase.auth.signOut()} badges={navBadges} />
+          onLogout={() => cerrarSesion()} badges={navBadges} />
       )}
 
       {/* Sidebar — CSS lo oculta en mobile cuando hay .in-panel */}
@@ -2322,7 +2358,7 @@ export default function App() {
         <Sidebar contactos={contactos} activo={activo}
           onSelect={(c) => setActivo(c)}
           onToggleDestacado={toggleDestacado}
-          onLogout={() => supabase.auth.signOut()}
+          onLogout={() => cerrarSesion()}
           userEmail={userEmail} userName={userName}
           vista={vista} setVista={setVista} alertas={alertas}
           isMobile={isMobile} rol={rol} />
@@ -2394,7 +2430,7 @@ export default function App() {
       {isMobile && !mobileInPanel && (
         <NavMobile vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
           rol={rol} userName={userName}
-          onLogout={() => supabase.auth.signOut()} badges={navBadges} />
+          onLogout={() => cerrarSesion()} badges={navBadges} />
       )}
 
       {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />}

@@ -4,3 +4,20 @@ dist
 .env.local
 
 .vercel
+
+# ── Android / Capacitor ──
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/.idea/
+*.iml
+
+# Firma del APK — NUNCA subir al repo
+android/keystore.properties
+*.jks
+*.keystore
+
+# Credenciales de Firebase para push
+android/app/google-services.json
