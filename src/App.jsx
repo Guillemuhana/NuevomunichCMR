@@ -7,7 +7,7 @@ import {
   Mic, MicOff, Volume2, VolumeX,
   Copy, Users, TrendingUp, CalendarCheck, RotateCcw, Upload, Settings, UserCheck, Eye, EyeOff, Menu, Star,
   Plus, Image as ImageIcon, Video as VideoIcon, Paperclip, Download, Music, File as FileIcon,
-  CornerUpLeft, Pause,
+  CornerUpLeft, Pause, Printer,
 } from "lucide-react";
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./Pedidos";
 import {
@@ -21,6 +21,8 @@ import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
 import AdministracionPanel from "./AdministracionPanel";
 import { initPush, initNativo, limpiarPush, esNativo } from "./push";
+import { imprimirDoc, descargarDoc } from "./imprimir";
+import { docFichaContacto } from "./documentos";
 const Calendario = lazy(() => import("./Calendario"));
 
 // ============================================================
@@ -328,6 +330,18 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
   const [err, setErr]             = useState("");
   const [esVend, setEsVend]       = useState(!!contacto.es_vendedor);
   const [toggling, setToggling]   = useState(false);
+  const [generandoFicha, setGenerandoFicha] = useState(false);
+
+  // La ficha lleva el historial de pedidos del cliente: se busca recién al
+  // imprimir/descargar, así el drawer no carga datos que no siempre hacen falta.
+  const fichaContacto = async (accion) => {
+    setGenerandoFicha(true);
+    const { data } = await supabase.from("pedidos").select("*").eq("contacto_id", contacto.id);
+    const doc = docFichaContacto(contacto, data || [], parseDet);
+    const nombre = `ficha-${(contacto.nombre || contacto.telefono || "cliente").toLowerCase()}.pdf`;
+    if (accion === "imprimir") imprimirDoc(doc, nombre); else descargarDoc(doc, nombre);
+    setGenerandoFicha(false);
+  };
 
   const toggleVendedor = async () => {
     setToggling(true);
@@ -382,7 +396,15 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
               <Phone size={12} /> {contacto.telefono}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted }}>
+          <button onClick={() => fichaContacto("imprimir")} disabled={generandoFicha} title="Imprimir ficha del cliente"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: generandoFicha ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+            <Printer size={16} />
+          </button>
+          <button onClick={() => fichaContacto("descargar")} disabled={generandoFicha} title="Descargar ficha en PDF"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: generandoFicha ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+            <Download size={16} />
+          </button>
+          <button onClick={onClose} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
             <X size={18} />
           </button>
         </div>

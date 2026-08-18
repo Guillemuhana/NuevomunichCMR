@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios,
 } from "./lib";
@@ -42,7 +43,14 @@ export function parseDet(det) {
 const shortId = (id) => (id || "").slice(0, 6).toUpperCase();
 
 // ── PDF ──────────────────────────────────────────
-export function imprimirPedido(pedido, contacto) {
+/**
+ * Arma el comprobante del pedido.
+ * @param {object} pedido
+ * @param {object} contacto
+ * @param {{imprimir?: boolean}} opciones  imprimir: true manda al diálogo
+ *        de impresión en vez de descargar el archivo.
+ */
+export function imprimirPedido(pedido, contacto, opciones = {}) {
   const doc = new jsPDF({ format: "a4" });
   const det  = parseDet(pedido.detalle);
   const cont = contacto || {};
@@ -185,7 +193,10 @@ export function imprimirPedido(pedido, contacto) {
   doc.setFontSize(7);
   doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 105, pageH - 6, { align: "center" });
 
-  doc.save(`pedido-NM-${shortId(pedido.id)}.pdf`);
+  const nombre = `pedido-NM-${shortId(pedido.id)}.pdf`;
+  if (opciones.imprimir) imprimirDoc(doc, nombre);
+  else descargarDoc(doc, nombre);
+  return doc;
 }
 
 // ═══════════════════════════════════════════════

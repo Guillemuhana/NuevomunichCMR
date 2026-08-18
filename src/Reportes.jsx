@@ -8,8 +8,9 @@ import autoTable from "jspdf-autotable";
 import {
   MessageSquare, Users, UserPlus, Target, Package,
   Clock, Bot, AlertTriangle, Eye,
-  TrendingUp, Download, FileText, ArrowDownToLine,
+  TrendingUp, Download, FileText, ArrowDownToLine, Printer,
 } from "lucide-react";
+import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
   rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV,
@@ -210,7 +211,7 @@ export default function Reportes() {
     })), `mensajes-nm-${mDesde}-al-${mHasta}`);
   };
 
-  const exportarMsgPDF = () => {
+  const exportarMsgPDF = (opciones = {}) => {
     if (!msgResult?.length) return;
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFillColor(156, 27, 27); doc.rect(0, 0, 297, 22, "F");
@@ -235,7 +236,8 @@ export default function Reportes() {
     });
     doc.setFontSize(7.5); doc.setTextColor(140, 132, 114);
     doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, doc.lastAutoTable.finalY + 8);
-    doc.save(`mensajes-nm-${mDesde}-al-${mHasta}.pdf`);
+    const nombre = `mensajes-nm-${mDesde}-al-${mHasta}.pdf`;
+    if (opciones.imprimir) imprimirDoc(doc, nombre); else descargarDoc(doc, nombre);
   };
 
   // ── Buscar pedidos ───────────────────────────────────────────────────────
@@ -277,7 +279,7 @@ export default function Reportes() {
     exportarCSV(filas, `pedidos-nm-${pDesde}-al-${pHasta}`);
   };
 
-  const exportarPedidosPDF = () => {
+  const exportarPedidosPDF = (opciones = {}) => {
     if (!pedResult?.length) return;
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFillColor(156, 27, 27); doc.rect(0, 0, 297, 22, "F");
@@ -306,7 +308,8 @@ export default function Reportes() {
     const y = doc.lastAutoTable.finalY + 8;
     doc.setFontSize(7.5); doc.setTextColor(140, 132, 114);
     doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, y + 6);
-    doc.save(`pedidos-nm-${pDesde}-al-${pHasta}.pdf`);
+    const nombre = `pedidos-nm-${pDesde}-al-${pHasta}.pdf`;
+    if (opciones.imprimir) imprimirDoc(doc, nombre); else descargarDoc(doc, nombre);
   };
 
   // ── Cargar estadísticas ──────────────────────────────────────────────────
@@ -385,7 +388,7 @@ export default function Reportes() {
   useEffect(() => { cargar(); }, [cargar]);
 
   // ── Exportar PDF de estadísticas ─────────────────────────────────────────
-  const exportarPDF = () => {
+  const exportarPDF = (opciones = {}) => {
     if (!data) return;
     const { kpis, porVendedor } = data;
     const doc = new jsPDF();
@@ -426,7 +429,8 @@ export default function Reportes() {
     });
     doc.setFontSize(8); doc.setTextColor(140, 132, 114);
     doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, 285);
-    doc.save(`reporte-nm-${periodo}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    const nombre = `reporte-nm-${periodo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    if (opciones.imprimir) imprimirDoc(doc, nombre); else descargarDoc(doc, nombre);
   };
 
   const exportarCSVBtn = () => {
@@ -490,6 +494,7 @@ export default function Reportes() {
                     </button>
                   ))}
                 </div>
+                <BtnExport onClick={() => exportarPDF({ imprimir: true })} Icon={Printer} label="Imprimir" variant="outline" />
                 <BtnExport onClick={exportarPDF} Icon={FileText} label="PDF" variant="red" />
                 <BtnExport onClick={exportarCSVBtn} Icon={ArrowDownToLine} label="CSV" variant="green" />
               </>
@@ -519,6 +524,7 @@ export default function Reportes() {
               </button>
               {pedResult?.length > 0 && (
                 <>
+                  <BtnExport onClick={() => exportarPedidosPDF({ imprimir: true })} Icon={Printer} label="Imprimir" variant="outline" />
                   <BtnExport onClick={exportarPedidosPDF} Icon={FileText} label="PDF" variant="red" />
                   <BtnExport onClick={exportarPedidosCSV} Icon={ArrowDownToLine} label="CSV" variant="green" />
                 </>

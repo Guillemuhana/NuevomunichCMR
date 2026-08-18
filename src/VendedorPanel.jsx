@@ -4,12 +4,14 @@ import {
   ChevronLeft, ChevronRight, LogOut, Bell,
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
-  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays,
+  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
+import { imprimirDoc, descargarDoc } from "./imprimir";
+import { docReporteDiario, docFichaVisita } from "./documentos";
 import BotonMensajes from "./MensajeriaInterna";
 
 
@@ -530,6 +532,23 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     setNotifs(alerts);
   }, [pedidos, contactos]);
 
+  // ── Documentos imprimibles ──────────────────────────────────
+  // El reporte del día cubre la jornada mostrada en el calendario
+  // (o el día de hoy si no hay ninguna seleccionada).
+  const diaReporte = selectedDate || new Date();
+  const reporteDelDia = () =>
+    docReporteDiario(vendorInfo.alias || vendorInfo.nombre, pedidos, parseDetEx, contactos, diaReporte);
+  const nombreReporteDia = () => {
+    const d = typeof diaReporte === "string" ? diaReporte : new Date().toISOString().slice(0, 10);
+    return `reporte-diario-${(vendorInfo.alias || "vendedor").toLowerCase()}-${d}.pdf`;
+  };
+
+  // Una visita o una reunión no son un pedido: cada una lleva su propia ficha.
+  const documentoDe = (ped, cont) => {
+    const det = parseDetEx(ped.detalle);
+    return det.tipo === "pedido" ? null : docFichaVisita(ped, cont, parseDetEx);
+  };
+
   const eliminar = async (id) => {
     await supabase.from("pedidos").delete().eq("id", id);
     setConfirmElim(null);
@@ -572,37 +591,48 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* Header */}
-      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.sm }}>
+      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.sm, flexWrap: "wrap", rowGap: 8 }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 48, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Vendedor</div>
           <div style={{ fontSize: 12, color: L.muted }}>{vendorInfo.nombre}</div>
         </div>
-        {notifs.length > 0 && (
-          <button onClick={() => setShowNotifs(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, padding: "6px 12px", cursor: "pointer" }}>
-            <Bell size={14} color={C.red} />
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{notifs.length}</span>
+        <div className="barra-acciones">
+          {notifs.length > 0 && (
+            <button onClick={() => setShowNotifs(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, padding: "6px 12px", cursor: "pointer" }}>
+              <Bell size={14} color={C.red} />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{notifs.length}</span>
+            </button>
+          )}
+          {userEmail && !vendorAliasOverride && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
+          {/* Reporte diario: imprimir o bajar en PDF */}
+          <button onClick={() => imprimirDoc(reporteDelDia(), nombreReporteDia())} title="Imprimir el reporte del día" className="btn-compacto"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: R.sm, padding: "0 12px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
+            <Printer size={15} /> <span className="solo-desktop">Reporte del día</span>
           </button>
-        )}
-        {userEmail && !vendorAliasOverride && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
-        <button onClick={() => setAgenda(v => !v)} title="Calendario"
-          style={{ background: agenda ? C.red : L.soft, border: `1px solid ${agenda ? C.red : L.border}`, color: agenda ? "#fff" : L.muted, borderRadius: R.sm, padding: "0 13px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
-          <CalendarDays size={16} /> Agenda
-        </button>
-        <button onClick={() => setShowPerfil(true)} title="Mis datos"
-          style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <UserCircle size={18} />
-        </button>
-        <button onClick={() => { setEditando(null); setShowForm(true); }}
-          style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "8px 16px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)" }}>
-          <Plus size={15} /> Cargar
-        </button>
-        {onLogout && (
-          <button onClick={onLogout} title="Cerrar sesión"
+          <button onClick={() => descargarDoc(reporteDelDia(), nombreReporteDia())} title="Descargar el reporte del día en PDF"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: R.sm, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Download size={15} />
+          </button>
+          <button onClick={() => setAgenda(v => !v)} title="Calendario"
+            style={{ background: agenda ? C.red : L.soft, border: `1px solid ${agenda ? C.red : L.border}`, color: agenda ? "#fff" : L.muted, borderRadius: R.sm, padding: "0 13px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
+            <CalendarDays size={16} /> Agenda
+          </button>
+          <button onClick={() => setShowPerfil(true)} title="Mis datos"
             style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <LogOut size={15} />
+            <UserCircle size={18} />
           </button>
-        )}
+          <button onClick={() => { setEditando(null); setShowForm(true); }}
+            style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "8px 16px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)" }}>
+            <Plus size={15} /> Cargar
+          </button>
+          {onLogout && (
+            <button onClick={onLogout} title="Cerrar sesión"
+              style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <LogOut size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {agenda ? (
@@ -769,13 +799,29 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       <button onClick={() => { setEditando(ped); setShowForm(true); }}
                         style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4, fontFamily: FONT_BODY, fontWeight: 600 }}>
-                        <Edit2 size={11} /> Editar
+                        <Edit2 size={11} /> <span className="solo-desktop">Editar</span>
                       </button>
-                      <button onClick={() => imprimirPedido(ped, cont)}
+                      <button onClick={() => {
+                          const doc = documentoDe(ped, cont);
+                          if (doc) imprimirDoc(doc, `${det.tipo}-${(cont.nombre || "cliente").toLowerCase()}.pdf`);
+                          else imprimirPedido(ped, cont, { imprimir: true });
+                        }}
+                        title="Imprimir"
                         style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4, fontFamily: FONT_BODY, fontWeight: 600 }}
                         onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
                         onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
-                        <Download size={11} /> PDF
+                        <Printer size={11} /> <span className="solo-desktop">Imprimir</span>
+                      </button>
+                      <button onClick={() => {
+                          const doc = documentoDe(ped, cont);
+                          if (doc) descargarDoc(doc, `${det.tipo}-${(cont.nombre || "cliente").toLowerCase()}.pdf`);
+                          else imprimirPedido(ped, cont);
+                        }}
+                        title="Descargar PDF"
+                        style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4, fontFamily: FONT_BODY, fontWeight: 600 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
+                        <Download size={11} /> <span className="solo-desktop">PDF</span>
                       </button>
                       <button onClick={() => setConfirmElim(ped.id)}
                         style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 7, padding: "4px 8px", cursor: "pointer", color: C.red, display: "flex", alignItems: "center" }}>

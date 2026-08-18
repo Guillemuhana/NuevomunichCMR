@@ -50,6 +50,16 @@
       .app-sidebar { flex-shrink: 0; width: 368px; height: 100%; }
       .app-main    { flex: 1; min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 
+      /* Barras de acciones: nunca desbordan, se envuelven en pantallas chicas */
+      .barra-acciones { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+
+      @media (max-width: 767px) {
+        /* Etiqueta de botón que se esconde en celular: queda solo el ícono */
+        .solo-desktop { display: none !important; }
+        /* Sin texto, el botón pasa a ser cuadrado y no desborda la barra */
+        .btn-compacto { padding-left: 10px !important; padding-right: 10px !important; gap: 0 !important; }
+      }
+
       @media (max-width: 767px) {
         /* Mobile: sidebar ocupa todo, panel oculto */
         .app-sidebar { width: 100% !important; min-width: 0 !important; }
