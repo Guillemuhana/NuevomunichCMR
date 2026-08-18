@@ -128,8 +128,13 @@ export async function initNativo() {
     import("@capacitor/status-bar"),
   ]);
 
-  StatusBar.setStyle({ style: Style.Light }).catch(() => {});
+  // Íconos claros: el fondo de la barra es el rojo de la marca.
+  StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
   StatusBar.setBackgroundColor({ color: "#A81F1F" }).catch(() => {});
+  // Android 14 y anteriores: que el sistema reserve la barra en vez de dejar
+  // que la app se dibuje debajo. En Android 15+ el sistema lo ignora (siempre
+  // es edge-to-edge) y lo cubre el padding-top de env(safe-area-inset-top).
+  StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
 
   // Botón atrás de Android: volver en el historial; si no hay, mandar la app
   // a segundo plano en vez de cerrarla (como WhatsApp).

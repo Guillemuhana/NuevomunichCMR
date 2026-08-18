@@ -23,6 +23,7 @@ import AdministracionPanel from "./AdministracionPanel";
 import { initPush, initNativo, limpiarPush, esNativo } from "./push";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docFichaContacto } from "./documentos";
+import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asistente";
 const Calendario = lazy(() => import("./Calendario"));
 
 // ============================================================
@@ -386,7 +387,7 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 200 }} />
-      <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: isMobile ? "100%" : 390, background: L.white, boxShadow: "-6px 0 40px rgba(0,0,0,.18)", zIndex: 201, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
+      <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, paddingTop: "env(safe-area-inset-top)", width: isMobile ? "100%" : 390, background: L.white, boxShadow: "-6px 0 40px rgba(0,0,0,.18)", zIndex: 201, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
         {/* Header */}
         <div style={{ padding: "20px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 14 }}>
           <Avatar nombre={contacto.nombre || contacto.telefono} foto={contacto.foto_url} size={52} border={`1px solid ${L.border}`} />
@@ -466,18 +467,18 @@ function ContactoDrawer({ contacto, onClose, onSave }) {
 // ============================================================
 // ASISTENTE IA
 // ============================================================
-function AIAsistente({ contactoActivo, onActualizarContacto }) {
+function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail }) {
   const isMobile = useIsMobile();
   const [open, setOpen]       = useState(false);
-  const [msgs, setMsgs]       = useState([
-    { from: "ai", text: `¡Hola! Soy tu asistente de Nuevo Munich, estoy acá para lo que necesites.\n\nPuedo ayudarte con:\n• **Métricas y reportes** en tiempo real\n• **Redactar mensajes** de WhatsApp listos para enviar\n• **Cambiar estados**, asignar vendedores y agendar seguimientos\n• **Consejos para cerrar ventas** en gastronomía y delivery\n\nPodés escribirme o hablarme directamente. ¿Con qué arrancamos?`, time: new Date().toISOString() },
-  ]);
+  const [msgs, setMsgs]       = useState([{ from: "ai", bienvenida: true, text: "", time: new Date().toISOString() }]);
   const [input, setInput]     = useState("");
   const [typing, setTyping]   = useState(false);
+  const [actividad, setActividad]     = useState("");   // qué está haciendo ahora mismo
   const [recording, setRecording]     = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceOn, setVoiceOn]         = useState(false);
   const [copiedId, setCopiedId]       = useState(null);
+  const [enviando, setEnviando]       = useState(null);  // clave de la propuesta que se está mandando
   const voiceOnRef        = useRef(false);
   const voiceRef          = useRef(null);
   const currentAudioRef   = useRef(null);
@@ -486,7 +487,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
   const bottomRef         = useRef(null);
 
   useEffect(() => { voiceOnRef.current = voiceOn; }, [voiceOn]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open, actividad]);
 
   // Cargar la mejor voz disponible (async — los navegadores las cargan tarde)
   useEffect(() => {
@@ -513,13 +514,23 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
     return () => window.speechSynthesis?.removeEventListener("voiceschanged", pickVoice);
   }, []);
 
-  // Inyectar animación de pulso para el micrófono
+  // Animaciones propias del asistente
   useEffect(() => {
-    const id = "mic-pulse-style";
+    const id = "muni-anim";
     if (!document.getElementById(id)) {
       const s = document.createElement("style");
       s.id = id;
-      s.textContent = `@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(156,27,27,.5)}50%{box-shadow:0 0 0 8px rgba(156,27,27,0)}}`;
+      s.textContent = `
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(168,31,31,.5)}50%{box-shadow:0 0 0 8px rgba(168,31,31,0)}}
+@keyframes muniIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes muniBurbuja{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes muniPunto{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-4px);opacity:1}}
+@keyframes muniBrillo{0%,100%{opacity:.55}50%{opacity:1}}
+.muni-panel{animation:muniIn .22s cubic-bezier(.16,1,.3,1)}
+.muni-burbuja{animation:muniBurbuja .2s ease-out}
+.muni-punto{display:inline-block;width:5px;height:5px;border-radius:50%;background:${C.red};animation:muniPunto 1.1s infinite}
+.muni-chips::-webkit-scrollbar{display:none}
+.muni-chips{scrollbar-width:none}`;
       document.head.appendChild(s);
     }
   }, []);
@@ -577,145 +588,101 @@ function AIAsistente({ contactoActivo, onActualizarContacto }) {
     window.speechSynthesis.speak(utt);
   }, []);
 
+  // ── Conversación ────────────────────────────────────────────
+  // Muni contesta y, si hace falta, opera el CRM por su cuenta.
   const enviar = useCallback(async (textoOverride) => {
     const q = (textoOverride ?? input).trim();
     if (!q || typing) return;
-    setMsgs((p) => [...p, { from: "user", text: q, time: new Date().toISOString() }]);
+
+    const propios = [...msgs, { from: "user", text: q, time: new Date().toISOString() }];
+    setMsgs(propios);
     if (!textoOverride) setInput("");
     setTyping(true);
-    const startTime = Date.now();
-
-    const grokKey = import.meta.env.VITE_GROK_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!grokKey) {
-      const err = "⚠️ Falta configurar VITE_GROK_API_KEY en las variables de entorno de Vercel.";
-      setMsgs((p) => [...p, { from: "ai", text: err }]);
-      setTyping(false); return;
-    }
+    setActividad("");
+    const inicio = Date.now();
 
     try {
-      const hoy = new Date();
-      const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - 6); inicioSemana.setHours(0,0,0,0);
+      // Un resumen corto va siempre en el prompt para que las preguntas
+      // simples se contesten sin gastar una vuelta de herramientas.
+      let datos = null;
+      try {
+        ({ datos } = await ejecutarHerramienta("metricas", { dias: 7 }, { parse: parseDet }));
+      } catch { /* si la base no contesta, Muni igual puede charlar */ }
 
-      const [contRes, pedRes, msgRes] = await Promise.all([
-        supabase.from("contactos").select("id,nombre,telefono,estado,vendedor,created_at"),
-        supabase.from("pedidos").select("id,total,estado,vendedor,created_at,detalle").gte("created_at", inicioSemana.toISOString()),
-        supabase.from("mensajes").select("id,direccion,created_at").gte("created_at", inicioSemana.toISOString()),
-      ]);
+      const resumen = !datos ? "(no pude leer los números en este momento)" : [
+        `• Contactos: ${datos.contactos_totales} (nuevos hoy: ${datos.nuevos_hoy}, esta semana: ${datos.nuevos_periodo})`,
+        `• Pipeline: ${Object.entries(datos.pipeline).map(([e, n]) => `${e} (${n})`).join(" · ")}`,
+        `• Sin responder: ${datos.sin_responder}`,
+        `• Últimos 7 días: ${datos.pedidos_periodo} pedidos · $${datos.facturacion_periodo.toLocaleString("es-AR")} · ${datos.mensajes_recibidos} mensajes recibidos`,
+        datos.ranking_vendedores.length
+          ? `• Vendedores: ${datos.ranking_vendedores.map((v) => `${v.vendedor} ${v.pedidos}`).join(" · ")}`
+          : "• Todavía nadie cargó pedidos esta semana",
+      ].join("\n");
 
-      const contactos = contRes.data || [];
-      const pedidos   = pedRes.data  || [];
-      const mensajes  = msgRes.data  || [];
+      const historial = propios
+        .filter((m) => !m.bienvenida && m.text)
+        .slice(-6)
+        .map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
 
-      const nuevosHoy    = contactos.filter((c) => new Date(c.created_at).toDateString() === hoy.toDateString()).length;
-      const nuevosSemana = contactos.filter((c) => new Date(c.created_at) >= inicioSemana).length;
-      const vendidos     = contactos.filter((c) => c.estado === "vendido").length;
-      const facturacion  = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0);
-      const porVendedor  = VENDEDORES.map((v) => ({ vendedor: v, pedidos: pedidos.filter((p) => p.vendedor === v).length, total: pedidos.filter((p) => p.vendedor === v).reduce((s, p) => s + (Number(p.total) || 0), 0) }));
-
-      const estadosCounts = {};
-      for (const c of contactos) estadosCounts[c.estado] = (estadosCounts[c.estado] || 0) + 1;
-      const sinResponder = contactos.filter((c) => !c.bot_activo && c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))).length;
-
-      const ctx = `Sos "Muni", el asistente IA del equipo de ventas de **Nuevo Munich**, hamburguesería artesanal premium de Buenos Aires.
-Actuás como un empleado experimentado, amable y proactivo que conoce el negocio de memoria. Tu misión es hacer que el equipo venda más y mejor.
-El negocio vende principalmente por WhatsApp: los clientes consultan, eligen y coordinan entregas/retiros por ahí.
-
-HOY ES: ${hoy.toLocaleDateString("es-AR", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}
-
-MÉTRICAS EN TIEMPO REAL:
-• Contactos totales: ${contactos.length} | Nuevos hoy: ${nuevosHoy} | Esta semana: ${nuevosSemana}
-• Pipeline: ${Object.entries(estadosCounts).map(([e, n]) => `${ESTADOS[e]?.label || e} (${n})`).join(" · ")}
-• Sin responder (bot pausado): ${sinResponder}
-• Vendidos: ${vendidos} | Pedidos esta semana: ${pedidos.length}
-• Facturación esta semana: $${facturacion.toLocaleString("es-AR")}
-• Mensajes recibidos esta semana: ${mensajes.filter((m) => m.direccion === "in").length}
-• Por vendedor esta semana:
-${porVendedor.filter((v) => v.pedidos > 0).map((v) => `  ${v.vendedor}: ${v.pedidos} pedidos · $${v.total.toLocaleString("es-AR")}`).join("\n") || "  Sin pedidos registrados esta semana"}
-${contactoActivo ? `
-CONTACTO ABIERTO AHORA:
-• Nombre: ${contactoActivo.nombre || "(sin nombre)"}  Tel: ${contactoActivo.telefono}
-• Estado: ${ESTADOS[contactoActivo.estado]?.label || contactoActivo.estado}  Vendedor: ${contactoActivo.vendedor || "sin asignar"}
-${contactoActivo.nota_seguimiento ? `• Nota: ${contactoActivo.nota_seguimiento}` : ""}
-${contactoActivo.direccion ? `• Dirección: ${contactoActivo.direccion}` : ""}` : "\nNo hay contacto abierto actualmente."}
-
-ACCIONES DISPONIBLES (ponelas al final de tu respuesta, solo si el usuario lo pide o tiene sentido ejecutarlas):
-[ACCION:ESTADO:estado]       → estados válidos: nuevo, contactado, interesado, pendiente, vendido, perdido
-[ACCION:VENDEDOR:nombre]     → asignar o crear un vendedor nuevo para el contacto abierto. Podés usar cualquier nombre válido, aunque no esté en la lista.
-[ACCION:PEDIDO:descripcion]  → crear pedido para el contacto abierto
-[ACCION:NOTA:texto]          → guardar nota de seguimiento
-[ACCION:SEGUIMIENTO:días|motivo] → ej: [ACCION:SEGUIMIENTO:2|Llamar para confirmar pedido]
-
-CÓMO COMPORTARTE (MUY IMPORTANTE):
-- Español rioplatense natural (vos/ustedes), cálido y cercano — como un compañero de trabajo que sabe mucho
-- Siempre mostrá disposición para ayudar más: terminá cada respuesta con una oferta concreta de siguiente paso o preguntá si necesitan algo más
-- Sé proactivo: si ves métricas preocupantes o oportunidades, mencionálas aunque no te las pidan
-- Si piden un mensaje para enviarle al cliente, escribilo ya listo para copiar y pegar, usando *negrita* como WhatsApp
-- Contextualizá los consejos de venta en gastronomía/delivery de hamburguesas artesanales
-- Confirmá siempre antes de ejecutar una acción sobre el contacto (a menos que el usuario lo pida explícitamente)
-- Si no hay contacto abierto y se pide ejecutar una acción, sugerí cuál abrir según el contexto
-- Nunca respondas con listas largas y frías — preferí respuestas conversacionales, cálidas y accionables
-- Tratá a los vendedores como si fueran tus colegas — con respeto, buen humor y ganas de ayudar`;
-
-      const historial = msgs.slice(-8).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
-      historial.push({ role: "user", content: q });
-
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "system", content: ctx }, ...historial],
-          max_tokens: 1024,
-          temperature: 0.7,
-        }),
+      const { texto, acciones, propuestas, contactoActualizado } = await conversar({
+        historial,
+        sistema: construirSistema({ userName, contactoActivo, resumen }),
+        ctx: { parse: parseDet, userEmail },
+        onAccion: (a) => setActividad(a.resumen),
       });
-      const json = await res.json();
-      if (json.error) {
-        const err = `⚠️ Error: ${json.error.message || json.error.type}`;
-        setMsgs((p) => [...p, { from: "ai", text: err, time: new Date().toISOString() }]);
-        speak(err);
-      } else {
-        let texto = json.choices?.[0]?.message?.content || "Sin respuesta.";
 
-        const accionRegex = /\[ACCION:([A-Z]+):([^\]]+)\]/g;
-        const acciones = [...texto.matchAll(accionRegex)].map((m) => ({ tipo: m[1], valor: m[2].trim() }));
-        texto = texto.replace(accionRegex, "").trim();
-
-        for (const accion of acciones) {
-          try {
-            if (accion.tipo === "ESTADO" && contactoActivo) {
-              await supabase.from("contactos").update({ estado: accion.valor }).eq("id", contactoActivo.id);
-              onActualizarContacto?.({ ...contactoActivo, estado: accion.valor });
-            } else if (accion.tipo === "VENDEDOR" && contactoActivo) {
-              await supabase.from("contactos").update({ vendedor: accion.valor }).eq("id", contactoActivo.id);
-              onActualizarContacto?.({ ...contactoActivo, vendedor: accion.valor });
-            } else if (accion.tipo === "PEDIDO" && contactoActivo) {
-              const det = JSON.stringify({ items: [{ desc: accion.valor, qty: 1, precio: 0 }], notas: "", entrega: "Retiro en local", direccion: contactoActivo.direccion || "", pago: "Efectivo" });
-              await supabase.from("pedidos").insert({ contacto_id: contactoActivo.id, vendedor: contactoActivo.vendedor || "", detalle: det, total: 0, estado: "pendiente" });
-            } else if (accion.tipo === "NOTA" && contactoActivo) {
-              await supabase.from("contactos").update({ nota_seguimiento: accion.valor }).eq("id", contactoActivo.id);
-              onActualizarContacto?.({ ...contactoActivo, nota_seguimiento: accion.valor });
-            } else if (accion.tipo === "SEGUIMIENTO" && contactoActivo) {
-              const [diasStr, motivo] = accion.valor.split("|");
-              const dias = Math.max(1, parseInt(diasStr) || 1);
-              const fecha = new Date();
-              fecha.setDate(fecha.getDate() + dias);
-              fecha.setHours(10, 0, 0, 0);
-              await supabase.from("contactos").update({ seguimiento_at: fecha.toISOString(), nota_seguimiento: motivo?.trim() || "Seguimiento" }).eq("id", contactoActivo.id);
-              onActualizarContacto?.({ ...contactoActivo, seguimiento_at: fecha.toISOString(), nota_seguimiento: motivo?.trim() || "Seguimiento" });
-            }
-          } catch { /* acción falló, igual mostramos la respuesta */ }
-        }
-
-        const responseTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        setMsgs((p) => [...p, { from: "ai", text: texto, time: new Date().toISOString(), responseTime }]);
-        speak(texto);
+      if (contactoActualizado && contactoActivo?.id === contactoActualizado.id) {
+        onActualizarContacto?.({ ...contactoActivo, ...contactoActualizado });
       }
+
+      setMsgs((p) => [...p, {
+        from: "ai", text: texto, acciones, propuestas,
+        time: new Date().toISOString(),
+        responseTime: ((Date.now() - inicio) / 1000).toFixed(1),
+      }]);
+      speak(texto);
     } catch (e) {
-      setMsgs((p) => [...p, { from: "ai", text: `Error de conexión: ${e.message}`, time: new Date().toISOString() }]);
+      setMsgs((p) => [...p, {
+        from: "ai", error: true,
+        text: `Uh, se me cortó: ${e.message}`,
+        time: new Date().toISOString(),
+      }]);
     }
+    setActividad("");
     setTyping(false);
-  }, [input, typing, msgs, contactoActivo, onActualizarContacto, speak]);
+  }, [input, typing, msgs, contactoActivo, onActualizarContacto, speak, userName, userEmail]);
+
+  // Manda de verdad una propuesta de WhatsApp: primero al CRM, después a n8n.
+  const enviarPropuesta = useCallback(async (prop, clave) => {
+    if (enviando) return;
+    setEnviando(clave);
+    try {
+      await supabase.from("mensajes").insert({
+        contacto_id: prop.contacto.id, direccion: "out", origen: "agente",
+        agente: userName || "Muni", contenido: prop.texto,
+      });
+      if (N8N_SEND_WEBHOOK) {
+        await fetch(N8N_SEND_WEBHOOK, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            telefono: prop.contacto.telefono,
+            mensaje: `*${userName || "Nuevo Munich"}:*\n${prop.texto}`,
+            agente: userName || "Muni",
+          }),
+        });
+      }
+      setMsgs((p) => p.map((m) => ({
+        ...m,
+        propuestas: m.propuestas?.map((x) => (x === prop ? { ...x, enviado: true } : x)),
+      })));
+    } catch {
+      setMsgs((p) => p.map((m) => ({
+        ...m,
+        propuestas: m.propuestas?.map((x) => (x === prop ? { ...x, fallo: true } : x)),
+      })));
+    }
+    setEnviando(null);
+  }, [enviando, userName]);
 
   const toggleMic = useCallback(() => {
     // Detener grabación en curso
@@ -757,7 +724,7 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
 
           const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${import.meta.env.VITE_GROK_API_KEY || import.meta.env.VITE_GEMINI_API_KEY}` },
+            headers: { "Authorization": `Bearer ${claveIA()}` },
             body: formData,
           });
           const json = await res.json();
@@ -784,132 +751,223 @@ CÓMO COMPORTARTE (MUY IMPORTANTE):
     });
   }, [recording, enviar]);
 
-  const sugerencias = contactoActivo
-    ? [`Mensaje para ${contactoActivo.nombre || "este cliente"}`, "Agendar seguimiento para mañana", "Cambiar estado a vendido"]
-    : ["Resumen de ventas de hoy", "¿Quién vendió más esta semana?", "Clientes sin responder"];
+  // Atajos: cambian según haya o no un cliente abierto.
+  const atajos = contactoActivo
+    ? [
+        { icon: MessageSquare, label: "Escribirle",        q: `Escribile un mensaje a ${contactoActivo.nombre || "este cliente"} para retomar la conversación` },
+        { icon: CalendarCheck, label: "Seguimiento",       q: "Agendale un seguimiento en 2 días" },
+        { icon: Check,         label: "Marcar vendido",    q: "Pasá este cliente a vendido" },
+        { icon: ShoppingBag,   label: "Cargar pedido",     q: "Quiero cargarle un pedido a este cliente" },
+        { icon: FileText,      label: "Resumen del cliente", q: "Contame todo de este cliente: qué compró y de qué hablamos" },
+      ]
+    : [
+        { icon: TrendingUp,    label: "Cómo venimos",      q: "¿Cómo venimos esta semana? Dame lo importante" },
+        { icon: Users,         label: "Sin responder",     q: "¿Qué clientes escribieron y todavía nadie contestó?" },
+        { icon: Calendar,      label: "Agenda",            q: "¿Qué tengo agendado los próximos días?" },
+        { icon: Package,       label: "Últimos pedidos",   q: "Mostrame los pedidos de los últimos 7 días" },
+        { icon: Zap,           label: "Dónde enfocarme",   q: "Mirá los números y decime dónde conviene que ponga el foco hoy" },
+      ];
+
+  const avatarMuni = (size = 32) => (
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.34, flexShrink: 0,
+      background: `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "0 3px 10px rgba(168,31,31,.28)",
+    }}>
+      <Sparkles size={size * 0.46} color="#fff" />
+    </div>
+  );
 
   return (
     <>
       {/* Botón flotante */}
-      <button onClick={() => setOpen((v) => !v)} title="Asistente IA"
-        style={{ position: "fixed", bottom: isMobile ? "calc(96px + env(safe-area-inset-bottom))" : 150, right: isMobile ? 16 : 24, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: open ? "#e2e8f0" : C.red, border: "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: `0 4px 20px rgba(156,27,27,.35)`, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .25s, transform .2s" }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
+      <button onClick={() => setOpen((v) => !v)} title="Muni · tu asistente"
+        style={{ position: "fixed", bottom: isMobile ? "calc(96px + env(safe-area-inset-bottom))" : 150, right: isMobile ? 16 : 24, width: isMobile ? 52 : 58, height: isMobile ? 52 : 58, borderRadius: "50%", background: open ? L.white : `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`, border: open ? `1px solid ${L.border}` : "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: open ? SH.md : "0 8px 24px rgba(168,31,31,.38)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform .18s, box-shadow .18s" }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.07)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
-        {open ? <X size={22} /> : <Sparkles size={22} />}
+        {open ? <X size={22} /> : <Sparkles size={24} />}
       </button>
 
       {/* Panel */}
       {open && (
-        <div style={{ position: "fixed", bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom))" : 156, right: 16, ...(isMobile ? { left: 16 } : { width: 460 }), height: isMobile ? "75dvh" : "min(600px, calc(100vh - 120px))", maxHeight: isMobile ? "calc(100% - 80px)" : "calc(100vh - 120px)", background: "#fff", borderRadius: isMobile ? "20px 20px 16px 16px" : 20, boxShadow: "0 8px 40px rgba(0,0,0,.14)", border: "1px solid #E2E8F0", borderLeft: `3px solid ${C.red}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
-          {/* Header minimalista */}
-          <div style={{ background: "#fff", padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E2E8F0" }}>
-            <img src={LOGO_URL} alt="NM" style={{ height: 44, objectFit: "contain", flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15, color: C.red, letterSpacing: 0.2, lineHeight: 1 }}>Asistente IA</div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{typing ? "Escribiendo…" : "Nuevo Munich · Online"}</div>
+        <div className="muni-panel" style={{ position: "fixed", bottom: isMobile ? "calc(104px + env(safe-area-inset-bottom))" : 156, right: isMobile ? 12 : 24, ...(isMobile ? { left: 12 } : { width: 440 }), height: isMobile ? "76dvh" : "min(660px, calc(100vh - 130px))", maxHeight: isMobile ? "calc(100% - 90px)" : "calc(100vh - 130px)", background: L.white, borderRadius: R.xl, boxShadow: SH.xl, border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+
+        {/* ── Cabecera ── */}
+        <div style={{ background: `linear-gradient(135deg, ${C.red} 0%, ${C.redDark} 100%)`, padding: "13px 14px", display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 13, background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.28)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Sparkles size={19} color="#fff" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: "#fff", letterSpacing: 0.2, lineHeight: 1.15 }}>Muni</div>
+            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.82)", marginTop: 2, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: typing ? "#FCD34D" : "#4ADE80", flexShrink: 0, animation: typing ? "muniBrillo 1s infinite" : "none" }} />
+              {typing ? (actividad || "pensando…") : contactoActivo ? `viendo a ${contactoActivo.nombre || contactoActivo.telefono}` : "tu asistente, listo"}
             </div>
-            {/* Toggle voz */}
-            <button onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "Silenciar voz" : "Activar voz"}
-              style={{ background: voiceOn ? "#fef2f2" : "#f8fafc", border: `1px solid ${voiceOn ? C.red : "#E2E8F0"}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              {voiceOn ? <Volume2 size={15} color={C.red} /> : <VolumeX size={15} color="#94a3b8" />}
-            </button>
-            <button onClick={() => setOpen(false)} title="Cerrar"
-              style={{ background: "#f8fafc", border: "1px solid #E2E8F0", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <X size={15} color="#64748b" />
-            </button>
           </div>
+          <button onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "Silenciar voz" : "Que me hable"}
+            style={{ background: voiceOn ? "rgba(255,255,255,.24)" : "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {voiceOn ? <Volume2 size={15} color="#fff" /> : <VolumeX size={15} color="rgba(255,255,255,.7)" />}
+          </button>
+          {msgs.length > 1 && (
+            <button onClick={() => { setMsgs([msgs[0]]); setInput(""); }} title="Empezar de nuevo"
+              style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <RotateCcw size={14} color="rgba(255,255,255,.85)" />
+            </button>
+          )}
+          <button onClick={() => setOpen(false)} title="Cerrar"
+            style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={15} color="#fff" />
+          </button>
+        </div>
 
-          {/* Mensajes */}
-          <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12, background: "#f8fafc" }}>
-            {msgs.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start", flexDirection: "column", alignItems: m.from === "user" ? "flex-end" : "flex-start", gap: 0 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, maxWidth: "85%" }}>
-                  {m.from === "ai" && (
-                    <div style={{ width: 30, height: 30, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                      <Sparkles size={14} color="#fff" />
+        {/* ── Mensajes ── */}
+        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, background: C.cream }}>
+          {msgs.map((m, i) => (
+            <div key={i}>
+              {/* Bienvenida */}
+              {m.bienvenida ? (
+                <div className="muni-burbuja" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, padding: "18px 10px 6px" }}>
+                  {avatarMuni(52)}
+                  <div>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, color: L.text }}>
+                      Hola{userName ? `, ${userName.split(" ")[0]}` : ""} 👋
                     </div>
-                  )}
-                  <div style={{ padding: "10px 14px", borderRadius: m.from === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: m.from === "user" ? C.red : "#fff", color: m.from === "user" ? "#fff" : "#1e293b", fontSize: 13.5, lineHeight: 1.6, boxShadow: "0 1px 4px rgba(0,0,0,.06)", border: m.from === "user" ? "none" : "1px solid #E2E8F0" }}>
-                    {renderMd(m.text)}
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, fontSize: 11, color: "#64748b" }}>
-                      <span>{m.time ? new Date(m.time).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
-                      {m.responseTime && <span>Respondió en {m.responseTime}s</span>}
+                    <div style={{ fontSize: 13.5, color: L.muted, marginTop: 6, lineHeight: 1.55, maxWidth: 320 }}>
+                      Soy <strong>Muni</strong>. Preguntame lo que quieras o pedime que haga cosas en el CRM:
+                      cambiar estados, cargar pedidos, agendar, escribirle a un cliente. Lo hago yo.
                     </div>
-                    {m.from === "ai" && (
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8, borderTop: "1px solid #f1f5f9", paddingTop: 5 }}>
-                        <button onClick={() => { navigator.clipboard?.writeText(m.text.replace(/\*\*([^*]+)\*\*/g, "$1")); setCopiedId(i); setTimeout(() => setCopiedId(null), 1500); }}
-                          title="Copiar respuesta"
-                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, color: copiedId === i ? "#22c55e" : "#94a3b8", fontSize: 11, padding: "2px 4px", borderRadius: 6 }}>
-                          {copiedId === i ? <Check size={12} /> : <Copy size={12} />}
-                          <span>{copiedId === i ? "Copiado" : "Copiar"}</span>
-                        </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start" }}>
+                  <div className="muni-burbuja" style={{ display: "flex", alignItems: "flex-start", gap: 9, maxWidth: "92%" }}>
+                    {m.from === "ai" && avatarMuni(30)}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ padding: "11px 14px", borderRadius: m.from === "user" ? `${R.lg}px ${R.xs}px ${R.lg}px ${R.lg}px` : `${R.xs}px ${R.lg}px ${R.lg}px ${R.lg}px`, background: m.from === "user" ? C.red : m.error ? "#FEF2F2" : L.white, color: m.from === "user" ? "#fff" : m.error ? "#B42318" : L.text, fontSize: 13.5, lineHeight: 1.6, boxShadow: SH.xs, border: m.from === "user" ? "none" : `1px solid ${m.error ? "#FECDCA" : L.border}` }}>
+                        {renderMd(m.text)}
                       </div>
-                    )}
+
+                      {/* Lo que Muni hizo de verdad en el CRM */}
+                      {!!m.acciones?.length && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
+                          {m.acciones.map((a, ai) => (
+                            <div key={ai} style={{ display: "flex", alignItems: "center", gap: 7, background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#15803D", borderRadius: R.sm, padding: "6px 10px", fontSize: 12, fontWeight: 500 }}>
+                              <Check size={13} style={{ flexShrink: 0 }} />
+                              <span style={{ minWidth: 0 }}>{a.resumen}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Mensajes de WhatsApp propuestos: no salen hasta que los aprobás */}
+                      {m.propuestas?.map((prop, pi) => {
+                        const clave = `${i}-${pi}`;
+                        return (
+                          <div key={pi} style={{ marginTop: 9, background: L.white, border: `1px solid ${L.border}`, borderLeft: `3px solid #25D366`, borderRadius: R.md, padding: "11px 13px", boxShadow: SH.xs }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, fontFamily: FONT_DISPLAY, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 7 }}>
+                              Para {prop.contacto.nombre || prop.contacto.telefono}
+                            </div>
+                            <div style={{ fontSize: 13.2, color: L.text, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{prop.texto}</div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+                              {prop.enviado ? (
+                                <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803D", fontSize: 12.5, fontWeight: 600 }}>
+                                  <Check size={14} /> Enviado
+                                </span>
+                              ) : (
+                                <>
+                                  <button onClick={() => enviarPropuesta(prop, clave)} disabled={!!enviando}
+                                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#25D366", border: "none", color: "#fff", borderRadius: R.sm, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, fontFamily: FONT_BODY, cursor: enviando ? "wait" : "pointer" }}>
+                                    <Send size={14} /> {enviando === clave ? "Enviando…" : "Enviar por WhatsApp"}
+                                  </button>
+                                  <button onClick={() => { navigator.clipboard?.writeText(prop.texto); setCopiedId(clave); setTimeout(() => setCopiedId(null), 1500); }}
+                                    title="Copiar el mensaje"
+                                    style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: R.sm, padding: "9px 12px", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                                    {copiedId === clave ? <Check size={14} color="#15803D" /> : <Copy size={14} />}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            {prop.fallo && (
+                              <div style={{ marginTop: 8, fontSize: 11.5, color: "#B42318" }}>
+                                No se pudo enviar. Probá desde el chat del cliente.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Pie: hora, demora y copiar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, paddingLeft: 2, fontSize: 10.5, color: L.light }}>
+                        <span>{m.time ? new Date(m.time).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                        {m.responseTime && <span>· {m.responseTime}s</span>}
+                        {m.from === "ai" && !m.error && (
+                          <button onClick={() => { navigator.clipboard?.writeText(m.text.replace(/\*\*([^*]+)\*\*/g, "$1")); setCopiedId(i); setTimeout(() => setCopiedId(null), 1500); }}
+                            title="Copiar respuesta"
+                            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, color: copiedId === i ? "#15803D" : L.light, fontSize: 10.5, padding: 0 }}>
+                            {copiedId === i ? <Check size={11} /> : <Copy size={11} />}
+                            {copiedId === i ? "Copiado" : "Copiar"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* Acciones rápidas debajo del primer mensaje de la IA */}
-                {m.from === "ai" && i === 0 && msgs.length <= 1 && !typing && (
-                  <div style={{ marginTop: 10, marginLeft: 38, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%" }}>
-                    {[
-                      { icon: <TrendingUp size={16} color={C.red} />, label: "Métricas de hoy",       q: "Dame un resumen de las métricas de hoy" },
-                      { icon: <MessageSquare size={16} color={C.red} />, label: "Redactar WhatsApp", q: contactoActivo ? `Redactá un mensaje de WhatsApp para ${contactoActivo.nombre || "este cliente"}` : "¿Cómo redacto un buen mensaje de WhatsApp de ventas?" },
-                      { icon: <CalendarCheck size={16} color={C.red} />, label: "Agendar seguimiento", q: contactoActivo ? "Agendá un seguimiento para mañana para este contacto" : "¿Cómo gestiono los seguimientos?" },
-                      { icon: <Users size={16} color={C.red} />,         label: "Leads sin responder", q: "¿Cuántos leads están sin responder ahora y quiénes son?" },
-                    ].map(({ icon, label, q }) => (
-                      <button key={label} onClick={() => enviar(q)}
-                        style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "10px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 7, textAlign: "left", fontFamily: FONT_BODY, transition: "border-color .15s, box-shadow .15s" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(156,27,27,.08)`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.boxShadow = "none"; }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 9, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: "#1e293b", lineHeight: 1.3 }}>{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {typing && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 10, background: C.red, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Sparkles size={14} color="#fff" />
-                </div>
-                <div style={{ padding: "10px 16px", background: "#fff", borderRadius: "4px 16px 16px 16px", border: "1px solid #E2E8F0" }}>
-                  <span style={{ color: C.red, fontWeight: 700, letterSpacing: 3, fontSize: 16 }}>···</span>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Input */}
-          <div style={{ padding: "10px 12px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, background: "#fff", alignItems: "flex-end" }}>
-            {/* Botón micrófono */}
-            <button onClick={toggleMic} disabled={transcribing} title={recording ? "Detener grabación" : "Hablar"}
-              style={{ background: recording ? "#fef2f2" : transcribing ? "#fff7ed" : "#f8fafc", border: `1px solid ${recording ? C.red : transcribing ? "#f97316" : "#E2E8F0"}`, borderRadius: 10, width: 40, height: 40, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
-              {transcribing
-                ? <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316", letterSpacing: 2 }}>···</span>
-                : recording ? <MicOff size={16} color={C.red} /> : <Mic size={16} color="#64748b" />}
-            </button>
-            <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-              placeholder={transcribing ? "Procesando audio…" : recording ? "Grabando… tocá para detener" : "Preguntame algo… (Enter para enviar)"}
-              rows={1}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: "#1e293b", background: "#f8fafc", resize: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <button onClick={() => enviar()} disabled={typing}
-                style={{ background: typing ? "#e2e8f0" : C.red, border: "none", color: "#fff", borderRadius: 10, width: 40, height: 40, cursor: typing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Send size={16} />
-              </button>
-              {msgs.length > 1 && (
-                <button onClick={() => { setMsgs([msgs[0]]); setInput(""); }} title="Limpiar conversación"
-                  style={{ background: "#f8fafc", border: "1px solid #E2E8F0", color: "#94a3b8", borderRadius: 10, width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <RotateCcw size={14} />
-                </button>
               )}
             </div>
-          </div>
+          ))}
+
+          {/* Muni pensando / trabajando */}
+          {typing && (
+            <div className="muni-burbuja" style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              {avatarMuni(30)}
+              <div style={{ padding: "10px 14px", background: L.white, borderRadius: `${R.xs}px ${R.lg}px ${R.lg}px ${R.lg}px`, border: `1px solid ${L.border}`, boxShadow: SH.xs, display: "flex", alignItems: "center", gap: 9 }}>
+                <span style={{ display: "flex", gap: 3 }}>
+                  <span className="muni-punto" />
+                  <span className="muni-punto" style={{ animationDelay: ".15s" }} />
+                  <span className="muni-punto" style={{ animationDelay: ".3s" }} />
+                </span>
+                {actividad && <span style={{ fontSize: 12, color: L.muted }}>{actividad}</span>}
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
         </div>
+
+        {/* ── Atajos ── */}
+        {!typing && (
+          <div className="muni-chips" style={{ display: "flex", gap: 7, padding: "10px 14px 0", overflowX: "auto", flexShrink: 0, background: L.white }}>
+            {atajos.map(({ icon: Icon, label, q }) => (
+              <button key={label} onClick={() => enviar(q)}
+                style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: L.white, border: `1px solid ${L.border}`, borderRadius: R.pill, padding: "7px 13px", fontSize: 12.2, fontWeight: 600, color: L.muted, fontFamily: FONT_BODY, cursor: "pointer", whiteSpace: "nowrap", transition: "all .15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; e.currentTarget.style.background = C.redSoft; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = L.border; e.currentTarget.style.color = L.muted; e.currentTarget.style.background = L.white; }}>
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Escribir ── */}
+        <div style={{ padding: "10px 14px 12px", display: "flex", gap: 8, background: L.white, alignItems: "flex-end", flexShrink: 0 }}>
+          <button onClick={toggleMic} disabled={transcribing} title={recording ? "Listo" : "Hablar"}
+            style={{ background: recording ? C.redSoft : transcribing ? "#FFF7ED" : L.soft, border: `1px solid ${recording ? C.red : transcribing ? "#F97316" : L.border}`, borderRadius: R.pill, width: 42, height: 42, cursor: transcribing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: recording ? "micPulse 1.2s ease-in-out infinite" : "none" }}>
+            {transcribing
+              ? <span style={{ fontSize: 13, fontWeight: 700, color: "#F97316", letterSpacing: 2 }}>···</span>
+              : recording ? <MicOff size={17} color={C.red} /> : <Mic size={17} color={L.muted} />}
+          </button>
+          <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 110) + "px"; }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+            placeholder={transcribing ? "Procesando el audio…" : recording ? "Te escucho… tocá para parar" : "Escribime o pedime algo…"}
+            rows={1}
+            style={{ flex: 1, padding: "11px 16px", borderRadius: R.lg, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: L.text, background: L.soft, resize: "none", lineHeight: 1.5, maxHeight: 110, overflowY: "auto" }} />
+          <button onClick={() => enviar()} disabled={typing || !input.trim()}
+            title="Enviar"
+            style={{ background: typing || !input.trim() ? L.border : `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`, border: "none", color: "#fff", borderRadius: R.pill, width: 42, height: 42, cursor: typing || !input.trim() ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: typing || !input.trim() ? "none" : "0 4px 12px rgba(168,31,31,.3)" }}>
+            <Send size={17} />
+          </button>
+        </div>
+      </div>
       )}
     </>
   );
@@ -2455,7 +2513,7 @@ export default function App() {
           onLogout={() => cerrarSesion()} badges={navBadges} />
       )}
 
-      {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} />}
+      {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} userName={userName} userEmail={userEmail} />}
       {showImportarApp && <ImportarContactosModal onClose={() => setShowImportarApp(false)} />}
     </div>
   );

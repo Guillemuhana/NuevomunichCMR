@@ -160,7 +160,7 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
     bodyStyles:  { fontSize: 10, cellPadding: 4 },
     columnStyles: {
       0: { cellWidth: 18, halign: "center" },
-      1: { cellWidth: 168 },
+      1: { cellWidth: 164 },
     },
     alternateRowStyles: { fillColor: [252, 248, 240] },
     margin: { left: 14, right: 14 },

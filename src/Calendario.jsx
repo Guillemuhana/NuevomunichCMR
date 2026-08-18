@@ -9,8 +9,10 @@ import { es } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, MapPin,
   Users, Truck, Bell, FileText, Calendar as CalIcon, Loader2,
+  Share2, Download, Copy, Check,
 } from "lucide-react";
 import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO } from "./lib";
+import { compartirEvento, descargarICS, textoEvento } from "./compartir";
 
 // ── Tipos de evento ─────────────────────────────────────────
 export const TIPOS_EVENTO = {
@@ -105,6 +107,7 @@ function ModalEvento({ evento, onClose, onGuardado, onEliminado, userEmail }) {
   const [descripcion, setDesc]    = useState(evento?.descripcion || "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError]         = useState("");
+  const [aviso, setAviso]         = useState("");   // feedback de compartir/copiar
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
@@ -132,6 +135,21 @@ function ModalEvento({ evento, onClose, onGuardado, onEliminado, userEmail }) {
     setGuardando(false);
     if (err) { setError(err.message); return; }
     onGuardado(data);
+  };
+
+  // ── Compartir el evento ──────────────────────────────────
+  // El evento tal cual está guardado (no lo que hay en el formulario
+  // sin guardar), así lo que se comparte es lo que realmente pasa.
+  const compartir = async () => {
+    const donde = await compartirEvento(evento);
+    setAviso(donde === "copiado" ? "Copiado al portapapeles" : donde === "whatsapp" ? "Abriendo WhatsApp…" : "");
+    setTimeout(() => setAviso(""), 2200);
+  };
+
+  const copiar = async () => {
+    await navigator.clipboard?.writeText(textoEvento(evento));
+    setAviso("Copiado al portapapeles");
+    setTimeout(() => setAviso(""), 2200);
   };
 
   const eliminar = async () => {
@@ -229,6 +247,11 @@ function ModalEvento({ evento, onClose, onGuardado, onEliminado, userEmail }) {
               placeholder="Detalles del evento (opcional)" style={{ ...inputSt, resize: "vertical", lineHeight: 1.5 }} />
           </div>
 
+          {aviso && (
+            <div style={{ padding: "9px 12px", borderRadius: R.sm, background: "#F0FDF4", color: "#15803D", fontSize: 13, border: "1px solid #BBF7D0" }}>
+              {aviso}
+            </div>
+          )}
           {error && (
             <div style={{ padding: "9px 12px", borderRadius: R.sm, background: C.redSoft, color: C.redDark, fontSize: 13, border: `1px solid ${C.red}22` }}>
               {error}
@@ -238,10 +261,24 @@ function ModalEvento({ evento, onClose, onGuardado, onEliminado, userEmail }) {
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "14px 22px", borderTop: `1px solid ${L.border}`, position: "sticky", bottom: 0, background: L.white }}>
           {!nuevo ? (
-            <button onClick={eliminar} disabled={guardando}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, color: C.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Trash2 size={15} /> Eliminar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+              <button onClick={compartir} disabled={guardando} title="Compartir este evento"
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: R.sm, border: `1px solid ${C.red}`, background: C.redSoft, color: C.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <Share2 size={15} /> Compartir
+              </button>
+              <button onClick={copiar} disabled={guardando} title="Copiar el texto del evento"
+                style={{ display: "inline-flex", alignItems: "center", padding: "9px 10px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, color: L.muted, cursor: "pointer" }}>
+                {aviso === "Copiado al portapapeles" ? <Check size={15} color="#15803D" /> : <Copy size={15} />}
+              </button>
+              <button onClick={() => descargarICS(evento)} disabled={guardando} title="Bajar el .ics para Google Calendar o el iPhone"
+                style={{ display: "inline-flex", alignItems: "center", padding: "9px 10px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, color: L.muted, cursor: "pointer" }}>
+                <Download size={15} />
+              </button>
+              <button onClick={eliminar} disabled={guardando} title="Eliminar el evento"
+                style={{ display: "inline-flex", alignItems: "center", padding: "9px 10px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, color: C.red, cursor: "pointer" }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
           ) : <span />}
           <div style={{ display: "flex", gap: 9 }}>
             <button onClick={onClose} disabled={guardando}

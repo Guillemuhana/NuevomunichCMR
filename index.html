@@ -17,6 +17,17 @@
         -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
         text-rendering: optimizeLegibility;
         background: #F7F8FA; color: #101828;
+        /* Android 15 dibuja la app por debajo de la barra de estado (edge-to-edge):
+           le reservamos su alto para que no tape la cabecera. En la web vale 0. */
+        padding-top: env(safe-area-inset-top);
+      }
+
+      /* Franja de la barra de estado, pintada del rojo de la marca para que
+         se vea como parte de la app y no como un recorte. */
+      body::before {
+        content: ""; position: fixed; top: 0; left: 0; right: 0;
+        height: env(safe-area-inset-top);
+        background: #A81F1F; z-index: 9999; pointer-events: none;
       }
 
       /* ── Refinamientos minimalistas ── */
