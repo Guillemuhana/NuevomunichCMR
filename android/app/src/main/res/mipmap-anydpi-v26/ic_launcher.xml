@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ícono adaptativo.
+
+  El fondo va SIN inset: tiene que pintar el lienzo entero de 108dp, porque
+  el launcher recorta con su propia máscara. Con el inset que generaba
+  capacitor-assets, el blanco sólo cubría el 66% central y el ícono se veía
+  más chico que el de las demás apps, flotando en el medio.
+
+  El primer plano sí lleva el inset: así el logo queda dentro de la zona
+  segura de 72dp y no se lo come ninguna máscara.
+
+  OJO: si volvés a correr `npx capacitor-assets generate`, este archivo se
+  reescribe y vuelve el inset en el fondo. Hay que dejarlo así de nuevo.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background>
-        <inset android:drawable="@mipmap/ic_launcher_background" android:inset="16.7%" />
-    </background>
+    <background android:drawable="@mipmap/ic_launcher_background" />
     <foreground>
         <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
     </foreground>
