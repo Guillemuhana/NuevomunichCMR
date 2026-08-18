@@ -52,27 +52,28 @@ create policy "push_tokens_delete" on push_tokens
 -- pg_net permite que Postgres haga llamadas HTTP a la Edge Function.
 create extension if not exists pg_net with schema extensions;
 
--- Guardamos la URL y la service_role key en una tabla de config privada
--- (no accesible desde el frontend) en vez de hardcodearlas en cada trigger.
+-- Tabla de config privada: guarda la URL de la función y un SECRETO
+-- COMPARTIDO generado al azar. La Edge Function lee esta misma tabla y
+-- compara, así no hace falta guardar la service_role key en la base.
+-- RLS habilitado y sin políticas => el frontend no puede leerla.
 create table if not exists push_config (
-  id         int primary key default 1,
-  func_url   text not null,
+  id          int primary key default 1,
+  func_url    text not null,
   service_key text not null,
   constraint push_config_una_fila check (id = 1)
 );
-alter table push_config enable row level security;  -- sin políticas => nadie desde el cliente
+alter table push_config enable row level security;
 
--- >>> EDITAR ESTA LÍNEA: pegá tu SERVICE ROLE KEY de Supabase
---     (Dashboard > Project Settings > API > service_role, la clave secreta)
+-- >>> Si volvés a ejecutar esto desde cero, generá un secreto nuevo con:
+--     select encode(gen_random_bytes(32), 'base64');
+--     y pegalo abajo (cualquier cadena larga al azar sirve).
 insert into push_config (id, func_url, service_key)
 values (
   1,
   'https://sxfnqucwcteiligdtehq.supabase.co/functions/v1/push-send',
-  'PEGAR_AQUI_TU_SERVICE_ROLE_KEY'
+  'GENERAR_UN_SECRETO_LARGO_AL_AZAR'
 )
-on conflict (id) do update
-  set func_url = excluded.func_url,
-      service_key = excluded.service_key;
+on conflict (id) do nothing;
 
 -- Helper: dispara la Edge Function de forma asíncrona (no frena el insert).
 create or replace function fn_push_enviar(p_payload jsonb)
@@ -80,7 +81,10 @@ returns void as $$
 declare cfg push_config%rowtype;
 begin
   select * into cfg from push_config where id = 1;
-  if cfg.func_url is null then return; end if;
+  if cfg.func_url is null or cfg.service_key is null
+     or cfg.service_key = 'GENERAR_UN_SECRETO_LARGO_AL_AZAR' then
+    return;
+  end if;
 
   perform net.http_post(
     url     := cfg.func_url,

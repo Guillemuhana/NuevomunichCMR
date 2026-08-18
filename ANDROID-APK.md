@@ -68,25 +68,33 @@ guardá estos 4 secrets nuevos:
 guardá ese archivo `.jks` en Drive o donde no se pierda. Si lo perdés, no vas a
 poder publicar actualizaciones del APK sobre las instalaciones existentes.
 
-### Paso 4 — Supabase: tabla y disparadores
+### Paso 4 — Supabase: tabla y disparadores ✅ YA HECHO
 
-1. Supabase → **SQL Editor → New query**.
-2. Pegá todo el contenido de [`supabase_push_notifications.sql`](supabase_push_notifications.sql).
-3. **Antes de ejecutar**, reemplazá `PEGAR_AQUI_TU_SERVICE_ROLE_KEY` por tu
-   service_role key real (Project Settings → API → `service_role`, la secreta).
-4. Ejecutá.
+La tabla `push_tokens`, la config privada `push_config` y los tres disparadores
+ya están aplicados en el proyecto `sxfnqucwcteiligdtehq`. El archivo
+[`supabase_push_notifications.sql`](supabase_push_notifications.sql) queda como
+referencia por si hay que rehacerlo desde cero.
 
 ### Paso 5 — Supabase: la función que envía
 
-1. Supabase → **Edge Functions → Secrets** (o Project Settings → Edge Functions):
-   creá el secret **`FCM_SERVICE_ACCOUNT`** y pegá **todo el JSON de la cuenta
-   de servicio** del Paso 1.4.
-2. Desplegá la función. Desde tu PC, con el Supabase CLI:
-   ```
-   npx supabase functions deploy push-send --project-ref sxfnqucwcteiligdtehq
-   ```
-   (O desde el Dashboard → Edge Functions → Deploy, pegando el código de
-   `supabase/functions/push-send/index.ts`.)
+La Edge Function `push-send` **ya está desplegada y activa**. Se autentica con un
+secreto compartido guardado en `push_config` (no usa la service_role key).
+
+Falta **una sola cosa**, y sólo la podés hacer vos:
+
+1. Supabase → **Project Settings → Edge Functions → Secrets**.
+2. Creá el secret **`FCM_SERVICE_ACCOUNT`** y pegá **todo el JSON de la cuenta
+   de servicio** del Paso 1.4 (el archivo `...firebase-adminsdk-....json`).
+
+Para comprobar que quedó bien:
+
+```
+curl -X POST https://sxfnqucwcteiligdtehq.supabase.co/functions/v1/push-send   -H "Authorization: Bearer <el secreto de push_config>"   -H "Content-Type: application/json"   -d '{"tipo":"test","titulo":"t","cuerpo":"c"}'
+```
+
+Si responde `{"enviados":0,"motivo":"sin destinatarios"}` está perfecto (todavía
+no hay celulares registrados). Si responde `Falta el secret FCM_SERVICE_ACCOUNT`,
+el secret no quedó guardado.
 
 ### Paso 6 — Generar el APK
 

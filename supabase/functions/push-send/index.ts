@@ -7,6 +7,9 @@
 //
 // Secrets necesarios (Dashboard > Edge Functions > Secrets):
 //   FCM_SERVICE_ACCOUNT  -> JSON completo de la cuenta de servicio de Firebase
+//
+// La funcion se despliega con verify_jwt=false y valida ella misma el secreto
+// compartido de la tabla push_config (ver `autorizado` mas abajo).
 // (SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY ya vienen inyectados)
 // ============================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -170,8 +173,25 @@ async function enviar(
   return { token, ok: false, borrar };
 }
 
+// Autenticacion propia: los triggers de Postgres mandan el secreto
+// compartido que vive en la tabla privada push_config. Asi no hace falta
+// guardar la service_role key dentro de la base.
+async function autorizado(req: Request): Promise<boolean> {
+  const enviado = (req.headers.get("Authorization") ?? "").replace(/^Bearers+/i, "");
+  if (!enviado) return false;
+  const { data } = await supabase.from("push_config").select("service_key").eq("id", 1).single();
+  const esperado = data?.service_key;
+  if (!esperado || esperado.length < 20) return false;
+  // Comparacion de longitud constante para no filtrar el secreto por tiempos.
+  if (enviado.length !== esperado.length) return false;
+  let dif = 0;
+  for (let i = 0; i < esperado.length; i++) dif |= enviado.charCodeAt(i) ^ esperado.charCodeAt(i);
+  return dif === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (!(await autorizado(req))) return new Response("No autorizado", { status: 401 });
 
   try {
     const p = (await req.json()) as Payload;
