@@ -220,6 +220,19 @@ export async function enviarPlantilla({ telefono, plantilla, idioma, parametros,
     // Meta contesta { messages: [{ id }] } cuando salió, y { error: {...} } cuando no.
     if (cuerpo?.error) {
       const e = cuerpo.error;
+
+      // Cuando el error es un texto suelto no viene de Meta: es n8n, que no
+      // pudo ni armar el pedido. Decirlo como "rechazado por Meta" manda a
+      // buscar el problema al lugar equivocado.
+      if (typeof e === "string") {
+        return {
+          ok: false,
+          error: /syntax/i.test(e)
+            ? "El nodo \"Enviar WhatsApp (Meta)\" de n8n tiene el campo JSON mal pegado (n8n dice: invalid syntax). El mensaje no llegó a salir."
+            : `n8n no pudo mandar el mensaje: ${e}`,
+        };
+      }
+
       return { ok: false, error: `${e.code || res.status}: ${e.message || "rechazado por Meta"}` };
     }
     if (!res.ok) return { ok: false, error: `El envío devolvió ${res.status}` };
