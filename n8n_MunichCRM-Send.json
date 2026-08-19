@@ -29,22 +29,24 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (function(){ var b=$json.body; if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
+        "jsonBody": "={{ (function(){ var b=$json.body; if(b.plantilla){ var comps=[]; var ps=(b.parametros||[]).map(function(p){ return {type:'text', text:String(p)}; }); if(ps.length){ comps.push({type:'body', parameters:ps}); } return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'template',template:{name:b.plantilla,language:{code:b.idioma||'es_AR'},components:comps}}); } if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
         "options": {}
       },
       "id": "send-wa",
       "name": "Enviar WhatsApp (Meta)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [480, 300],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={ \"ok\": true }"
+        "responseBody": "={{ JSON.stringify($json) }}"
       },
       "id": "respond",
-      "name": "Responder OK",
+      "name": "Responder a la app",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [720, 300]
@@ -52,7 +54,26 @@
   ],
   "connections": {
     "Webhook CRM": { "main": [[{ "node": "Enviar WhatsApp (Meta)", "type": "main", "index": 0 }]] },
-    "Enviar WhatsApp (Meta)": { "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]] }
+    "Enviar WhatsApp (Meta)": { "main": [[{ "node": "Responder a la app", "type": "main", "index": 0 }]] }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": { "executionOrder": "v1" },
+  "notes": [
+    "QUÉ CAMBIÓ (agosto 2026): este workflow ahora manda también PLANTILLAS de Meta,",
+    "que es lo único que Meta deja usar para escribirle a alguien con quien no hablás",
+    "hace más de 24 horas. Es lo que usa la pantalla de Promociones del CRM.",
+    "",
+    "Cuerpos que acepta el webhook:",
+    "  1) Texto suelto (como siempre):",
+    "     { telefono, mensaje, agente }",
+    "  2) Con archivo (como siempre):",
+    "     { telefono, mensaje, media_url, media_tipo, media_nombre }",
+    "  3) Plantilla (nuevo):",
+    "     { telefono, plantilla: 'promo_agosto', idioma: 'es_AR', parametros: ['Juan', '20%'] }",
+    "     Los parámetros van en orden: el primero es {{1}}, el segundo {{2}}, y así.",
+    "",
+    "El nodo de envío quedó con onError = continueRegularOutput y el de respuesta",
+    "devuelve tal cual lo que contesta Meta. Eso es a propósito: si un envío falla,",
+    "el CRM necesita ver el motivo para mostrarlo en la campaña, en vez de recibir",
+    "un 500 pelado. En éxito viene { messages: [{ id }] }, y en error { error: {...} }."
+  ]
 }

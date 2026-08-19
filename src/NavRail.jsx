@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
-  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle,
+  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone,
 } from "lucide-react";
 import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
@@ -40,6 +40,8 @@ function getSecciones(rol) {
   const gestion = [
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
+    // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
+    ...(rol === "admin" ? [{ key: "promociones", icon: Megaphone, label: "Promociones" }] : []),
     { key: "reportes",   icon: BarChart2,      label: "Reportes" },
   ];
   const sistema = [

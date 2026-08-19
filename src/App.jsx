@@ -26,6 +26,7 @@ import { docFichaContacto } from "./documentos";
 import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asistente";
 import { avisar, prepararAudio, sonidoActivado, setSonidoActivado, probarSonido } from "./aviso";
 const Calendario = lazy(() => import("./Calendario"));
+const Promociones = lazy(() => import("./Promociones"));
 
 // ============================================================
 // HELPERS DE MENSAJES
@@ -1542,6 +1543,7 @@ function AjustesPanel({ userName, userEmail, rol }) {
 const TITULO_VISTA = {
   chat: "Chats", vendedores: "Vendedores", pedidos: "Pedidos", calendario: "Calendario",
   contactos: "Contactos", reportes: "Reportes", ajustes: "Ajustes", admin: "Admin",
+  promociones: "Promociones",
 };
 
 function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
@@ -2506,7 +2508,7 @@ export default function App() {
       if (c) setActivo(c);
     };
     // Solo vistas reales del layout: "mensajes" es un panel del rail, no una vista.
-    const VISTAS_OK = ["chat", "vendedores", "pedidos", "calendario", "contactos", "reportes", "ajustes", "admin"];
+    const VISTAS_OK = ["chat", "vendedores", "pedidos", "calendario", "contactos", "reportes", "ajustes", "admin", "promociones"];
     const abrirVista = (e) => {
       const v = e.detail?.vista;
       if (VISTAS_OK.includes(v)) { setVista(v); setActivo(null); }
@@ -2642,6 +2644,13 @@ export default function App() {
             {isMobile && <MobileBack title="Calendario" onBack={() => setVista("chat")} />}
             <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Calendario userEmail={userEmail} isMobile={isMobile} />
+            </Suspense>
+          </>
+        ) : vista === "promociones" && rol === "admin" ? (
+          <>
+            {isMobile && <MobileBack title="Promociones" onBack={() => setVista("chat")} />}
+            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+              <Promociones userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
         ) : vista === "reportes" ? (
