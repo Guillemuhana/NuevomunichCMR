@@ -887,6 +887,7 @@ function PanelPlantillas({ plantillas, onCambio }) {
   const [modal, setModal] = useState(null);   // {} = nueva | fila = editar
   const [sincro, setSincro] = useState(false);
   const [aviso, setAviso]   = useState(null);  // { ok, texto }
+  const [probar, setProbar] = useState(null);  // plantilla que se está probando
 
   // Trae de Meta las plantillas de la cuenta y las deja guardadas acá.
   const sincronizar = async () => {
@@ -974,6 +975,10 @@ function PanelPlantillas({ plantillas, onCambio }) {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => setProbar(p)} title="Mandártela a tu WhatsApp para ver cómo llega"
+                    style={{ ...btn("primario"), padding: "7px 13px", fontSize: 12.5 }}>
+                    <Send size={13} /> Probar
+                  </button>
                   <button onClick={() => setModal(p)} style={{ ...btn(), padding: "7px 12px", fontSize: 12.5 }}>Editar</button>
                   <button onClick={() => borrar(p)} title="Borrar"
                     style={{ ...btn(), padding: "7px 10px", color: C.red }}><Trash2 size={14} /></button>
@@ -988,7 +993,127 @@ function PanelPlantillas({ plantillas, onCambio }) {
       )}
 
       {modal && <ModalPlantilla plantilla={modal} onCerrar={() => setModal(null)} onGuardada={() => { setModal(null); onCambio(); }} />}
+      {probar && <ModalPrueba plantilla={probar} onCerrar={() => setProbar(null)} />}
     </>
+  );
+}
+
+// ============================================================
+// PROBAR UNA PLANTILLA EN UN NÚMERO
+// ============================================================
+// Se llega desde la lista de plantillas, sin tener que armar una
+// campaña: es lo primero que uno quiere hacer al cargar una promo.
+function ModalPrueba({ plantilla, onCerrar }) {
+  const [telefono, setTelefono] = useState("");
+  const [headerUrl, setHeaderUrl] = useState(plantilla.header_ejemplo || "");
+  const nums = variablesDelCuerpo(plantilla.cuerpo);
+  const [valores, setValores] = useState(() => nums.map(() => ""));
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+
+  const necesitaArchivo = ["IMAGE", "VIDEO", "DOCUMENT"].includes(plantilla.header_tipo);
+  const listo = telefono.replace(/\D/g, "").length >= 8
+    && (!necesitaArchivo || !!headerUrl.trim())
+    && valores.every((v) => v.trim());
+
+  const mandar = async () => {
+    setEnviando(true); setResultado(null);
+    const r = await enviarPlantilla({
+      telefono,
+      plantilla: plantilla.nombre,
+      idioma: plantilla.idioma,
+      parametros: valores.map((v) => v.trim()),
+      headerUrl: necesitaArchivo ? headerUrl.trim() : null,
+      headerTipo: plantilla.header_tipo,
+    });
+    setResultado(r);
+    setEnviando(false);
+  };
+
+  return (
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,.45)", backdropFilter: "blur(3px)", zIndex: 430, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 500, maxHeight: "92vh", overflowY: "auto", background: L.white, borderRadius: R.xl, boxShadow: SH.xl, fontFamily: FONT_BODY }}>
+
+        <div style={{ padding: "18px 22px 14px", borderBottom: `1px solid ${L.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16.5, color: L.text }}>Probar en mi número</div>
+            <div style={{ fontSize: 12, color: L.muted, marginTop: 3 }}>{plantilla.nombre} · {plantilla.idioma}</div>
+          </div>
+          <button onClick={onCerrar} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: R.sm, width: 32, height: 32, cursor: "pointer", color: L.muted, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={rotulo}>Tu número de WhatsApp</label>
+            <input autoFocus value={telefono} onChange={(e) => setTelefono(e.target.value)}
+              placeholder="5493512168835" style={input} />
+            <div style={{ fontSize: 11.5, color: L.light, marginTop: 5 }}>
+              Con código de país y sin el +. Para Córdoba arranca con 549351.
+            </div>
+          </div>
+
+          {necesitaArchivo && (
+            <div>
+              <label style={rotulo}>
+                {plantilla.header_tipo === "VIDEO" ? "Video" : plantilla.header_tipo === "DOCUMENT" ? "Archivo" : "Imagen"} de la cabecera
+              </label>
+              <input value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)} placeholder="https://…" style={input} />
+              <div style={{ fontSize: 11.5, color: L.light, marginTop: 5 }}>
+                Esta plantilla lleva un archivo arriba y Meta lo pide en cada envío.
+              </div>
+            </div>
+          )}
+
+          {nums.length > 0 && (
+            <div>
+              <label style={rotulo}>Datos de prueba para los huecos</label>
+              <div style={{ display: "grid", gap: 8 }}>
+                {nums.map((n, i) => (
+                  <div key={n} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ flexShrink: 0, width: 44, height: 34, borderRadius: R.sm, background: C.redSoft, color: C.red, fontWeight: 800, fontSize: 12.5, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY }}>
+                      {`{{${n}}}`}
+                    </span>
+                    <input value={valores[i]} onChange={(e) => setValores(valores.map((v, j) => j === i ? e.target.value : v))}
+                      placeholder="Lo que quieras probar" style={{ ...input, flex: 1 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {plantilla.cuerpo && (
+            <div>
+              <label style={rotulo}>Así te va a llegar</label>
+              <div style={{ background: "#E7F3E4", borderRadius: R.md, padding: "13px 15px", fontSize: 13.5, color: "#111B21", lineHeight: 1.55, whiteSpace: "pre-wrap", border: "1px solid #CFE6C9" }}>
+                {vistaPrevia(plantilla.cuerpo, valores.map((v) => v.trim() || "…"))}
+              </div>
+            </div>
+          )}
+
+          {resultado && (
+            <div style={{ padding: "11px 14px", borderRadius: R.sm, fontSize: 13, lineHeight: 1.55,
+              background: resultado.ok ? "#F0FDF4" : C.redSoft,
+              color: resultado.ok ? "#15803D" : C.redDark,
+              border: `1px solid ${resultado.ok ? "#BBF7D0" : C.red + "33"}` }}>
+              {resultado.ok
+                ? "Salió. Mirá el WhatsApp de ese número: si llegó bien, la plantilla está lista para usar en una campaña."
+                : resultado.error}
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "14px 22px", borderTop: `1px solid ${L.border}`, display: "flex", justifyContent: "flex-end", gap: 9 }}>
+          <button onClick={onCerrar} style={btn()}>Cerrar</button>
+          <button onClick={mandar} disabled={!listo || enviando}
+            style={{ ...btn("primario"), opacity: listo && !enviando ? 1 : .45, cursor: listo && !enviando ? "pointer" : "default" }}>
+            <Send size={15} /> {enviando ? "Mandando…" : "Mandarme la prueba"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
