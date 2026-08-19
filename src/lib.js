@@ -14,6 +14,8 @@ export const supabase = createClient(
 );
 
 export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
+// Webhook que lista las plantillas aprobadas en Meta (workflow MunichCRM-Plantillas).
+export const N8N_PLANTILLAS_WEBHOOK = import.meta.env.VITE_N8N_PLANTILLAS_WEBHOOK;
 
 // Logo oficial de Nuevo Munich
 export const LOGO_URL = "/logo.png";

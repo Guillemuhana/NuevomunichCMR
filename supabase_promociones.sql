@@ -157,3 +157,16 @@ end $$;
 select 'plantillas_wa' as tabla, count(*) from public.plantillas_wa
 union all select 'campanias', count(*) from public.campanias
 union all select 'campania_envios', count(*) from public.campania_envios;
+
+-- ============================================================
+-- SINCRONIZACIÓN CON META (agregado después)
+-- ------------------------------------------------------------
+-- Estas dos columnas las usa el botón "Sincronizar con Meta" de
+-- Promociones. Se pueden correr aunque ya hayas ejecutado todo
+-- lo de arriba: no rompen nada.
+-- ============================================================
+alter table public.plantillas_wa add column if not exists estado_meta     text;
+alter table public.plantillas_wa add column if not exists sincronizada_at timestamptz;
+
+comment on column public.plantillas_wa.estado_meta is
+  'Estado que reporta Meta: APPROVED, PENDING, REJECTED, PAUSED. Sólo las APPROVED se pueden mandar.';

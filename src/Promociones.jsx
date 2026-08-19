@@ -13,15 +13,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Megaphone, Plus, Send, Users, Check, X, AlertCircle, Play, Pause,
-  Search, ChevronLeft, FileText, Trash2, RefreshCw, MessageSquare, Clock,
+  Search, ChevronLeft, FileText, Trash2, RefreshCw, MessageSquare, Clock, Zap,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, N8N_PLANTILLAS_WEBHOOK,
 } from "./lib";
 import {
   CAMPOS_CONTACTO, resolverParametros, vistaPrevia, variablesDelCuerpo,
-  buscarAudiencia, procesarPendientes,
+  variablesConNombre, buscarAudiencia, procesarPendientes, sincronizarPlantillas,
 } from "./promocionesLib";
 
 const fecha = (v) =>
@@ -249,7 +249,12 @@ function TarjetaCampania({ campania: c, onAbrir }) {
 // ASISTENTE PARA CREAR LA CAMPAÑA
 // ============================================================
 function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPlantillas }) {
-  const activas = plantillas.filter((p) => p.activa);
+  // Sólo se ofrecen las aprobadas y con huecos numerados: los huecos con
+  // nombre ({{cliente}}) no se pueden mandar por posición, que es como
+  // arma el envío este CRM.
+  const usables  = plantillas.filter((p) => p.activa && variablesConNombre(p.cuerpo).length === 0);
+  const excluidas = plantillas.filter((p) => p.activa && variablesConNombre(p.cuerpo).length > 0).length;
+  const activas  = usables;
   const [paso, setPaso]           = useState(1);
   const [nombre, setNombre]       = useState("");
   const [plantillaId, setPlantillaId] = useState(activas[0]?.id || "");
@@ -383,6 +388,12 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
               <div>
                 <label style={rotulo}>Plantilla aprobada</label>
                 <div style={{ display: "grid", gap: 8 }}>
+                  {excluidas > 0 && (
+                    <div style={{ fontSize: 12, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8, padding: "9px 12px", lineHeight: 1.5 }}>
+                      Dejé afuera {excluidas} {excluidas === 1 ? "plantilla que usa huecos" : "plantillas que usan huecos"} con nombre.
+                      El envío completa los datos por posición y todavía no soporta ese formato.
+                    </div>
+                  )}
                   {activas.map((p) => (
                     <button key={p.id} onClick={() => setPlantillaId(p.id)}
                       style={{ textAlign: "left", padding: "12px 14px", borderRadius: R.sm, border: `1px solid ${p.id === plantillaId ? C.red : L.border}`, background: p.id === plantillaId ? C.redSoft : L.white, cursor: "pointer", fontFamily: FONT_BODY }}>
@@ -796,6 +807,26 @@ function Tarjeta({ icono: Icon, color, valor, titulo, pie }) {
 // ============================================================
 function PanelPlantillas({ plantillas, onCambio }) {
   const [modal, setModal] = useState(null);   // {} = nueva | fila = editar
+  const [sincro, setSincro] = useState(false);
+  const [aviso, setAviso]   = useState(null);  // { ok, texto }
+
+  // Trae de Meta las plantillas de la cuenta y las deja guardadas acá.
+  const sincronizar = async () => {
+    setSincro(true); setAviso(null);
+    try {
+      const r = await sincronizarPlantillas();
+      setAviso({
+        ok: true,
+        texto: r.total === 0
+          ? "Meta no devolvió ninguna plantilla en esta cuenta."
+          : `Traje ${r.total} ${r.total === 1 ? "plantilla" : "plantillas"}: ${r.aprobadas} aprobadas${r.otras ? ` y ${r.otras} que Meta todavía no aprobó` : ""}.`,
+      });
+      onCambio();
+    } catch (e) {
+      setAviso({ ok: false, texto: e.message });
+    }
+    setSincro(false);
+  };
 
   const borrar = async (p) => {
     if (!window.confirm(`¿Borrar la plantilla "${p.nombre}"? Las campañas ya hechas no se tocan.`)) return;
@@ -808,14 +839,30 @@ function PanelPlantillas({ plantillas, onCambio }) {
       <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: R.md, padding: "13px 16px", marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start" }}>
         <AlertCircle size={17} color="#1D4ED8" style={{ flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 12.5, color: "#1E3A8A", lineHeight: 1.55 }}>
-          Las plantillas se crean y se aprueban <strong>en Meta</strong>, no acá. En esta pantalla sólo anotás
-          las que ya tenés aprobadas, para que el CRM sepa cómo mandarlas. El nombre y el idioma
-          tienen que coincidir <strong>exactamente</strong> con los de Meta.
+          Las plantillas se crean y se aprueban <strong>en Meta</strong>, no acá.
+          {N8N_PLANTILLAS_WEBHOOK
+            ? <> Con <strong>Sincronizar con Meta</strong> el CRM las trae solas, con el nombre y el idioma exactos. Conviene sincronizar cada vez que apruebes una nueva.</>
+            : <> Todavía no está conectada la cuenta de Meta, así que hay que anotarlas a mano: el nombre y el idioma tienen que coincidir <strong>exactamente</strong>.</>}
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-        <button onClick={() => setModal({})} style={btn("primario")}><Plus size={16} /> Cargar plantilla</button>
+      {aviso && (
+        <div style={{ marginBottom: 14, padding: "11px 14px", borderRadius: R.sm, fontSize: 13, lineHeight: 1.5,
+          background: aviso.ok ? "#F0FDF4" : C.redSoft, color: aviso.ok ? "#15803D" : C.redDark,
+          border: `1px solid ${aviso.ok ? "#BBF7D0" : C.red + "33"}` }}>
+          {aviso.texto}
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginBottom: 12, flexWrap: "wrap" }}>
+        {N8N_PLANTILLAS_WEBHOOK && (
+          <button onClick={sincronizar} disabled={sincro} style={{ ...btn("primario"), opacity: sincro ? .65 : 1 }}>
+            {sincro
+              ? <><RefreshCw size={16} style={{ animation: "mnSpin 1s linear infinite" }} /> Consultando a Meta…</>
+              : <><Zap size={16} /> Sincronizar con Meta</>}
+          </button>
+        )}
+        <button onClick={() => setModal({})} style={btn()}><Plus size={16} /> Cargar a mano</button>
       </div>
 
       {plantillas.length === 0 ? (
@@ -832,7 +879,21 @@ function PanelPlantillas({ plantillas, onCambio }) {
                     {p.nombre}
                     {!p.activa && <span style={{ marginLeft: 8, fontSize: 11, color: L.light, fontWeight: 600 }}>(desactivada)</span>}
                   </div>
-                  <div style={{ fontSize: 11.5, color: L.light, marginTop: 3 }}>{p.idioma} · {p.categoria}</div>
+                  <div style={{ fontSize: 11.5, color: L.light, marginTop: 3, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span>{p.idioma} · {p.categoria}</span>
+                    {p.estado_meta && p.estado_meta !== "APPROVED" && (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: R.pill, background: "#FEF3C7", color: "#B45309" }}>
+                        Meta: {p.estado_meta}
+                      </span>
+                    )}
+                    {p.sincronizada_at && <span>Sincronizada {fecha(p.sincronizada_at)}</span>}
+                  </div>
+                  {variablesConNombre(p.cuerpo).length > 0 && (
+                    <div style={{ fontSize: 11.5, color: "#B45309", marginTop: 5, lineHeight: 1.45 }}>
+                      Esta plantilla usa huecos con nombre ({variablesConNombre(p.cuerpo).map((v) => `{{${v}}}`).join(", ")}).
+                      El CRM manda los datos por posición, así que todavía no se puede usar en una campaña.
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                   <button onClick={() => setModal(p)} style={{ ...btn(), padding: "7px 12px", fontSize: 12.5 }}>Editar</button>

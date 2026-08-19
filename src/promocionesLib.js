@@ -5,7 +5,7 @@
 // mandar cada mensaje. Vive aparte de Promociones.jsx para poder
 // probarlo sin levantar React.
 // ============================================================
-import { supabase, N8N_SEND_WEBHOOK } from "./lib";
+import { supabase, N8N_SEND_WEBHOOK, N8N_PLANTILLAS_WEBHOOK } from "./lib";
 
 // ── Variables de la plantilla ───────────────────────────────
 // Campos del contacto que se pueden meter dentro de una plantilla.
@@ -66,6 +66,88 @@ export function vistaPrevia(cuerpo, valores) {
 export function variablesDelCuerpo(cuerpo) {
   const nums = [...String(cuerpo || "").matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => Number(m[1]));
   return [...new Set(nums)].sort((a, b) => a - b);
+}
+
+/**
+ * Huecos con nombre, tipo {{nombre_cliente}}, que Meta permite en las
+ * plantillas nuevas. Nosotros mandamos los parámetros por posición, así que
+ * una plantilla así no se puede usar todavía: conviene avisarlo en pantalla
+ * en vez de dejar que el envío falle contacto por contacto.
+ */
+export function variablesConNombre(cuerpo) {
+  const nombres = [...String(cuerpo || "").matchAll(/\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g)].map((m) => m[1]);
+  return [...new Set(nombres)];
+}
+
+// ── Sincronizar con Meta ────────────────────────────────────
+/**
+ * Trae las plantillas de la cuenta de WhatsApp Business y las guarda en el CRM.
+ *
+ * La consulta pasa por n8n a propósito: el token de Meta no puede viajar al
+ * navegador. Ver el workflow MunichCRM-Plantillas.
+ *
+ * @returns {Promise<{total:number, aprobadas:number, otras:number, nombres:string[]}>}
+ */
+export async function sincronizarPlantillas() {
+  if (!N8N_PLANTILLAS_WEBHOOK) {
+    throw new Error("Falta configurar VITE_N8N_PLANTILLAS_WEBHOOK con la URL del workflow de n8n.");
+  }
+
+  let json;
+  try {
+    const res = await fetch(N8N_PLANTILLAS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    json = await res.json();
+  } catch (e) {
+    throw new Error(`No se pudo hablar con n8n: ${e.message}`);
+  }
+
+  if (json?.error) {
+    const e = json.error;
+    // El 200 de Meta es siempre lo mismo: al token le falta el permiso de gestión.
+    if (String(e.code) === "200") {
+      throw new Error("Meta rechazó la consulta: al token le falta el permiso whatsapp_business_management.");
+    }
+    throw new Error(`Meta respondió: ${e.message || e.code}`);
+  }
+
+  const plantillas = json?.data;
+  if (!Array.isArray(plantillas)) {
+    throw new Error("n8n no devolvió la lista de plantillas. Revisá que el WABA ID esté cargado en el workflow.");
+  }
+
+  const ahora = new Date().toISOString();
+  const filas = plantillas.map((t) => {
+    const cuerpo = (t.components || []).find((c) => c.type === "BODY")?.text || null;
+    return {
+      nombre: t.name,
+      idioma: t.language,
+      categoria: t.category || "MARKETING",
+      cuerpo,
+      variables: variablesDelCuerpo(cuerpo).map((n) => ({ num: n })),
+      // Sólo se puede mandar lo que Meta aprobó.
+      activa: t.status === "APPROVED",
+      estado_meta: t.status || null,
+      sincronizada_at: ahora,
+    };
+  });
+
+  if (filas.length) {
+    const { error } = await supabase
+      .from("plantillas_wa").upsert(filas, { onConflict: "nombre,idioma" });
+    if (error) throw new Error(`No se pudieron guardar: ${error.message}`);
+  }
+
+  const aprobadas = filas.filter((f) => f.activa);
+  return {
+    total: filas.length,
+    aprobadas: aprobadas.length,
+    otras: filas.length - aprobadas.length,
+    nombres: aprobadas.map((f) => f.nombre),
+  };
 }
 
 // ── Audiencia ───────────────────────────────────────────────

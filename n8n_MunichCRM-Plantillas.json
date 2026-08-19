@@ -1,0 +1,79 @@
+{
+  "name": "MunichCRM-Plantillas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "munich-crm-plantillas",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-plantillas",
+      "name": "Webhook CRM",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "munich-crm-plantillas"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/PEGA_ACA_TU_WABA_ID/message_templates?limit=200&fields=name,language,status,category,components",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "id": "listar-plantillas",
+      "name": "Listar plantillas (Meta)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-plantillas",
+      "name": "Responder a la app",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Webhook CRM": { "main": [[{ "node": "Listar plantillas (Meta)", "type": "main", "index": 0 }]] },
+    "Listar plantillas (Meta)": { "main": [[{ "node": "Responder a la app", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": [
+    "PARA QUÉ ES: que el CRM vea solo las plantillas que tenés aprobadas en Meta,",
+    "sin tener que cargarlas a mano. La pantalla de Promociones llama a este",
+    "webhook con el botón 'Sincronizar con Meta'.",
+    "",
+    "POR QUÉ PASA POR N8N Y NO VA DIRECTO: el token de Meta no puede estar en la",
+    "web, porque todo lo que va al navegador queda a la vista de cualquiera que",
+    "abra el APK o las herramientas del navegador. Acá el token se queda en n8n.",
+    "",
+    "CÓMO PONERLO EN MARCHA:",
+    "  1. Importá este workflow en n8n (Workflows > Import from File).",
+    "  2. En el nodo 'Listar plantillas (Meta)', reemplazá PEGA_ACA_TU_WABA_ID por",
+    "     el identificador de tu cuenta de WhatsApp Business. Lo encontrás en",
+    "     Meta Business Suite > WhatsApp Manager > Configuración de la API,",
+    "     como 'Identificador de la cuenta de WhatsApp Business'. OJO: no es el",
+    "     mismo número que el identificador del teléfono (ese es 1120251634497576).",
+    "  3. Elegí la misma credencial de WhatsApp que usa MunichCRM-Send. El token",
+    "     necesita el permiso whatsapp_business_management; si sólo tiene",
+    "     whatsapp_business_messaging, Meta devuelve error 200 y hay que generar",
+    "     un token nuevo con los dos permisos.",
+    "  4. Activá el workflow y copiá la URL de producción del webhook.",
+    "  5. Esa URL va en la variable VITE_N8N_PLANTILLAS_WEBHOOK, tanto en Vercel",
+    "     como en el .env local.",
+    "",
+    "QUÉ DEVUELVE: { data: [ { name, language, status, category, components } ] }",
+    "El CRM importa sólo las que están en status APPROVED y saca el texto del",
+    "componente de tipo BODY."
+  ]
+}
