@@ -22,7 +22,7 @@ import {
 import {
   CAMPOS_CONTACTO, resolverParametros, vistaPrevia, variablesDelCuerpo,
   variablesConNombre, buscarAudiencia, procesarPendientes, sincronizarPlantillas,
-  enviarPlantilla,
+  enviarPlantilla, subirImagenCabecera,
 } from "./marketingLib";
 
 const fecha = (v) =>
@@ -247,6 +247,83 @@ function TarjetaCampania({ campania: c, onAbrir }) {
 }
 
 // ============================================================
+// CAMPO DE IMAGEN PARA LA CABECERA
+// ============================================================
+// Se puede subir un archivo o pegar una dirección, y siempre se
+// muestra la vista previa. Eso último no es adorno: la imagen que
+// Meta devuelve al listar las plantillas se abre en el navegador
+// pero NO sirve para enviar —Meta acepta el mensaje y no lo
+// entrega—, así que ver la miniatura es la forma de darse cuenta
+// antes de mandarle a nadie.
+function CampoImagen({ valor, onCambio, tipo = "IMAGE" }) {
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState("");
+  const [rota, setRota] = useState(false);
+  const archivoRef = useRef(null);
+
+  const nombreTipo = tipo === "VIDEO" ? "video" : tipo === "DOCUMENT" ? "archivo" : "imagen";
+  const esSospechosa = /scontent\.whatsapp\.net/.test(valor || "");
+
+  const subir = async (file) => {
+    if (!file) return;
+    setSubiendo(true); setError(""); setRota(false);
+    try {
+      onCambio(await subirImagenCabecera(file));
+    } catch (e) {
+      setError(e.message);
+    }
+    setSubiendo(false);
+  };
+
+  return (
+    <div>
+      <label style={rotulo}>{nombreTipo.charAt(0).toUpperCase() + nombreTipo.slice(1)} de la cabecera</label>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <button onClick={() => archivoRef.current?.click()} disabled={subiendo}
+          style={{ ...btn("primario"), opacity: subiendo ? .6 : 1 }}>
+          {subiendo ? "Subiendo…" : <>Subir {nombreTipo}</>}
+        </button>
+        <input ref={archivoRef} type="file" accept={tipo === "VIDEO" ? "video/*" : tipo === "DOCUMENT" ? "*/*" : "image/*"}
+          style={{ display: "none" }} onChange={(e) => subir(e.target.files?.[0])} />
+      </div>
+
+      <input value={valor} onChange={(e) => { onCambio(e.target.value); setRota(false); }}
+        placeholder="…o pegá acá una dirección pública" style={input} />
+
+      {esSospechosa && (
+        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: R.sm, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#7C2D12", fontSize: 12, lineHeight: 1.5 }}>
+          Esa dirección es la copia que guarda Meta de cuando aprobaste la plantilla.
+          Se abre en el navegador, pero <strong>no sirve para enviar</strong>: el mensaje
+          sale aceptado y después no llega. Subí la {nombreTipo} desde acá.
+        </div>
+      )}
+
+      {valor && tipo === "IMAGE" && !esSospechosa && (
+        rota ? (
+          <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: R.sm, background: C.redSoft, border: `1px solid ${C.red}33`, color: C.redDark, fontSize: 12, lineHeight: 1.5 }}>
+            No se pudo cargar esa imagen. Si acá no se ve, es probable que Meta tampoco la pueda bajar.
+          </div>
+        ) : (
+          <img src={valor} alt="" onError={() => setRota(true)} onLoad={() => setRota(false)}
+            style={{ marginTop: 8, maxWidth: "100%", maxHeight: 150, borderRadius: R.sm, border: `1px solid ${L.border}`, display: "block" }} />
+        )
+      )}
+
+      {error && (
+        <div style={{ marginTop: 8, fontSize: 12, color: C.redDark }}>{error}</div>
+      )}
+
+      <div style={{ fontSize: 11.5, color: L.light, marginTop: 6, lineHeight: 1.5 }}>
+        Esta plantilla lleva {nombreTipo === "imagen" ? "una imagen" : `un ${nombreTipo}`} arriba y
+        <strong> Meta la pide en cada envío</strong>. Tiene que quedar accesible sin contraseña:
+        lo más simple es subirla acá.
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ASISTENTE PARA CREAR LA CAMPAÑA
 // ============================================================
 function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPlantillas }) {
@@ -286,7 +363,9 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
       tipo: n === 1 ? "campo" : "fijo",
       valor: n === 1 ? "primer_nombre" : "",
     })));
-    setHeaderUrl(plantilla?.header_ejemplo || "");
+    // Vacío a propósito: la imagen que Meta guarda de la aprobación no sirve
+    // para enviar, y prellenarla hacía que las promos salieran sin llegar.
+    setHeaderUrl("");
     setResultadoPrueba(null);
   }, [plantillaId, numsVariables.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -505,24 +584,7 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
           {paso === 3 && (
             <>
               {necesitaArchivo && (
-                <div>
-                  <label style={rotulo}>
-                    {plantilla.header_tipo === "VIDEO" ? "Video" : plantilla.header_tipo === "DOCUMENT" ? "Archivo" : "Imagen"} de la cabecera
-                  </label>
-                  <input value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)}
-                    placeholder="https://…" style={input} />
-                  <div style={{ fontSize: 11.5, color: L.light, marginTop: 5, lineHeight: 1.5 }}>
-                    Esta plantilla lleva {plantilla.header_tipo === "VIDEO" ? "un video" : plantilla.header_tipo === "DOCUMENT" ? "un archivo" : "una imagen"} arriba
-                    y <strong>Meta lo exige en cada envío</strong>: no alcanza con el que aprobaste. Tiene que ser una
-                    dirección pública, que se abra sin contraseña.
-                  </div>
-                  {plantilla.header_ejemplo && headerUrl !== plantilla.header_ejemplo && (
-                    <button onClick={() => setHeaderUrl(plantilla.header_ejemplo)}
-                      style={{ ...btn(), marginTop: 8, padding: "7px 12px", fontSize: 12.5 }}>
-                      Usar la que aprobaste en Meta
-                    </button>
-                  )}
-                </div>
+                <CampoImagen valor={headerUrl} onCambio={setHeaderUrl} tipo={plantilla.header_tipo} />
               )}
 
               {params.length > 0 && (
@@ -1005,7 +1067,7 @@ function PanelPlantillas({ plantillas, onCambio }) {
 // campaña: es lo primero que uno quiere hacer al cargar una promo.
 function ModalPrueba({ plantilla, onCerrar }) {
   const [telefono, setTelefono] = useState("");
-  const [headerUrl, setHeaderUrl] = useState(plantilla.header_ejemplo || "");
+  const [headerUrl, setHeaderUrl] = useState("");
   const nums = variablesDelCuerpo(plantilla.cuerpo);
   const [valores, setValores] = useState(() => nums.map(() => ""));
   const [enviando, setEnviando] = useState(false);
@@ -1056,15 +1118,7 @@ function ModalPrueba({ plantilla, onCerrar }) {
           </div>
 
           {necesitaArchivo && (
-            <div>
-              <label style={rotulo}>
-                {plantilla.header_tipo === "VIDEO" ? "Video" : plantilla.header_tipo === "DOCUMENT" ? "Archivo" : "Imagen"} de la cabecera
-              </label>
-              <input value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)} placeholder="https://…" style={input} />
-              <div style={{ fontSize: 11.5, color: L.light, marginTop: 5 }}>
-                Esta plantilla lleva un archivo arriba y Meta lo pide en cada envío.
-              </div>
-            </div>
+            <CampoImagen valor={headerUrl} onCambio={setHeaderUrl} tipo={plantilla.header_tipo} />
           )}
 
           {nums.length > 0 && (

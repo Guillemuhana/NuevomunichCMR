@@ -193,6 +193,31 @@ export async function buscarAudiencia(filtros = {}) {
   return lista;
 }
 
+// ── Imagen de la cabecera ───────────────────────────────────
+/**
+ * Sube una imagen y devuelve su dirección pública.
+ *
+ * Va al mismo bucket que usan los archivos del chat. Meta necesita bajarse
+ * el archivo por su cuenta, así que tiene que quedar accesible sin permisos.
+ *
+ * OJO: la dirección que Meta devuelve al listar las plantillas (el
+ * header_handle de scontent.whatsapp.net) NO sirve para enviar. Se puede
+ * abrir en el navegador, y por eso engaña, pero Meta acepta el mensaje y
+ * después no lo entrega. Hay que mandar una imagen propia.
+ */
+export async function subirImagenCabecera(file) {
+  const limpio = file.name.replace(/[^w.-]+/g, "_").slice(-60);
+  const ruta = `marketing/${Date.now()}-${limpio || "imagen.jpg"}`;
+
+  const { error } = await supabase.storage
+    .from("chat-media").upload(ruta, file, { contentType: file.type || undefined, upsert: false });
+  if (error) throw new Error(`No se pudo subir la imagen: ${error.message}`);
+
+  const { data } = supabase.storage.from("chat-media").getPublicUrl(ruta);
+  if (!data?.publicUrl) throw new Error("La imagen se subió pero no se pudo obtener su dirección.");
+  return data.publicUrl;
+}
+
 // ── Envío ───────────────────────────────────────────────────
 /**
  * Manda una plantilla a un teléfono a través del webhook de n8n.
