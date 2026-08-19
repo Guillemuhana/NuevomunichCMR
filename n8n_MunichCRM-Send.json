@@ -42,8 +42,7 @@
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}"
+        "respondWith": "firstIncomingItem"
       },
       "id": "respond",
       "name": "Responder a la app",
