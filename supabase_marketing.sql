@@ -1,5 +1,5 @@
 -- ============================================================
--- PROMOCIONES — campañas de WhatsApp con plantillas de Meta
+-- MARKETING — campañas de WhatsApp con plantillas de Meta
 -- Pegá esto en Supabase → SQL Editor → RUN
 -- ============================================================
 -- Tres tablas:
@@ -162,7 +162,7 @@ union all select 'campania_envios', count(*) from public.campania_envios;
 -- SINCRONIZACIÓN CON META (agregado después)
 -- ------------------------------------------------------------
 -- Estas dos columnas las usa el botón "Sincronizar con Meta" de
--- Promociones. Se pueden correr aunque ya hayas ejecutado todo
+-- Marketing. Se pueden correr aunque ya hayas ejecutado todo
 -- lo de arriba: no rompen nada.
 -- ============================================================
 alter table public.plantillas_wa add column if not exists estado_meta     text;

@@ -60,7 +60,7 @@
   "notes": [
     "QUÉ CAMBIÓ (agosto 2026): este workflow ahora manda también PLANTILLAS de Meta,",
     "que es lo único que Meta deja usar para escribirle a alguien con quien no hablás",
-    "hace más de 24 horas. Es lo que usa la pantalla de Promociones del CRM.",
+    "hace más de 24 horas. Es lo que usa la pantalla de Marketing del CRM.",
     "",
     "Cuerpos que acepta el webhook:",
     "  1) Texto suelto (como siempre):",

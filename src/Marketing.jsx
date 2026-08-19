@@ -1,5 +1,5 @@
 // ============================================================
-// PROMOCIONES — campañas de WhatsApp con plantillas de Meta
+// MARKETING — campañas de WhatsApp con plantillas de Meta
 // ------------------------------------------------------------
 // Meta sólo deja escribirle a alguien con quien no hablás hace más
 // de 24 horas usando una plantilla aprobada. Así que acá no se
@@ -22,7 +22,7 @@ import {
 import {
   CAMPOS_CONTACTO, resolverParametros, vistaPrevia, variablesDelCuerpo,
   variablesConNombre, buscarAudiencia, procesarPendientes, sincronizarPlantillas,
-} from "./promocionesLib";
+} from "./marketingLib";
 
 const fecha = (v) =>
   v ? new Date(v).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
@@ -61,7 +61,7 @@ const rotulo = {
 // ============================================================
 // PANTALLA PRINCIPAL
 // ============================================================
-export default function Promociones({ userEmail, isMobile }) {
+export default function Marketing({ userEmail, isMobile }) {
   const [tab, setTab]               = useState("campanias");
   const [campanias, setCampanias]   = useState([]);
   const [plantillas, setPlantillas] = useState([]);
@@ -111,7 +111,7 @@ export default function Promociones({ userEmail, isMobile }) {
         <div className="barra-acciones" style={{ justifyContent: "space-between", marginBottom: 20 }}>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: isMobile ? 19 : 23, color: L.text, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-              <Megaphone size={isMobile ? 19 : 22} color={C.red} /> Promociones
+              <Megaphone size={isMobile ? 19 : 22} color={C.red} /> Marketing
             </h1>
             <div style={{ fontSize: 13, color: L.muted, marginTop: 5 }}>
               Mandá una promo a todos tus contactos y mirá quién la recibió y quién contestó.
@@ -176,8 +176,8 @@ function FaltanTablas() {
           Falta preparar la base
         </div>
         <div style={{ fontSize: 13.5, color: L.muted, lineHeight: 1.6 }}>
-          Las tablas de Promociones todavía no existen en Supabase. Abrí el
-          <strong> SQL Editor</strong> y ejecutá el archivo <strong>supabase_promociones.sql</strong> que
+          Las tablas de Marketing todavía no existen en Supabase. Abrí el
+          <strong> SQL Editor</strong> y ejecutá el archivo <strong>supabase_marketing.sql</strong> que
           está en la raíz del proyecto. Después volvé a entrar acá.
         </div>
       </div>

@@ -50,7 +50,7 @@
   "settings": { "executionOrder": "v1" },
   "notes": [
     "PARA QUÉ ES: que el CRM vea solo las plantillas que tenés aprobadas en Meta,",
-    "sin tener que cargarlas a mano. La pantalla de Promociones llama a este",
+    "sin tener que cargarlas a mano. La pantalla de Marketing llama a este",
     "webhook con el botón 'Sincronizar con Meta'.",
     "",
     "POR QUÉ PASA POR N8N Y NO VA DIRECTO: el token de Meta no puede estar en la",

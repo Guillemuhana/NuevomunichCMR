@@ -41,7 +41,7 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
-    ...(rol === "admin" ? [{ key: "promociones", icon: Megaphone, label: "Promociones" }] : []),
+    ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing" }] : []),
     { key: "reportes",   icon: BarChart2,      label: "Reportes" },
   ];
   const sistema = [

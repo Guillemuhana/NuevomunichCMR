@@ -1,8 +1,8 @@
 // ============================================================
-// Promociones — la parte que no es pantalla
+// Marketing — la parte que no es pantalla
 // ------------------------------------------------------------
 // Armar la audiencia, resolver las variables de la plantilla y
-// mandar cada mensaje. Vive aparte de Promociones.jsx para poder
+// mandar cada mensaje. Vive aparte de Marketing.jsx para poder
 // probarlo sin levantar React.
 // ============================================================
 import { supabase, N8N_SEND_WEBHOOK, N8N_PLANTILLAS_WEBHOOK } from "./lib";
