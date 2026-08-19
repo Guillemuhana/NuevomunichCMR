@@ -170,3 +170,17 @@ alter table public.plantillas_wa add column if not exists sincronizada_at timest
 
 comment on column public.plantillas_wa.estado_meta is
   'Estado que reporta Meta: APPROVED, PENDING, REJECTED, PAUSED. Sólo las APPROVED se pueden mandar.';
+
+-- ============================================================
+-- CABECERA DE LA PLANTILLA (agregado después)
+-- ------------------------------------------------------------
+-- Las plantillas pueden llevar una cabecera con imagen, video o
+-- archivo. Meta obliga a mandar ese archivo en CADA envío, no
+-- alcanza con el que se aprobó. Estas columnas guardan de qué
+-- tipo es y qué archivo usar.
+-- Se puede correr aunque ya hayas ejecutado todo lo de arriba.
+-- ============================================================
+alter table public.plantillas_wa add column if not exists header_tipo    text;   -- TEXT | IMAGE | VIDEO | DOCUMENT
+alter table public.plantillas_wa add column if not exists header_ejemplo text;   -- el archivo de muestra que devuelve Meta
+alter table public.campanias     add column if not exists header_url     text;   -- el archivo que se manda en esta campaña
+alter table public.campanias     add column if not exists header_tipo    text;   -- IMAGE | VIDEO | DOCUMENT

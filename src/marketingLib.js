@@ -121,12 +121,18 @@ export async function sincronizarPlantillas() {
 
   const ahora = new Date().toISOString();
   const filas = plantillas.map((t) => {
-    const cuerpo = (t.components || []).find((c) => c.type === "BODY")?.text || null;
+    const comps  = t.components || [];
+    const cuerpo = comps.find((c) => c.type === "BODY")?.text || null;
+    // La cabecera con archivo hay que volver a mandarla en cada envío: nos
+    // guardamos de qué tipo es y el ejemplo que aprobó Meta, para arrancar.
+    const header = comps.find((c) => c.type === "HEADER");
     return {
       nombre: t.name,
       idioma: t.language,
       categoria: t.category || "MARKETING",
       cuerpo,
+      header_tipo: header?.format || null,
+      header_ejemplo: header?.example?.header_handle?.[0] || null,
       variables: variablesDelCuerpo(cuerpo).map((n) => ({ num: n })),
       // Sólo se puede mandar lo que Meta aprobó.
       activa: t.status === "APPROVED",
@@ -193,14 +199,19 @@ export async function buscarAudiencia(filtros = {}) {
  * Devuelve { ok, id?, error? }. Nunca tira excepción: cada envío
  * falla por su cuenta sin cortar la campaña.
  */
-export async function enviarPlantilla({ telefono, plantilla, idioma, parametros }) {
+export async function enviarPlantilla({ telefono, plantilla, idioma, parametros, headerUrl, headerTipo }) {
   if (!N8N_SEND_WEBHOOK) return { ok: false, error: "Falta configurar el webhook de envío (VITE_N8N_SEND_WEBHOOK)." };
 
   try {
     const res = await fetch(N8N_SEND_WEBHOOK, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telefono, plantilla, idioma, parametros }),
+      body: JSON.stringify({
+        telefono: String(telefono).replace(/D/g, ""),
+        plantilla, idioma, parametros,
+        // Si la plantilla lleva cabecera con archivo, Meta la exige en cada envío.
+        ...(headerUrl ? { header_url: headerUrl, header_tipo: (headerTipo || "IMAGE").toLowerCase() } : {}),
+      }),
     });
 
     let cuerpo = null;
@@ -212,6 +223,12 @@ export async function enviarPlantilla({ telefono, plantilla, idioma, parametros 
       return { ok: false, error: `${e.code || res.status}: ${e.message || "rechazado por Meta"}` };
     }
     if (!res.ok) return { ok: false, error: `El envío devolvió ${res.status}` };
+
+    // El workflow viejo contestaba { ok: true } sin pasar por Meta. Si vemos
+    // eso, el mensaje no salió: avisamos en vez de contarlo como enviado.
+    if (cuerpo && cuerpo.ok === true && !cuerpo.messages) {
+      return { ok: false, error: "El workflow MunichCRM-Send de n8n está sin actualizar: todavía no sabe mandar plantillas." };
+    }
 
     return { ok: true, id: cuerpo?.messages?.[0]?.id || null };
   } catch (e) {
@@ -252,6 +269,8 @@ export async function procesarPendientes(campania, seguir, onAvance, pausaMs = 4
         plantilla: campania.plantilla,
         idioma: campania.idioma,
         parametros: envio.parametros || [],
+        headerUrl: campania.header_url,
+        headerTipo: campania.header_tipo,
       });
 
       await supabase.from("campania_envios").update({

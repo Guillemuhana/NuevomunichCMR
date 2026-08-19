@@ -22,6 +22,7 @@ import {
 import {
   CAMPOS_CONTACTO, resolverParametros, vistaPrevia, variablesDelCuerpo,
   variablesConNombre, buscarAudiencia, procesarPendientes, sincronizarPlantillas,
+  enviarPlantilla,
 } from "./marketingLib";
 
 const fecha = (v) =>
@@ -267,8 +268,14 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
   const [confirmo, setConfirmo]   = useState(false);
   const [creando, setCreando]     = useState(false);
   const [error, setError]         = useState("");
+  const [headerUrl, setHeaderUrl] = useState("");
+  const [telPrueba, setTelPrueba] = useState("");
+  const [probando, setProbando]   = useState(false);
+  const [resultadoPrueba, setResultadoPrueba] = useState(null);
 
   const plantilla = activas.find((p) => p.id === plantillaId);
+  // Con cabecera de imagen/video/archivo, Meta exige el archivo en cada envío.
+  const necesitaArchivo = ["IMAGE", "VIDEO", "DOCUMENT"].includes(plantilla?.header_tipo);
   const numsVariables = useMemo(() => variablesDelCuerpo(plantilla?.cuerpo), [plantilla]);
 
   // Al cambiar de plantilla, arrancamos las variables con algo razonable:
@@ -279,6 +286,8 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
       tipo: n === 1 ? "campo" : "fijo",
       valor: n === 1 ? "primer_nombre" : "",
     })));
+    setHeaderUrl(plantilla?.header_ejemplo || "");
+    setResultadoPrueba(null);
   }, [plantillaId, numsVariables.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // La audiencia se recalcula sola cuando tocás un filtro.
@@ -302,7 +311,22 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
   const puedeSeguir =
     paso === 1 ? !!nombre.trim() && !!plantilla :
     paso === 2 ? audiencia.length > 0 :
+    (!necesitaArchivo || !!headerUrl.trim()) &&
     params.every((p) => p.tipo === "campo" ? !!p.valor : !!String(p.valor).trim());
+
+  const mandarPrueba = async () => {
+    setProbando(true); setResultadoPrueba(null);
+    const r = await enviarPlantilla({
+      telefono: telPrueba,
+      plantilla: plantilla.nombre,
+      idioma: plantilla.idioma,
+      parametros: resolverParametros(params, ejemplo),
+      headerUrl: necesitaArchivo ? headerUrl : null,
+      headerTipo: plantilla.header_tipo,
+    });
+    setResultadoPrueba(r);
+    setProbando(false);
+  };
 
   const crear = async () => {
     setCreando(true); setError("");
@@ -314,6 +338,8 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
         idioma: plantilla.idioma,
         parametros: params,
         filtros: { estados, vendedores, soloConCharla },
+        header_url: necesitaArchivo ? headerUrl.trim() : null,
+        header_tipo: necesitaArchivo ? plantilla.header_tipo : null,
         estado: "borrador",
         total: audiencia.length,
         creada_por: userEmail || null,
@@ -478,6 +504,27 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
           {/* ── Paso 3: variables y revisión ── */}
           {paso === 3 && (
             <>
+              {necesitaArchivo && (
+                <div>
+                  <label style={rotulo}>
+                    {plantilla.header_tipo === "VIDEO" ? "Video" : plantilla.header_tipo === "DOCUMENT" ? "Archivo" : "Imagen"} de la cabecera
+                  </label>
+                  <input value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)}
+                    placeholder="https://…" style={input} />
+                  <div style={{ fontSize: 11.5, color: L.light, marginTop: 5, lineHeight: 1.5 }}>
+                    Esta plantilla lleva {plantilla.header_tipo === "VIDEO" ? "un video" : plantilla.header_tipo === "DOCUMENT" ? "un archivo" : "una imagen"} arriba
+                    y <strong>Meta lo exige en cada envío</strong>: no alcanza con el que aprobaste. Tiene que ser una
+                    dirección pública, que se abra sin contraseña.
+                  </div>
+                  {plantilla.header_ejemplo && headerUrl !== plantilla.header_ejemplo && (
+                    <button onClick={() => setHeaderUrl(plantilla.header_ejemplo)}
+                      style={{ ...btn(), marginTop: 8, padding: "7px 12px", fontSize: 12.5 }}>
+                      Usar la que aprobaste en Meta
+                    </button>
+                  )}
+                </div>
+              )}
+
               {params.length > 0 && (
                 <div>
                   <label style={rotulo}>Qué va en cada hueco de la plantilla</label>
@@ -518,6 +565,37 @@ function AsistenteCampania({ plantillas, userEmail, onCerrar, onCreada, onIrAPla
                 </div>
               </div>
 
+              {/* Probar en un número antes de mandarle a todo el mundo */}
+              <div style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: R.md, padding: "14px 16px" }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, color: L.text, display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Send size={15} color={C.red} /> Probalo en un número tuyo
+                </div>
+                <div style={{ fontSize: 12.5, color: L.muted, lineHeight: 1.55, marginBottom: 11 }}>
+                  Mandate la promo a vos mismo y fijate que llegue bien —el texto, la imagen y los botones—
+                  antes de dispararla a los {audiencia.length} contactos.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input value={telPrueba} onChange={(e) => setTelPrueba(e.target.value)}
+                    placeholder="5493512168835" style={{ ...input, flex: 1, minWidth: 170 }} />
+                  <button onClick={mandarPrueba} disabled={probando || !telPrueba.trim()}
+                    style={{ ...btn(), opacity: probando || !telPrueba.trim() ? .5 : 1 }}>
+                    {probando ? "Mandando…" : "Mandar prueba"}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11.5, color: L.light, marginTop: 6 }}>
+                  Con código de país y sin el +. Para Córdoba: 549351…
+                </div>
+                {resultadoPrueba && (
+                  <div style={{ marginTop: 10, padding: "10px 13px", borderRadius: R.sm, fontSize: 12.5, lineHeight: 1.5,
+                    background: resultadoPrueba.ok ? "#F0FDF4" : C.redSoft,
+                    color: resultadoPrueba.ok ? "#15803D" : C.redDark,
+                    border: `1px solid ${resultadoPrueba.ok ? "#BBF7D0" : C.red + "33"}` }}>
+                    {resultadoPrueba.ok
+                      ? "Salió. Mirá el WhatsApp de ese número: si llegó bien, ya podés crear la campaña."
+                      : resultadoPrueba.error}
+                  </div>
+                )}
+              </div>
               <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: R.md, padding: "13px 15px" }}>
                 <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
                   <AlertCircle size={17} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />

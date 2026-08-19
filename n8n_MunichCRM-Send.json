@@ -29,7 +29,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (function(){ var b=$json.body; if(b.plantilla){ var comps=[]; var ps=(b.parametros||[]).map(function(p){ return {type:'text', text:String(p)}; }); if(ps.length){ comps.push({type:'body', parameters:ps}); } return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'template',template:{name:b.plantilla,language:{code:b.idioma||'es_AR'},components:comps}}); } if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
+        "jsonBody": "={{ (function(){ var b=$json.body; if(b.plantilla){ var comps=[]; if(b.header_url){ var ht=['image','video','document'].indexOf(b.header_tipo)>=0?b.header_tipo:'image'; var hp={type:ht}; hp[ht]={link:b.header_url}; comps.push({type:'header', parameters:[hp]}); } var ps=(b.parametros||[]).map(function(p){ return {type:'text', text:String(p)}; }); if(ps.length){ comps.push({type:'body', parameters:ps}); } return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'template',template:{name:b.plantilla,language:{code:b.idioma||'es_AR'},components:comps}}); } if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
         "options": {}
       },
       "id": "send-wa",
@@ -70,6 +70,9 @@
     "  3) Plantilla (nuevo):",
     "     { telefono, plantilla: 'promo_agosto', idioma: 'es_AR', parametros: ['Juan', '20%'] }",
     "     Los parámetros van en orden: el primero es {{1}}, el segundo {{2}}, y así.",
+    "     Si la plantilla tiene cabecera con imagen/video/archivo, hay que sumar",
+    "     header_url (y opcionalmente header_tipo: image | video | document).",
+    "     Meta RECHAZA el envío si la plantilla lleva cabecera y no se la mandás.",
     "",
     "El nodo de envío quedó con onError = continueRegularOutput y el de respuesta",
     "devuelve tal cual lo que contesta Meta. Eso es a propósito: si un envío falla,",
