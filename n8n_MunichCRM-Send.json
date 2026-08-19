@@ -12,7 +12,10 @@
       "name": "Webhook CRM",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "munich-crm-send"
     },
     {
@@ -24,19 +27,25 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (function(){ var b=$json.body; if(b.plantilla){ var comps=[]; if(b.header_url){ var ht=['image','video','document'].indexOf(b.header_tipo)>=0?b.header_tipo:'image'; var hp={type:ht}; hp[ht]={link:b.header_url}; comps.push({type:'header', parameters:[hp]}); } var ps=(b.parametros||[]).map(function(p){ return {type:'text', text:String(p)}; }); if(ps.length){ comps.push({type:'body', parameters:ps}); } return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'template',template:{name:b.plantilla,language:{code:b.idioma||'es_AR'},components:comps}}); } if(!b.media_url){ return JSON.stringify({messaging_product:'whatsapp',to:b.telefono,type:'text',text:{body:b.mensaje}}); } var t=['image','video','audio','document'].indexOf(b.media_tipo)>=0?b.media_tipo:'document'; var media={link:b.media_url}; if(t==='document'){media.filename=b.media_nombre||'archivo';} if(b.mensaje&&t!=='audio'){media.caption=b.mensaje;} var out={messaging_product:'whatsapp',to:b.telefono,type:t}; out[t]=media; return JSON.stringify(out); })() }}",
+        "jsonBody": "={{ JSON.stringify($json.body.meta) }}",
         "options": {}
       },
       "id": "send-wa",
       "name": "Enviar WhatsApp (Meta)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300],
+      "position": [
+        480,
+        300
+      ],
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
     },
@@ -48,34 +57,51 @@
       "name": "Responder a la app",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [720, 300]
+      "position": [
+        720,
+        300
+      ]
     }
   ],
   "connections": {
-    "Webhook CRM": { "main": [[{ "node": "Enviar WhatsApp (Meta)", "type": "main", "index": 0 }]] },
-    "Enviar WhatsApp (Meta)": { "main": [[{ "node": "Responder a la app", "type": "main", "index": 0 }]] }
+    "Webhook CRM": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Meta)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp (Meta)": {
+      "main": [
+        [
+          {
+            "node": "Responder a la app",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "notes": [
-    "QUÉ CAMBIÓ (agosto 2026): este workflow ahora manda también PLANTILLAS de Meta,",
-    "que es lo único que Meta deja usar para escribirle a alguien con quien no hablás",
-    "hace más de 24 horas. Es lo que usa la pantalla de Marketing del CRM.",
+    "QUÉ HACE: recibe un pedido del CRM y se lo pasa a WhatsApp Cloud API.",
     "",
-    "Cuerpos que acepta el webhook:",
-    "  1) Texto suelto (como siempre):",
-    "     { telefono, mensaje, agente }",
-    "  2) Con archivo (como siempre):",
-    "     { telefono, mensaje, media_url, media_tipo, media_nombre }",
-    "  3) Plantilla (nuevo):",
-    "     { telefono, plantilla: 'promo_agosto', idioma: 'es_AR', parametros: ['Juan', '20%'] }",
-    "     Los parámetros van en orden: el primero es {{1}}, el segundo {{2}}, y así.",
-    "     Si la plantilla tiene cabecera con imagen/video/archivo, hay que sumar",
-    "     header_url (y opcionalmente header_tipo: image | video | document).",
-    "     Meta RECHAZA el envío si la plantilla lleva cabecera y no se la mandás.",
+    "El cuerpo que le manda a Meta viene YA ARMADO desde el CRM, en el campo",
+    "`meta`. Este workflow sólo lo reenvía. Antes el armado vivía acá adentro,",
+    "en una expresión de mil caracteres en una sola línea: imposible de pegar",
+    "sin romperla y sin forma de probarla. Ahora se arma en construirMensajeMeta()",
+    "(src/lib.js), que tiene sus pruebas, y acá quedó una línea sola.",
     "",
-    "El nodo de envío quedó con onError = continueRegularOutput y el de respuesta",
-    "devuelve tal cual lo que contesta Meta. Eso es a propósito: si un envío falla,",
-    "el CRM necesita ver el motivo para mostrarlo en la campaña, en vez de recibir",
-    "un 500 pelado. En éxito viene { messages: [{ id }] }, y en error { error: {...} }."
+    "El nodo de envío va con onError = continueRegularOutput y el de respuesta",
+    "con First Incoming Item, para que el CRM reciba el error textual de Meta",
+    "cuando un mensaje se rechaza, en vez de un 500 pelado. En éxito llega",
+    "{ messages: [{ id }] } y en error { error: {...} }."
   ]
 }

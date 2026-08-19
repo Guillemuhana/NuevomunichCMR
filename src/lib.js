@@ -17,6 +17,62 @@ export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
 // Webhook que lista las plantillas aprobadas en Meta (workflow MunichCRM-Plantillas).
 export const N8N_PLANTILLAS_WEBHOOK = import.meta.env.VITE_N8N_PLANTILLAS_WEBHOOK;
 
+// ── Armado del mensaje para la API de Meta ──────────────────
+/**
+ * Devuelve el cuerpo exacto que espera WhatsApp Cloud API.
+ *
+ * Antes esto se armaba con una expresión de JavaScript metida dentro de un
+ * campo de n8n: mil caracteres en una sola línea, imposibles de pegar sin
+ * romper algo y sin forma de probarlos. Ahora se arma acá, donde se puede
+ * leer y testear, y n8n sólo reenvía lo que le llega.
+ *
+ * @param {object} op
+ *   telefono                     a quién (se le sacan los no-dígitos)
+ *   mensaje                      texto, o epígrafe si va con archivo
+ *   mediaUrl/mediaTipo/mediaNombre   para mandar imagen, video, audio o archivo
+ *   plantilla/idioma/parametros  para mandar una plantilla aprobada
+ *   headerUrl/headerTipo         archivo de la cabecera de la plantilla
+ */
+export function construirMensajeMeta(op = {}) {
+  const to = String(op.telefono || "").replace(/\D/g, "");
+  const base = { messaging_product: "whatsapp", to };
+
+  // 1. Plantilla aprobada (lo único que Meta deja usar pasadas las 24 horas)
+  if (op.plantilla) {
+    const components = [];
+
+    if (op.headerUrl) {
+      const t = ["image", "video", "document"].includes(String(op.headerTipo || "").toLowerCase())
+        ? String(op.headerTipo).toLowerCase()
+        : "image";
+      components.push({ type: "header", parameters: [{ type: t, [t]: { link: op.headerUrl } }] });
+    }
+
+    const ps = (op.parametros || []).map((p) => ({ type: "text", text: String(p) }));
+    if (ps.length) components.push({ type: "body", parameters: ps });
+
+    return {
+      ...base,
+      type: "template",
+      template: { name: op.plantilla, language: { code: op.idioma || "es_AR" }, components },
+    };
+  }
+
+  // 2. Con archivo
+  if (op.mediaUrl) {
+    const t = ["image", "video", "audio", "document"].includes(op.mediaTipo) ? op.mediaTipo : "document";
+    const media = { link: op.mediaUrl };
+    if (t === "document") media.filename = op.mediaNombre || "archivo";
+    // El audio de WhatsApp no admite epígrafe.
+    if (op.mensaje && t !== "audio") media.caption = op.mensaje;
+    return { ...base, type: t, [t]: media };
+  }
+
+  // 3. Texto suelto
+  return { ...base, type: "text", text: { body: op.mensaje || "" } };
+}
+
+
 // Logo oficial de Nuevo Munich
 export const LOGO_URL = "/logo.png";
 // Video de marca que anima la cabecera del rail (cae al logo si falla)

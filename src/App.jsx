@@ -13,6 +13,7 @@ import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
+  construirMensajeMeta,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -825,6 +826,12 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
         await fetch(N8N_SEND_WEBHOOK, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            // `meta` es lo que reenvía n8n; los campos sueltos quedan por si
+            // el workflow todavía es el viejo.
+            meta: construirMensajeMeta({
+              telefono: prop.contacto.telefono,
+              mensaje: `*${userName || "Nuevo Munich"}:*\n${prop.texto}`,
+            }),
             telefono: prop.contacto.telefono,
             mensaje: `*${userName || "Nuevo Munich"}:*\n${prop.texto}`,
             agente: userName || "Muni",
@@ -1902,7 +1909,10 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
         const msgWA = `${citaWA}*${userName} · Nuevo Munich:*\n${cuerpo}`;
         const res = await fetch(N8N_SEND_WEBHOOK, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ telefono: contacto.telefono, mensaje: msgWA, agente: userName }),
+          body: JSON.stringify({
+            meta: construirMensajeMeta({ telefono: contacto.telefono, mensaje: msgWA }),
+            telefono: contacto.telefono, mensaje: msgWA, agente: userName,
+          }),
         });
         if (!res.ok) {
           setErr("Mensaje guardado en CRM, pero falló el envío por WhatsApp.");
@@ -1964,6 +1974,11 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
           await fetch(N8N_SEND_WEBHOOK, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              meta: construirMensajeMeta({
+                telefono: contacto.telefono,
+                mensaje: caption ? `${citaWA}*${userName} · Nuevo Munich:*\n${caption}` : citaWA,
+                mediaUrl, mediaTipo: tipo, mediaNombre: file.name,
+              }),
               telefono: contacto.telefono, agente: userName,
               mensaje: caption ? `${citaWA}*${userName} · Nuevo Munich:*\n${caption}` : citaWA,
               media_url: mediaUrl, media_tipo: tipo, media_nombre: file.name,

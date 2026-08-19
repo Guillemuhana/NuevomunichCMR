@@ -5,7 +5,7 @@
 // mandar cada mensaje. Vive aparte de Marketing.jsx para poder
 // probarlo sin levantar React.
 // ============================================================
-import { supabase, N8N_SEND_WEBHOOK, N8N_PLANTILLAS_WEBHOOK } from "./lib";
+import { supabase, N8N_SEND_WEBHOOK, N8N_PLANTILLAS_WEBHOOK, construirMensajeMeta } from "./lib";
 
 // ── Variables de la plantilla ───────────────────────────────
 // Campos del contacto que se pueden meter dentro de una plantilla.
@@ -207,6 +207,8 @@ export async function enviarPlantilla({ telefono, plantilla, idioma, parametros,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        // n8n sólo reenvía `meta`; el resto queda por si el workflow es el viejo.
+        meta: construirMensajeMeta({ telefono, plantilla, idioma, parametros, headerUrl, headerTipo }),
         telefono: String(telefono).replace(/D/g, ""),
         plantilla, idioma, parametros,
         // Si la plantilla lleva cabecera con archivo, Meta la exige en cada envío.
