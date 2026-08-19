@@ -235,6 +235,12 @@ export async function enviarPlantilla({ telefono, plantilla, idioma, parametros,
         };
       }
 
+      // n8n envuelve el error de Meta: el motivo util queda en `description`
+      // ("(#131009) Parameter value is not valid"), mientras que `message` es
+      // siempre el mismo "Bad request" generico, que no le dice nada a nadie.
+      const detalle = e.description || cuerpo.details?.description;
+      if (detalle) return { ok: false, error: detalle };
+
       return { ok: false, error: `${e.code || res.status}: ${e.message || "rechazado por Meta"}` };
     }
     if (!res.ok) return { ok: false, error: `El envío devolvió ${res.status}` };
