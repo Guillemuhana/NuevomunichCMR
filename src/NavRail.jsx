@@ -4,7 +4,7 @@ import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
   BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone,
 } from "lucide-react";
-import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
 
 // ============================================================
@@ -41,7 +41,7 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
-    ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", pronto: !marketingHabilitado() }] : []),
+    ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing" }] : []),
     { key: "reportes",   icon: BarChart2,      label: "Reportes" },
   ];
   const sistema = [
@@ -134,13 +134,6 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
             fontWeight: 650, fontSize: 13.5, letterSpacing: 0.2, pointerEvents: "none",
           }}>
           {item.label}
-          {item.pronto && (
-            <span style={{
-              marginLeft: 7, fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4,
-              padding: "2px 6px", borderRadius: 99, background: "rgba(255,255,255,.14)",
-              color: "rgba(255,255,255,.72)", textTransform: "uppercase",
-            }}>Pronto</span>
-          )}
         </motion.span>
       </motion.button>
 

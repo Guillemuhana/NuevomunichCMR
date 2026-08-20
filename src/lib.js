@@ -17,26 +17,6 @@ export const N8N_SEND_WEBHOOK = import.meta.env.VITE_N8N_SEND_WEBHOOK;
 // Webhook que lista las plantillas aprobadas en Meta (workflow MunichCRM-Plantillas).
 export const N8N_PLANTILLAS_WEBHOOK = import.meta.env.VITE_N8N_PLANTILLAS_WEBHOOK;
 
-// ── Marketing todavía sin estrenar ──────────────────────────
-// La pestaña se ve, pero muestra "Próximamente" hasta que el trabajo esté
-// aprobado. Para destrabarla en una máquina se entra una vez con
-// ?marketing=on en la dirección; con ?marketing=off se vuelve a tapar.
-//
-// Esto ESCONDE, no protege: es para no mostrar algo a medio terminar, no
-// una medida de seguridad. Quien conozca el truco entra igual.
-const LLAVE_MARKETING = "munich-marketing-on";
-
-export function marketingHabilitado() {
-  try {
-    const p = new URLSearchParams(window.location.search).get("marketing");
-    if (p === "on")  localStorage.setItem(LLAVE_MARKETING, "1");
-    if (p === "off") localStorage.removeItem(LLAVE_MARKETING);
-    return localStorage.getItem(LLAVE_MARKETING) === "1";
-  } catch {
-    return false;
-  }
-}
-
 // ── Armado del mensaje para la API de Meta ──────────────────
 /**
  * Devuelve el cuerpo exacto que espera WhatsApp Cloud API.

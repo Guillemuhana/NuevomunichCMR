@@ -13,7 +13,7 @@ import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
-  construirMensajeMeta, marketingHabilitado,
+  construirMensajeMeta,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -1137,33 +1137,6 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
       </div>
       )}
     </>
-  );
-}
-
-// ============================================================
-// MARKETING TODAVÍA SIN ESTRENAR
-// ============================================================
-// La pestaña se ve, pero hasta que el trabajo esté aprobado muestra esto.
-// Se destraba entrando una vez con ?marketing=on en la dirección.
-function Proximamente() {
-  return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, padding: 24 }}>
-      <div style={{ maxWidth: 400, textAlign: "center" }}>
-        <div style={{ width: 62, height: 62, borderRadius: 20, background: C.redSoft, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
-          <Zap size={27} color={C.red} />
-        </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 21, color: L.text, marginBottom: 10 }}>
-          Próximamente
-        </div>
-        <div style={{ fontSize: 14, color: L.muted, lineHeight: 1.65 }}>
-          Estamos preparando las campañas de WhatsApp: vas a poder mandarle una promoción
-          a todos tus clientes y ver acá mismo quién la recibió y quién contestó.
-        </div>
-        <div style={{ fontSize: 12.5, color: L.light, marginTop: 16 }}>
-          Te avisamos cuando esté lista.
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -2691,13 +2664,9 @@ export default function App() {
         ) : vista === "marketing" && rol === "admin" ? (
           <>
             {isMobile && <MobileBack title="Marketing" onBack={() => setVista("chat")} />}
-            {marketingHabilitado() ? (
-              <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
-                <Marketing userEmail={userEmail} isMobile={isMobile} />
-              </Suspense>
-            ) : (
-              <Proximamente />
-            )}
+            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+              <Marketing userEmail={userEmail} isMobile={isMobile} />
+            </Suspense>
           </>
         ) : vista === "reportes" ? (
           <>
