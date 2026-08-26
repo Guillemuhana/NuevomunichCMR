@@ -206,7 +206,7 @@ export async function buscarAudiencia(filtros = {}) {
  * después no lo entrega. Hay que mandar una imagen propia.
  */
 export async function subirImagenCabecera(file) {
-  const limpio = file.name.replace(/[^w.-]+/g, "_").slice(-60);
+  const limpio = file.name.replace(/[^\w.\-]+/g, "_").slice(-60);
   const ruta = `marketing/${Date.now()}-${limpio || "imagen.jpg"}`;
 
   const { error } = await supabase.storage
@@ -234,7 +234,7 @@ export async function enviarPlantilla({ telefono, plantilla, idioma, parametros,
       body: JSON.stringify({
         // n8n sólo reenvía `meta`; el resto queda por si el workflow es el viejo.
         meta: construirMensajeMeta({ telefono, plantilla, idioma, parametros, headerUrl, headerTipo }),
-        telefono: String(telefono).replace(/D/g, ""),
+        telefono: String(telefono).replace(/\D/g, ""),
         plantilla, idioma, parametros,
         // Si la plantilla lleva cabecera con archivo, Meta la exige en cada envío.
         ...(headerUrl ? { header_url: headerUrl, header_tipo: (headerTipo || "IMAGE").toLowerCase() } : {}),

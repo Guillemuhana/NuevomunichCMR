@@ -2571,7 +2571,15 @@ export default function App() {
         const sinMarcar = lista.filter(c => {
           if (c.es_vendedor) return false;
           const cPhone = (c.telefono || "").replace(/\D/g, "");
-          return vendPhones.some(vp => cPhone === vp || cPhone.endsWith(vp.slice(-8)) || vp.endsWith(cPhone.slice(-8)));
+          // Comparar por los últimos 8 dígitos sólo si AMBOS números son largos
+          // de verdad. Antes bastaba un teléfono mal cargado en la tabla de
+          // vendedores (ponele "351") para que cientos de contactos
+          // "terminaran igual", quedaran marcados como vendedores y
+          // desaparecieran de la lista de Chats. Y encima se guardaba en la base.
+          if (cPhone.length < 10) return false;
+          return vendPhones.some(vp =>
+            vp.length >= 10 && (cPhone === vp || cPhone.slice(-8) === vp.slice(-8))
+          );
         });
         if (sinMarcar.length > 0) {
           await supabase.from("contactos").update({ es_vendedor: true }).in("id", sinMarcar.map(c => c.id));
