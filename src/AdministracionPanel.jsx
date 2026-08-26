@@ -104,7 +104,11 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
   );
 }
 
-export default function AdministracionPanel({ userName, userEmail, onLogout }) {
+export default function AdministracionPanel({ userName, userEmail, rol, onLogout }) {
+  // El reporte de ventas muestra facturación y ranking de vendedores: eso lo
+  // mira sólo Cristian. El personal de administración gestiona pedidos; no
+  // necesita ver los números del negocio.
+  const esCristian = rol === "admin";
   const [pedidos, setPedidos] = useState([]);
   // Reporte de ventas por rango de fechas (modal)
   const [showVentas, setShowVentas] = useState(false);
@@ -265,10 +269,12 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
               <span style={{ fontSize: 13, fontWeight: 700, color: C.red }}>{notifs.length} alerta{notifs.length > 1 ? "s" : ""}</span>
             </button>
           )}
-          <button onClick={() => setShowVentas(true)} title="Reporte de ventas por rango de fechas" className="btn-compacto"
-            style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#15803D", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
-            <FileText size={15} /> <span className="solo-desktop">Ventas</span>
-          </button>
+          {esCristian && (
+            <button onClick={() => setShowVentas(true)} title="Reporte de ventas por rango de fechas" className="btn-compacto"
+              style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#15803D", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
+              <FileText size={15} /> <span className="solo-desktop">Ventas</span>
+            </button>
+          )}
           <button onClick={() => imprimirDoc(hojaRuta(), nombreHojaRuta())} title="Imprimir la hoja de ruta de entregas de hoy" className="btn-compacto"
             style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
             <Truck size={15} /> <span className="solo-desktop">Hoja de ruta</span>
@@ -558,7 +564,7 @@ export default function AdministracionPanel({ userName, userEmail, onLogout }) {
       </div>
 
       {/* Modal: reporte de ventas por rango de fechas */}
-      {showVentas && (
+      {showVentas && esCristian && (
         <>
           <div onClick={() => setShowVentas(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,440px)", background: L.white, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,.3)", zIndex: 401, fontFamily: FONT_BODY, overflow: "hidden" }}>

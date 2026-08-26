@@ -2677,7 +2677,7 @@ export default function App() {
           <>
             {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
             {rol === "administracion"
-              ? <div style={{ flex: 1, minHeight: 0 }}><AdministracionPanel userName={userName} userEmail={userEmail} /></div>
+              ? <div style={{ flex: 1, minHeight: 0 }}><AdministracionPanel userName={userName} userEmail={userEmail} rol={rol} /></div>
               : <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>}
           </>
         ) : vista === "vendedores" ? (
