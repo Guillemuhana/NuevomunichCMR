@@ -205,7 +205,20 @@ function Login() {
   const handleLogin = async () => {
     setErr(""); setLoad(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pass });
-    if (error) setErr("Email o contraseña incorrectos.");
+    // Antes cualquier problema decía "email o contraseña incorrectos", así que
+    // un usuario sin confirmar o un login deshabilitado parecían un error de
+    // tipeo y se perdía tiempo probando contraseñas.
+    if (error) {
+      const m = (error.message || "").toLowerCase();
+      setErr(
+        m.includes("not confirmed")   ? "Ese usuario existe, pero le falta confirmar el email. Confirmalo desde Supabase (Authentication → el usuario → Confirm email)."
+        : m.includes("disabled")      ? "El ingreso con email está desactivado en Supabase (Authentication → Providers → Email)."
+        : m.includes("rate limit") || m.includes("too many") ? "Demasiados intentos seguidos. Esperá un minuto y probá de nuevo."
+        : m.includes("failed to fetch") || m.includes("network") ? "No se pudo conectar con el servidor. Revisá la conexión."
+        : m.includes("invalid login") ? "Email o contraseña incorrectos."
+        : `No se pudo entrar: ${error.message}`
+      );
+    }
     setLoad(false);
   };
 
