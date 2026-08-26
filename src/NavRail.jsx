@@ -26,6 +26,77 @@ const RAIL = {
 
 const SPRING = { type: "spring", stiffness: 420, damping: 38, mass: 0.9 };
 
+// ── Glow del ítem activo ────────────────────────────────────
+// Un anillo de 1px con degradé que gira despacio, apenas visible, detrás
+// del fondo rojo del ítem seleccionado. La idea es que se perciba como un
+// detalle y no como una animación: si llama la atención, está mal.
+//
+// La paleta sale de la marca —rojo, coral, magenta apagado y un toque de
+// ámbar— y evita a propósito verdes y azules, que en este menú oscuro
+// cantarían enseguida.
+//
+// Dos perillas para ajustarlo sin tocar nada más:
+//   --mn-glow-opacidad  cuánto se ve  (0.35 discreto · 0.6 marcado)
+//   --mn-glow-blur      qué tan difuso (2px anillo nítido · 6px halo)
+const GLOW_CSS = `
+@property --mn-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.mn-glow {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+  --mn-glow-opacidad: .45;
+  --mn-glow-blur: 3px;
+}
+
+.mn-glow::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--mn-angle, 0deg),
+    #A81F1F 0%,
+    #D9603F 22%,
+    #B23A6B 48%,
+    #C08A2E 72%,
+    #A81F1F 100%
+  );
+  /* Deja sólo el borde: el relleno se recorta y queda el anillo de 1px. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  opacity: var(--mn-glow-opacidad);
+  filter: blur(var(--mn-glow-blur));
+  animation: mn-girar-glow 10s linear infinite;
+}
+
+@keyframes mn-girar-glow { to { --mn-angle: 360deg; } }
+
+/* Si el sistema pide menos movimiento, el anillo se queda quieto pero se ve. */
+@media (prefers-reduced-motion: reduce) {
+  .mn-glow::before { animation: none; }
+}
+`;
+
+/**
+ * Anillo para marcar algo como seleccionado. Reutilizable: se le pasan las
+ * mismas medidas que tenga el fondo al que acompaña.
+ *
+ * Va ANTES del fondo en el orden del DOM, así queda por detrás sin pelearse
+ * con los z-index del icono y la etiqueta.
+ */
+function GlowActivo({ inset, radio }) {
+  return <span className="mn-glow" style={{ inset, borderRadius: radio }} />;
+}
+
+
 // El chat interno no es una vista: abre su propio panel flotante.
 const ITEM_MENSAJES = { key: "mensajes", icon: MessageCircle, label: "Mensajes", panel: true };
 
@@ -106,6 +177,9 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
           color: activo ? "#fff" : hover ? RAIL.text : RAIL.idle,
           transition: "color .18s ease",
         }}>
+
+        {/* Glow del seleccionado: va primero para quedar por detrás del fondo */}
+        {activo && !item.bloqueado && <GlowActivo inset="3px 12px" radio={13} />}
 
         {/* Fondo activo — se desliza entre ítems */}
         {activo && (
@@ -190,6 +264,7 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
     {/* El hueco en el flujo crece sólo cuando el rail está fijado */}
     <motion.div animate={{ width: pin ? W_OPEN : W_MINI }} transition={SPRING}
       style={{ flexShrink: 0, height: "100%", position: "relative", zIndex: 60 }}>
+      <style>{GLOW_CSS}</style>
       <motion.nav
         onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
         animate={{ width: expandido ? W_OPEN : W_MINI }} transition={SPRING}
