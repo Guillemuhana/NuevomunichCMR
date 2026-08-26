@@ -157,9 +157,13 @@ function Badge({ n, tono = "verde" }) {
         position: "absolute", top: -5, right: -8, background: bg, color: "#fff",
         fontSize: 9.5, fontWeight: 800, fontFamily: FONT_BODY, borderRadius: 99,
         minWidth: 17, height: 17, display: "flex", alignItems: "center",
-        justifyContent: "center", padding: "0 4px", border: "2px solid #14161B",
+        justifyContent: "center", padding: "0 5px", border: "2px solid #14161B",
+        lineHeight: 1, whiteSpace: "nowrap",
       }}>
-      {n > 99 ? "99+" : n}
+      {/* El número real. Antes cortaba en "99+", que en un CRM con muchos
+          mensajes sin leer no dice nada: 100 y 400 se veían igual.
+          El tope pasa a 999 sólo para que no se desarme la píldora. */}
+      {n > 999 ? "999+" : n}
     </motion.span>
   );
 }
