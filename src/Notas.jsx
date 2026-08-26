@@ -14,14 +14,19 @@ import {
 import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY } from "./lib";
 
 // Colores del papelito. Pensados para leerse bien, no para gritar.
+// Los colores son un ACENTO, no el relleno. Antes la nota era un papelito
+// pastel completo, y cinco de esos juntos parecían un cuaderno de escuela.
+// Ahora la tarjeta es blanca y el color vive en una barra de 3px al costado.
+// Son los mismos cinco del calendario, para que el CRM se vea de una pieza.
 const COLORES = {
-  amarillo: { bg: "#FFFBEB", borde: "#FDE68A", punto: "#F59E0B", label: "Amarillo" },
-  verde:    { bg: "#F0FDF4", borde: "#BBF7D0", punto: "#22C55E", label: "Verde" },
-  azul:     { bg: "#EFF6FF", borde: "#BFDBFE", punto: "#3B82F6", label: "Azul" },
-  rosa:     { bg: "#FDF2F8", borde: "#FBCFE8", punto: "#EC4899", label: "Rosa" },
-  gris:     { bg: "#F8FAFC", borde: "#E2E8F0", punto: "#94A3B8", label: "Gris" },
+  rojo:  { acento: "#A81F1F", tenue: "#FDF2F2", label: "Urgente" },
+  ambar: { acento: "#8A5A22", tenue: "#FBF3E8", label: "Pendiente" },
+  verde: { acento: "#2F6B46", tenue: "#EDF6F0", label: "Listo" },
+  azul:  { acento: "#2A4E8F", tenue: "#EEF3FB", label: "Info" },
+  gris:  { acento: "#667085", tenue: "#F4F6F8", label: "Sin color" },
 };
-const colorDe = (c) => COLORES[c] || COLORES.amarillo;
+
+const colorDe = (c) => COLORES[c] || COLORES.gris;
 
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 
@@ -207,17 +212,18 @@ function TarjetaNota({ nota, onEditar, onFijar, onHecha, onBorrar }) {
 
   return (
     <div style={{
-      background: nota.hecha ? L.soft : col.bg,
-      border: `1px solid ${nota.hecha ? L.border : col.borde}`,
-      borderRadius: R.md, padding: "13px 15px", fontFamily: FONT_BODY,
+      background: L.white,
+      border: `1px solid ${L.border}`,
+      borderLeft: `3px solid ${nota.hecha ? L.border : col.acento}`,
+      borderRadius: R.sm, padding: "13px 15px", fontFamily: FONT_BODY,
       display: "flex", flexDirection: "column", gap: 8,
-      opacity: nota.hecha ? 0.62 : 1, boxShadow: SH.xs,
+      opacity: nota.hecha ? 0.55 : 1, boxShadow: SH.xs,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <button onClick={onHecha} title={nota.hecha ? "Marcar como pendiente" : "Marcar como hecha"}
           style={{ flexShrink: 0, marginTop: 1, width: 19, height: 19, borderRadius: 6, cursor: "pointer",
-            border: `1.5px solid ${nota.hecha ? "#15803D" : col.punto}`,
-            background: nota.hecha ? "#15803D" : "transparent",
+            border: `1.5px solid ${nota.hecha ? "#2F6B46" : L.light}`,
+            background: nota.hecha ? "#2F6B46" : "transparent",
             display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
           {nota.hecha && <Check size={12} color="#fff" />}
         </button>
@@ -297,9 +303,9 @@ function ModalNota({ nota, userName, userEmail, onCerrar, onGuardada }) {
   return (
     <div onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,.45)", backdropFilter: "blur(3px)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 480, background: col.bg, border: `1px solid ${col.borde}`, borderRadius: R.xl, boxShadow: SH.xl, fontFamily: FONT_BODY, overflow: "hidden" }}>
+      <div style={{ width: "100%", maxWidth: 480, background: L.white, border: `1px solid ${L.border}`, borderTop: `3px solid ${col.acento}`, borderRadius: R.lg, boxShadow: SH.xl, fontFamily: FONT_BODY, overflow: "hidden" }}>
 
-        <div style={{ padding: "16px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${col.borde}` }}>
+        <div style={{ padding: "16px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${L.border}` }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: L.text }}>
             {nueva ? "Nueva nota" : "Editar nota"}
           </div>
@@ -312,25 +318,26 @@ function ModalNota({ nota, userName, userEmail, onCerrar, onGuardada }) {
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
           <input autoFocus={nueva} value={titulo} onChange={(e) => setTitulo(e.target.value)}
             placeholder="Título (opcional)"
-            style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: "rgba(255,255,255,.75)", fontSize: 14.5, fontWeight: 700, fontFamily: FONT_DISPLAY, color: L.text, outline: "none" }} />
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, fontSize: 14.5, fontWeight: 700, fontFamily: FONT_DISPLAY, color: L.text, outline: "none" }} />
 
           <textarea ref={areaRef} value={texto} onChange={(e) => setTexto(e.target.value)} rows={6}
             placeholder="Escribí lo que no se puede olvidar…"
-            style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: "rgba(255,255,255,.75)", fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none", resize: "vertical", lineHeight: 1.55 }} />
+            style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none", resize: "vertical", lineHeight: 1.55 }} />
 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {Object.entries(COLORES).map(([k, c]) => (
                 <button key={k} onClick={() => setColor(k)} title={c.label}
-                  style={{ width: 22, height: 22, borderRadius: "50%", background: c.punto, cursor: "pointer",
-                    border: color === k ? `2.5px solid ${L.text}` : "2.5px solid transparent", padding: 0 }} />
+                  style={{ width: 24, height: 24, borderRadius: R.xs, background: c.acento, cursor: "pointer",
+                    outline: color === k ? `2px solid ${L.text}` : "none", outlineOffset: 2,
+                    border: "none", padding: 0, opacity: color === k ? 1 : .55 }} />
               ))}
             </div>
 
             <label style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto", fontSize: 12.5, color: L.muted, fontWeight: 600 }}>
               <Calendar size={14} />
               <input type="date" value={recordatorio} onChange={(e) => setRecordatorio(e.target.value)}
-                style={{ padding: "7px 10px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: "rgba(255,255,255,.75)", fontSize: 12.5, fontFamily: FONT_BODY, color: L.text, outline: "none" }} />
+                style={{ padding: "7px 10px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, fontSize: 12.5, fontFamily: FONT_BODY, color: L.text, outline: "none" }} />
               {recordatorio && (
                 <button onClick={() => setRecordatorio("")} title="Sacar el recordatorio"
                   style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 0 }}>
@@ -343,9 +350,9 @@ function ModalNota({ nota, userName, userEmail, onCerrar, onGuardada }) {
           {error && <div style={{ fontSize: 12.5, color: C.redDark }}>{error}</div>}
         </div>
 
-        <div style={{ padding: "13px 20px", borderTop: `1px solid ${col.borde}`, display: "flex", justifyContent: "flex-end", gap: 9, background: "rgba(255,255,255,.45)" }}>
+        <div style={{ padding: "13px 20px", borderTop: `1px solid ${L.border}`, display: "flex", justifyContent: "flex-end", gap: 9, background: L.soft }}>
           <button onClick={onCerrar}
-            style={{ padding: "9px 16px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: "rgba(255,255,255,.8)", color: L.muted, fontSize: 13.5, fontWeight: 600, fontFamily: FONT_BODY, cursor: "pointer" }}>
+            style={{ padding: "9px 16px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: L.white, color: L.muted, fontSize: 13.5, fontWeight: 600, fontFamily: FONT_BODY, cursor: "pointer" }}>
             Cancelar
           </button>
           <button onClick={guardar} disabled={guardando}

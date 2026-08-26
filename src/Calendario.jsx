@@ -76,12 +76,14 @@ function ChipTipo({ tipo, activo, onClick, size = "md" }) {
     <button type="button" onClick={onClick}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
-        padding: chico ? "5px 10px" : "7px 13px", borderRadius: R.pill,
-        border: `1px solid ${activo ? t.color : L.border}`,
+        padding: chico ? "5px 11px" : "7px 14px", borderRadius: R.sm,
+        border: `1px solid ${activo ? t.color + "55" : L.border}`,
         background: activo ? t.bg : L.white, color: activo ? t.color : L.muted,
         fontSize: chico ? 11.5 : 12.5, fontWeight: 600, transition: "all .15s", whiteSpace: "nowrap",
       }}>
-      <span style={{ width: 7, height: 7, borderRadius: "50%", background: t.color, opacity: activo ? 1 : .45 }} />
+      {/* Una barrita en vez del puntito redondo: el círculo de color hacía
+          ver la barra de filtros como una fila de caramelos. */}
+      <span style={{ width: 3, height: chico ? 11 : 13, borderRadius: 2, background: t.color, opacity: activo ? 1 : .35 }} />
       {t.label}
     </button>
   );
@@ -471,8 +473,8 @@ export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
               return (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 6, overflow: "hidden",
-                  padding: "3px 8px", borderRadius: R.xs, background: bg,
-                  borderLeft: `2.5px solid ${color}`, fontSize: 12, lineHeight: 1.35, color: L.text,
+                  padding: "3px 8px", borderRadius: 3, background: bg,
+                  borderLeft: `2px solid ${color}`, fontSize: 11.5, lineHeight: 1.4, color: L.text,
                 }}>
                   {conHora && <span style={{ color, fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{arg.timeText}</span>}
                   <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arg.event.title}</span>

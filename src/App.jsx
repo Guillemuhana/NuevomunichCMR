@@ -2619,8 +2619,18 @@ export default function App() {
   const rol       = getRol(userEmail);
   const alertas   = calcularAlertas(contactos);
   // Contadores que muestra el rail de navegación
+  // Cuántas conversaciones están esperando respuesta: el cliente escribió
+  // último y nadie le contestó.
+  //
+  // Antes se sumaba no_leidos de todos los contactos, pero ese contador lo
+  // resetea únicamente Administración al abrir el chat: cuando lo abre
+  // Cristian no baja nunca, se acumula y termina mostrando el total
+  // histórico en vez de lo que falta atender. Esto en cambio se limpia solo
+  // en cuanto alguien responde, sin importar quién lo haya leído.
   const navBadges = {
-    chat: contactos.reduce((s, c) => s + (c.no_leidos || 0), 0),
+    chat: contactos.filter((c) =>
+      c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))
+    ).length,
   };
 
   // Vendedores externos ven su propio panel
