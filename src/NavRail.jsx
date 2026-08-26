@@ -31,9 +31,9 @@ const SPRING = { type: "spring", stiffness: 420, damping: 38, mass: 0.9 };
 // del fondo rojo del ítem seleccionado. La idea es que se perciba como un
 // detalle y no como una animación: si llama la atención, está mal.
 //
-// La paleta sale de la marca —rojo, coral, magenta apagado y un toque de
-// ámbar— y evita a propósito verdes y azules, que en este menú oscuro
-// cantarían enseguida.
+// Es blanco sobre gris, no de color: el destello blanco se distingue del
+// fondo oscuro del menú y también del rojo del botón. Con tonos rojizos la
+// sombra del propio botón se lo comía.
 //
 // Dos perillas para ajustarlo sin tocar nada más:
 //   --mn-glow-opacidad  cuánto se ve  (0.35 discreto · 0.6 marcado)
@@ -49,8 +49,8 @@ const GLOW_CSS = `
   position: absolute;
   border-radius: inherit;
   pointer-events: none;
-  --mn-glow-opacidad: .8;
-  --mn-glow-blur: 4px;
+  --mn-glow-opacidad: .9;
+  --mn-glow-blur: 2px;
 }
 
 .mn-glow::before {
@@ -60,15 +60,19 @@ const GLOW_CSS = `
   inset: -3px;
   border-radius: inherit;
   padding: 1px;
+  /* Un anillo gris tenue siempre visible, y un destello blanco que da la
+     vuelta. El blanco es lo único que se distingue tanto del fondo oscuro
+     del menú como del rojo del botón: con tonos rojizos, el propio botón
+     se lo comía. */
   background: conic-gradient(
     from var(--mn-angle, 0deg),
-    /* Poco rojo puro a propósito: contra el fondo rojo del botón no se
-       distinguiría. El coral, el magenta y el ámbar son los que se ven. */
-    #D9603F 0%,
-    #B23A6B 28%,
-    #C08A2E 55%,
-    #E0714C 78%,
-    #D9603F 100%
+    rgba(255,255,255,.10) 0%,
+    rgba(255,255,255,.10) 14%,
+    rgba(255,255,255,.55) 22%,
+    rgba(255,255,255,.95) 26%,
+    rgba(255,255,255,.45) 31%,
+    rgba(255,255,255,.10) 42%,
+    rgba(255,255,255,.10) 100%
   );
   /* Deja sólo el borde: el relleno se recorta y queda el anillo de 1px. */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -77,7 +81,7 @@ const GLOW_CSS = `
           mask-composite: exclude;
   opacity: var(--mn-glow-opacidad);
   filter: blur(var(--mn-glow-blur));
-  animation: mn-girar-glow 10s linear infinite;
+  animation: mn-girar-glow 9s linear infinite;
 }
 
 @keyframes mn-girar-glow { to { --mn-angle: 360deg; } }
