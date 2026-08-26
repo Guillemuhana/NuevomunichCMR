@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
-  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone,
+  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone, Lock,
 } from "lucide-react";
-import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
 
 // ============================================================
@@ -41,7 +41,7 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
-    ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing" }] : []),
+    ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
     { key: "reportes",   icon: BarChart2,      label: "Reportes" },
   ];
   const sistema = [
@@ -92,11 +92,15 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
   return (
     <div style={{ position: "relative" }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <motion.button onClick={onClick} whileTap={{ scale: 0.965 }}
+      <motion.button onClick={item.bloqueado ? undefined : onClick}
+        disabled={item.bloqueado}
+        title={item.bloqueado ? "Todavía no está habilitado" : undefined}
+        whileTap={item.bloqueado ? undefined : { scale: 0.965 }}
         style={{
           position: "relative", width: "100%", height: 46, display: "flex",
           alignItems: "center", background: "transparent", border: "none",
-          cursor: "pointer", padding: 0, textAlign: "left",
+          cursor: item.bloqueado ? "not-allowed" : "pointer", padding: 0, textAlign: "left",
+          opacity: item.bloqueado ? 0.42 : 1,
           color: activo ? "#fff" : hover ? RAIL.text : RAIL.idle,
           transition: "color .18s ease",
         }}>
@@ -111,7 +115,7 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
             }} />
         )}
         {/* Fondo hover */}
-        {!activo && hover && (
+        {!activo && hover && !item.bloqueado && (
           <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.14 }}
             style={{ position: "absolute", inset: "3px 12px", borderRadius: 13, background: "rgba(255,255,255,.065)" }} />
         )}
@@ -134,6 +138,7 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
             fontWeight: 650, fontSize: 13.5, letterSpacing: 0.2, pointerEvents: "none",
           }}>
           {item.label}
+          {item.bloqueado && <Lock size={11} style={{ marginLeft: 6, verticalAlign: "-1px" }} />}
         </motion.span>
       </motion.button>
 
@@ -328,11 +333,14 @@ export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {
           const Icon = item.icon;
           const activo = vista === item.key;
           return (
-            <motion.button key={item.key} whileTap={{ scale: 0.92 }} onClick={() => setVista(item.key)}
+            <motion.button key={item.key} whileTap={item.bloqueado ? undefined : { scale: 0.92 }}
+              onClick={item.bloqueado ? undefined : () => setVista(item.key)}
+              disabled={item.bloqueado}
               style={{
                 flex: 1, position: "relative", height: 60, background: "transparent", border: "none",
-                cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center",
+                cursor: item.bloqueado ? "not-allowed" : "pointer", display: "flex", flexDirection: "column", alignItems: "center",
                 justifyContent: "center", gap: 4, color: activo ? "#fff" : RAIL.idle,
+                opacity: item.bloqueado ? 0.4 : 1,
               }}>
               {activo && (
                 <motion.span layoutId="nav-mobile-activo" transition={SPRING}
@@ -384,17 +392,21 @@ export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {
                   const Icon = item.icon;
                   const activo = vista === item.key;
                   return (
-                    <motion.button key={item.key} whileTap={{ scale: 0.94 }}
-                      onClick={() => { setVista(item.key); setSheet(false); }}
+                    <motion.button key={item.key} whileTap={item.bloqueado ? undefined : { scale: 0.94 }}
+                      onClick={item.bloqueado ? undefined : () => { setVista(item.key); setSheet(false); }}
+                      disabled={item.bloqueado}
                       style={{
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        gap: 8, padding: "16px 6px", borderRadius: 14, cursor: "pointer",
+                        gap: 8, padding: "16px 6px", borderRadius: 14, cursor: item.bloqueado ? "not-allowed" : "pointer",
+                        opacity: item.bloqueado ? 0.4 : 1,
                         border: `1px solid ${activo ? "rgba(217,59,59,.55)" : "rgba(255,255,255,.08)"}`,
                         background: activo ? "linear-gradient(140deg,rgba(190,38,38,.9),rgba(127,20,20,.7))" : "rgba(255,255,255,.04)",
                         color: activo ? "#fff" : RAIL.text,
                       }}>
                       <Icon size={20} strokeWidth={1.9} />
-                      <span style={{ fontSize: 11, fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.3 }}>{item.label}</span>
+                      <span style={{ fontSize: 11, fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.3 }}>
+                        {item.label}{item.bloqueado && <Lock size={10} style={{ marginLeft: 4, verticalAlign: "-1px" }} />}
+                      </span>
                     </motion.button>
                   );
                 })}

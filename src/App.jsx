@@ -13,7 +13,7 @@ import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
-  construirMensajeMeta,
+  construirMensajeMeta, marketingHabilitado,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -2661,7 +2661,7 @@ export default function App() {
               <Calendario userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
-        ) : vista === "marketing" && rol === "admin" ? (
+        ) : vista === "marketing" && rol === "admin" && marketingHabilitado() ? (
           <>
             {isMobile && <MobileBack title="Marketing" onBack={() => setVista("chat")} />}
             <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
