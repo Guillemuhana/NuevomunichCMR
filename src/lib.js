@@ -139,12 +139,29 @@ export const ADMINISTRACION_INFO = [
   { nombre: "Administración",   emailPrefix: "administracion" },
 ];
 
+/**
+ * ¿Este prefijo de mail es de Administración?
+ *
+ * Se aceptan los de la lista de arriba y, además, cualquier `adminN`:
+ * admin1, admin7, admin10, admin2026… Antes se comparaba contra la lista
+ * exacta, así que un mail nuevo como admin10@ caía en "vendedor" sin que
+ * nadie lo notara: la persona entraba, no veía ni un chat (porque se le
+ * filtran los contactos por un vendedor con su nombre) y parecía un
+ * problema de datos.
+ */
+export function esPrefijoAdministracion(prefix) {
+  const p = String(prefix || "").toLowerCase();
+  if (ADMINISTRACION_INFO.some((a) => a.emailPrefix === p)) return true;
+  if (/^admin\d+$/.test(p)) return true;
+  return p === "administracion" || p === "administración";
+}
+
 // ─── Mensajería interna: identidad y contactos ──────────────
 // Identifica al usuario logueado con una "key" estable para el chat interno.
 export function getIdentidadInterna(userEmail) {
   const prefix = (userEmail || "").split("@")[0].toLowerCase();
   if (prefix === "cristian") return { key: "cristian", nombre: "Cristian" };
-  if (ADMINISTRACION_INFO.some(a => a.emailPrefix === prefix)) return { key: "administracion", nombre: "Administración" };
+  if (esPrefijoAdministracion(prefix)) return { key: "administracion", nombre: "Administración" };
   const v = VENDEDORES_INFO.find(v => v.emailPrefix === prefix);
   if (v) return { key: v.emailPrefix, nombre: v.alias || v.nombre };
   return { key: prefix, nombre: prefix };
@@ -167,7 +184,7 @@ export function getRol(userEmail) {
   const prefix = (userEmail || "").split("@")[0].toLowerCase();
   if (prefix === "cristian") return "admin";
   if (VENDEDORES_INFO.some(v => v.emailPrefix === prefix)) return "vendedor_panel";
-  if (ADMINISTRACION_INFO.some(a => a.emailPrefix === prefix)) return "administracion";
+  if (esPrefijoAdministracion(prefix)) return "administracion";
   return "vendedor";
 }
 
