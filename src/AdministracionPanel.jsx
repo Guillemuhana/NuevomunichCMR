@@ -257,7 +257,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
 
       {/* Header */}
       <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0, boxShadow: SH.sm, flexWrap: "wrap", rowGap: 8 }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 52, objectFit: "contain" }} />
+        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 42, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Administración</div>
           <div style={{ fontSize: 12, color: L.muted }}>{userName || userEmail} · Gestión de pedidos</div>
@@ -319,7 +319,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           <div style={{ flex: 1, minWidth: 300 }}>
 
             {/* Filtros */}
-            <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+            <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: R.md, padding: "10px 14px", marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
                 <Search size={13} color={L.light} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
@@ -389,9 +389,12 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
 
               return (
                 <div key={ped.id}
-                  style={{ background: L.white, border: `1px solid ${borderColor}`, borderLeft: `4px solid ${ep.color}`, borderRadius: 10, marginBottom: 12, padding: "18px 20px", boxShadow: "0 1px 3px rgba(15,23,42,.05)", transition: "box-shadow .18s ease, transform .18s ease", willChange: "transform" }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 14px 32px rgba(15,23,42,.14)"; e.currentTarget.style.transform = "scale(1.018)"; e.currentTarget.style.zIndex = "5"; e.currentTarget.style.position = "relative"; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(15,23,42,.05)"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "auto"; }}>
+                  // Antes la tarjeta crecía al pasar el mouse (scale 1.018): con la
+                  // lista llena, el cursor la agrandaba, corría la de al lado y costaba
+                  // apuntarle a los botones. Ahora sólo se marca el borde.
+                  style={{ background: L.white, border: `1px solid ${borderColor}`, borderLeft: `3px solid ${ep.color}`, borderRadius: R.md, marginBottom: 8, padding: "15px 18px", transition: "border-color .15s ease, box-shadow .15s ease" }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = SH.md; e.currentTarget.style.borderColor = L.light; e.currentTarget.style.borderLeftColor = ep.color; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.borderLeftColor = ep.color; }}>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
 

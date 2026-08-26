@@ -28,6 +28,7 @@ import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asi
 import { avisar, prepararAudio, sonidoActivado, setSonidoActivado, probarSonido } from "./aviso";
 const Calendario = lazy(() => import("./Calendario"));
 const Marketing = lazy(() => import("./Marketing"));
+const Notas = lazy(() => import("./Notas"));
 
 // ============================================================
 // HELPERS DE MENSAJES
@@ -1563,7 +1564,7 @@ function AjustesPanel({ userName, userEmail, rol }) {
 const TITULO_VISTA = {
   chat: "Chats", vendedores: "Vendedores", pedidos: "Pedidos", calendario: "Calendario",
   contactos: "Contactos", reportes: "Reportes", ajustes: "Ajustes", admin: "Admin",
-  marketing: "Marketing",
+  marketing: "Marketing", notas: "Notas",
 };
 
 function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
@@ -2536,7 +2537,7 @@ export default function App() {
       if (c) setActivo(c);
     };
     // Solo vistas reales del layout: "mensajes" es un panel del rail, no una vista.
-    const VISTAS_OK = ["chat", "vendedores", "pedidos", "calendario", "contactos", "reportes", "ajustes", "admin", "marketing"];
+    const VISTAS_OK = ["chat", "vendedores", "pedidos", "calendario", "contactos", "reportes", "ajustes", "admin", "marketing", "notas"];
     const abrirVista = (e) => {
       const v = e.detail?.vista;
       if (VISTAS_OK.includes(v)) { setVista(v); setActivo(null); }
@@ -2636,7 +2637,7 @@ export default function App() {
   // con el panel de gestión de pedidos en la pestaña Pedidos.
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario" || vista === "notas");
 
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
@@ -2687,6 +2688,13 @@ export default function App() {
             {isMobile && <MobileBack title="Marketing" onBack={() => setVista("chat")} />}
             <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Marketing userEmail={userEmail} isMobile={isMobile} />
+            </Suspense>
+          </>
+        ) : vista === "notas" ? (
+          <>
+            {isMobile && <MobileBack title="Notas" onBack={() => setVista("chat")} />}
+            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+              <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
         ) : vista === "reportes" ? (
