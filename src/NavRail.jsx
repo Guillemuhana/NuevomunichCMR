@@ -49,23 +49,26 @@ const GLOW_CSS = `
   position: absolute;
   border-radius: inherit;
   pointer-events: none;
-  --mn-glow-opacidad: .45;
-  --mn-glow-blur: 3px;
+  --mn-glow-opacidad: .8;
+  --mn-glow-blur: 4px;
 }
 
 .mn-glow::before {
   content: "";
   position: absolute;
-  inset: -2px;
+  /* Separado 3px: pegado al botón se lo comía su propia sombra roja. */
+  inset: -3px;
   border-radius: inherit;
   padding: 1px;
   background: conic-gradient(
     from var(--mn-angle, 0deg),
-    #A81F1F 0%,
-    #D9603F 22%,
-    #B23A6B 48%,
-    #C08A2E 72%,
-    #A81F1F 100%
+    /* Poco rojo puro a propósito: contra el fondo rojo del botón no se
+       distinguiría. El coral, el magenta y el ámbar son los que se ven. */
+    #D9603F 0%,
+    #B23A6B 28%,
+    #C08A2E 55%,
+    #E0714C 78%,
+    #D9603F 100%
   );
   /* Deja sólo el borde: el relleno se recorta y queda el anillo de 1px. */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
