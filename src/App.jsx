@@ -79,6 +79,26 @@ const resolverMedia = (m) => {
   return { url, tipo, nombre: m.media_nombre || m.media_name || m.nombre_archivo || "archivo" };
 };
 
+// Qué mostrar en la lista de chats como último mensaje.
+// El bot a veces deja la URL del archivo en `ultimo_msg`, y un link crudo
+// no dice nada: peor todavía con un audio, que es justo lo que hay que
+// notar de un vistazo para saber que el cliente mandó una nota de voz.
+const previaUltimoMsg = (texto) => {
+  const t = (texto || "").trim();
+  if (!t) return null;
+  const link = t.match(new RegExp("https?://[^ ]+"));
+  if (!link) return t;
+
+  const ext = (link[0].split("?")[0].split(".").pop() || "").toLowerCase();
+  if (["mp3", "ogg", "oga", "wav", "m4a", "aac", "opus"].includes(ext)) return "🎤 Mensaje de voz";
+  if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(ext))       return "📷 Imagen";
+  if (["mp4", "webm", "mov", "avi", "mkv", "3gp"].includes(ext))        return "🎥 Video";
+  if (["pdf", "doc", "docx", "xls", "xlsx", "csv", "zip"].includes(ext)) return "📎 Archivo";
+
+  // Un link suelto en medio de un texto no molesta; solo si es todo el mensaje.
+  return link[0] === t ? "🔗 Enlace" : t;
+};
+
 // Avatares — colores consistentes por nombre (tonos sobrios)
 const AVT = [
   ["#A81F1F","#fff"],["#2A4E8F","#fff"],["#2F6B46","#fff"],
@@ -1734,7 +1754,7 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
                       </div>
                     </div>
                     <div style={{ fontSize: 12.5, color: L.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 5 }}>
-                      {limpiarPrecios(c.ultimo_msg) || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
+                      {previaUltimoMsg(limpiarPrecios(c.ultimo_msg)) || (c.empresa ? `🏢 ${c.empresa}` : c.email ? `✉ ${c.email}` : "Sin mensajes aún")}
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                       {c.no_leidos > 0
@@ -2216,7 +2236,25 @@ function ChatPanel({ contacto, onUpdateContacto, userName, onBack, isMobile, onE
                     style={{ maxWidth: "100%", width: 260, borderRadius: 10, display: "block", background: "#000" }} />
                 )}
                 {media && media.tipo === "audio" && (
-                  <audio src={media.url} controls style={{ width: 240, display: "block" }} />
+                  // Un <audio> pelado no se distingue de nada: parecía un
+                  // control suelto en la conversación. Con el rótulo y el
+                  // ícono se ve de una que el cliente mandó un mensaje de voz.
+                  <div style={{
+                    display: "flex", flexDirection: "column", gap: 7,
+                    padding: "10px 12px", borderRadius: 10, width: 260, maxWidth: "100%",
+                    background: esCliente ? C.redSoft : "rgba(255,255,255,.14)",
+                    border: `1px solid ${esCliente ? C.red + "33" : "rgba(255,255,255,.22)"}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: "50%", background: esCliente ? C.red : "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Mic size={13} color="#fff" />
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: esCliente ? C.red : "#fff", fontFamily: FONT_DISPLAY, letterSpacing: 0.2 }}>
+                        Mensaje de voz
+                      </span>
+                    </div>
+                    <audio src={media.url} controls preload="metadata" style={{ width: "100%", display: "block" }} />
+                  </div>
                 )}
                 {media && media.tipo === "document" && (
                   <a href={media.url} target="_blank" rel="noreferrer" download={media.nombre}
