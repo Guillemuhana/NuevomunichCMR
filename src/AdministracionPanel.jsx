@@ -441,7 +441,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                           </span>
                         )}
                         <span style={{ fontSize: 11.5, color: L.muted, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>{det.pago}</span>
-                        {det.notas?.trim() && (
+                        {det.notas?.trim() && esCristian && (
                           <button onClick={() => setReporteAbierto({ titulo: cont.nombre || cont.telefono || "Cliente sin nombre", vendedor: ped.vendedor, texto: det.notas })}
                             style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 11px", borderRadius: 6, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY, transition: "all .15s" }}
                             onMouseEnter={e => { e.currentTarget.style.background = "#FEF3C7"; e.currentTarget.style.borderColor = "#FCD34D"; }}
@@ -635,7 +635,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
       )}
 
       {/* Modal: ver reporte completo */}
-      {reporteAbierto && (
+      {reporteAbierto && esCristian && (
         <>
           <div onClick={() => setReporteAbierto(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,560px)", maxHeight: "85vh", background: L.white, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,.3)", zIndex: 401, display: "flex", flexDirection: "column", fontFamily: FONT_BODY, overflow: "hidden" }}>
