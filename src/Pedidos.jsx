@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { imprimirDoc, descargarDoc } from "./imprimir";
+import { imprimirDoc, descargarDoc, logoPDF } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios, UNIDADES, cantidadItem,
 } from "./lib";
@@ -58,45 +58,56 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 
-  // ── Header rojo ──
+  // ── Cabecera ──
   doc.setFillColor(156, 27, 27);
   doc.rect(0, 0, 210, 40, "F");
   doc.setFillColor(212, 161, 58);
   doc.rect(0, 37, 210, 3, "F");
 
-  // Logo placeholder (cuadrado blanco redondeado)
+  // El logo real si ya se cargó; si no, la placa con el nombre. Nunca se
+  // queda esperando: un PDF sin logo es mejor que un botón que no responde.
+  const logo = logoPDF();
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(13, 7, 26, 26, 3, 3, "F");
-  doc.setTextColor(156, 27, 27);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("NUEVO\nMUNICH", 26, 16, { align: "center" });
+  doc.roundedRect(13, 6, 30, 26, 3, 3, "F");
+  if (logo) {
+    const alto = Math.min(22, (logo.alto / logo.ancho) * 26);
+    doc.addImage(logo.url, "PNG", 15, 6 + (26 - alto) / 2, 26, alto);
+  } else {
+    doc.setTextColor(156, 27, 27);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("NUEVO\nMUNICH", 28, 16, { align: "center" });
+  }
 
-  // Título
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("NUEVO MUNICH", 46, 17);
+  doc.setFontSize(21);
+  doc.text("NUEVO MUNICH", 49, 16);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9.5);
-  doc.text("Sistema de Gestión · Pedido de Venta", 46, 25);
+  doc.setFontSize(9);
+  doc.text("Comprobante de pedido", 49, 23);
+  doc.setFontSize(7.5);
+  doc.setTextColor(255, 235, 235);
+  doc.text("Embutidos artesanales  ·  Córdoba, Argentina", 49, 29);
 
-  // N° pedido + fecha (derecha)
+  // N° de pedido, fecha y hora de carga
+  doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(`#${shortId(pedido.id)}`, 196, 14, { align: "right" });
+  doc.setFontSize(14);
+  doc.text(`N° ${shortId(pedido.id)}`, 196, 13, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.text(fecha, 196, 22, { align: "right" });
+  doc.setFontSize(8);
+  doc.text(`Cargado: ${fecha} hs`, 196, 19.5, { align: "right" });
+  if (pedido.vendedor) doc.text(`Vendedor: ${pedido.vendedor}`, 196, 24.5, { align: "right" });
 
-  // Badge estado
+  // Estado
   const ep = EP[pedido.estado] || EP.pendiente;
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(151, 27, 45, 9, 2, 2, "F");
+  doc.roundedRect(151, 27, 45, 8.5, 2, 2, "F");
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "bold");
-  doc.text(ep.label.toUpperCase(), 173, 33, { align: "center" });
+  doc.text(ep.label.toUpperCase(), 173.5, 32.8, { align: "center" });
 
   // ── Sección cliente ──
   let y = 52;
@@ -112,7 +123,7 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
-  doc.text(cont.nombre || "—", 14, y);
+  doc.text(cont.nombre || det.clienteNombre || cont.telefono || det.clienteTel || "Cliente sin nombre", 14, y);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -195,16 +206,36 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
     y += alto + 6;
   }
 
-  // ── Footer ──
-  const pageH = doc.internal.pageSize.height;
-  doc.setFillColor(245, 241, 234);
-  doc.rect(0, pageH - 20, 210, 20, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(120, 110, 95);
-  doc.text("¡Gracias por su pedido!  ·  Nuevo Munich  ·  Artesanos del sabor desde 1972", 105, pageH - 12, { align: "center" });
-  doc.setFontSize(7);
-  doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 105, pageH - 6, { align: "center" });
+  // ── Pie ──
+  // Con la fecha y hora de emisión, que es lo que permite saber si un papel
+  // que anda dando vueltas por el depósito está al día o es de la semana
+  // pasada. Y numerado, por si el pedido se va a dos hojas.
+  const total = doc.internal.getNumberOfPages();
+  const emitido = new Date().toLocaleString("es-AR", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    const pageH = doc.internal.pageSize.height;
+
+    doc.setFillColor(245, 241, 234);
+    doc.rect(0, pageH - 18, 210, 18, "F");
+    doc.setDrawColor(212, 161, 58);
+    doc.setLineWidth(0.6);
+    doc.line(0, pageH - 18, 210, pageH - 18);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(120, 110, 95);
+    doc.text("NUEVO MUNICH", 14, pageH - 11);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("Artesanos del sabor desde 1972", 14, pageH - 6.5);
+
+    doc.text(`Emitido el ${emitido} hs`, 105, pageH - 8.5, { align: "center" });
+    doc.text(`Página ${i} de ${total}`, 196, pageH - 8.5, { align: "right" });
+  }
 
   const nombre = `pedido-NM-${shortId(pedido.id)}.pdf`;
   if (opciones.imprimir) imprimirDoc(doc, nombre);

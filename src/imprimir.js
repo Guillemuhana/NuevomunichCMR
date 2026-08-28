@@ -6,6 +6,8 @@
 // de solamente descargar el archivo.
 // ============================================================
 
+import { LOGO_URL } from "./lib";
+
 const MARCA = { rojo: [156, 27, 27], oro: [212, 161, 58], tinta: [40, 30, 20], gris: [140, 132, 114] };
 
 // En el APK de Android la impresión desde la webview no está disponible,
@@ -13,6 +15,46 @@ const MARCA = { rojo: [156, 27, 27], oro: [212, 161, 58], tinta: [40, 30, 20], g
 function esNativo() {
   return typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
 }
+
+
+// ── Logo para los PDF ───────────────────────────────────────
+// jsPDF no puede bajarse una imagen por su cuenta: necesita los datos ya
+// cargados. Así que lo precargamos una sola vez al abrir la app y lo
+// dejamos guardado acá.
+//
+// De paso lo achicamos: el logo original pesa 2,3 MB y meterlo entero en
+// cada PDF daría archivos enormes para imprimir una hoja.
+let logoDatos = null;
+
+export function logoPDF() {
+  return logoDatos;
+}
+
+export function precargarLogo() {
+  if (logoDatos || typeof window === "undefined") return;
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try {
+      const ancho = 420;                                   // suficiente para imprimir nítido
+      const alto = Math.round((img.height / img.width) * ancho);
+      const lienzo = document.createElement("canvas");
+      lienzo.width = ancho;
+      lienzo.height = alto;
+      const ctx = lienzo.getContext("2d");
+      ctx.drawImage(img, 0, 0, ancho, alto);
+      logoDatos = { url: lienzo.toDataURL("image/png"), ancho, alto };
+    } catch {
+      // Si el navegador no deja leer el canvas, seguimos sin logo: los
+      // documentos se generan igual con la cabecera de texto.
+    }
+  };
+  img.src = LOGO_URL;
+}
+
+// Arranca apenas se carga el módulo: cuando alguien imprima, ya está listo.
+precargarLogo();
 
 /**
  * Manda un documento jsPDF al diálogo de impresión del sistema.
