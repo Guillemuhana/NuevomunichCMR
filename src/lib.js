@@ -189,6 +189,33 @@ export function getRol(userEmail) {
   return "vendedor";
 }
 
+
+// ── Unidades de los artículos de un pedido ──────────────────
+// Los pedidos se cargaban siempre por unidad, pero hay clientes que compran
+// por peso ("3,5 kg de pepperoni"). El ítem lleva ahora un campo `unidad`;
+// los pedidos viejos no lo tienen y se asumen en unidades, así que no hay
+// que migrar nada.
+export const UNIDADES = [
+  { key: "un", label: "un.", nombre: "Unidades" },
+  { key: "kg", label: "kg",  nombre: "Kilos" },
+];
+
+/** La cantidad lista para mostrar: "12×" o "3,5 kg". */
+export function cantidadItem(item) {
+  const n = Number(item?.qty ?? 1);
+  if (!isFinite(n)) return "1×";
+  if (item?.unidad === "kg") {
+    // Coma decimal, que es como se escribe acá, y sin ceros de más.
+    return `${n.toLocaleString("es-AR", { maximumFractionDigits: 3 })} kg`;
+  }
+  return `${Math.round(n) || 1}×`;
+}
+
+/** El artículo entero: "12× Empanadas de carne" o "3,5 kg Pepperoni". */
+export function textoItem(item) {
+  return `${cantidadItem(item)} ${limpiarPrecios(item?.desc || "")}`.trim();
+}
+
 // ─── Estados del pipeline CRM ───────────────────────────────
 export const ESTADOS = {
   // Estados activos del pipeline

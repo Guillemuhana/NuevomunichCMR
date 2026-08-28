@@ -7,7 +7,7 @@
 // ============================================================
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { limpiarPrecios } from "./lib";
+import { limpiarPrecios, cantidadItem } from "./lib";
 import { cabecera, pie, seccion, TABLA } from "./imprimir";
 
 const shortId = (id) => (id || "").slice(0, 6).toUpperCase();
@@ -100,7 +100,7 @@ export function docReporteDiario(vendedor, entradas, parse, contactos = {}, dia 
       ETIQUETA_TIPO[d.tipo || "pedido"] || "Pedido",
       c.nombre || d.clienteNombre || "—",
       items.length
-        ? items.map((i) => `${i.qty || 1}x ${limpiarPrecios(i.desc)}`).join(", ").slice(0, 70)
+        ? items.map((i) => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", ").slice(0, 70)
         : (d.observacion || "—").slice(0, 70),
       e.estado || "—",
     ];
@@ -226,7 +226,7 @@ export function docFichaVisita(entrada, contacto, parse) {
       ...TABLA,
       startY: y,
       head: [["Cant.", "Descripción"]],
-      body: items.map((i) => [String(i.qty || 1), limpiarPrecios(i.desc || "")]),
+      body: items.map((i) => [cantidadItem(i), limpiarPrecios(i.desc || "")]),
       columnStyles: { 0: { cellWidth: 18, halign: "center" }, 1: { cellWidth: 164 } },
     });
     y = doc.lastAutoTable.finalY + 12;
@@ -295,7 +295,7 @@ export function docHojaRuta(pedidos, contactos, parse, dia = new Date()) {
         c.nombre || d.clienteNombre || "—",
         c.telefono || d.clienteTel || "—",
         d.direccion || c.direccion || "—",
-        items.map((it) => `${it.qty || 1}x ${limpiarPrecios(it.desc)}`).join(", ") || "—",
+        items.map((it) => `${cantidadItem(it)} ${limpiarPrecios(it.desc)}`).join(", ") || "—",
         d.pago || "—",
         p.vendedor || "—",
       ];
@@ -424,7 +424,7 @@ export function docVentasRango(pedidos, contactos, parse, desde, hasta, estados 
         shortId(p.id),
         c.nombre || d.clienteNombre || "—",
         c.telefono || d.clienteTel || "—",
-        items.map((i) => `${i.qty || 1}x ${limpiarPrecios(i.desc)}`).join(", ") || "—",
+        items.map((i) => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", ") || "—",
         p.vendedor || "—",
         d.fecha_entrega ? fFecha(d.fecha_entrega) : (d.entrega || "—"),
         d.pago || "—",
@@ -499,7 +499,7 @@ export function docFichaContacto(contacto, pedidos = [], parse) {
         return [
           fFecha(p.created_at),
           shortId(p.id),
-          items.map((i) => `${i.qty || 1}x ${limpiarPrecios(i.desc)}`).join(", ").slice(0, 60) || "—",
+          items.map((i) => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", ").slice(0, 60) || "—",
           p.estado || "—",
           p.vendedor || "—",
         ];

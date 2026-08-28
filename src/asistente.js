@@ -9,7 +9,7 @@
 // El modelo decide qué herramienta usar; nosotros la ejecutamos
 // contra Supabase y le devolvemos el resultado para que siga.
 // ============================================================
-import { supabase, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES, limpiarPrecios } from "./lib";
+import { supabase, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES, limpiarPrecios, cantidadItem } from "./lib";
 
 export const MODELO = "openai/gpt-oss-120b";
 // Suplente para cuando el principal está al tope: su cuota es aparte.
@@ -62,7 +62,7 @@ function resumirPedido(p, parse) {
     vendedor: p.vendedor || "sin asignar",
     total: Number(p.total) || 0,
     articulos: items.length
-      ? items.map((i) => `${i.qty || 1}x ${limpiarPrecios(i.desc)}`).join(", ")
+      ? items.map((i) => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", ")
       : d.observacion || "—",
     entrega: d.fecha_entrega || undefined,
   };
@@ -156,7 +156,8 @@ export const HERRAMIENTAS = [
               type: "object",
               properties: {
                 desc: { type: "string" },
-                qty: { type: "integer" },
+                qty: { type: "number" },
+                unidad: { type: "string", enum: ["un", "kg"], description: "un = unidades (por defecto), kg = kilos" },
                 precio: { type: "number" },
               },
               required: ["desc"],
@@ -402,7 +403,7 @@ export async function ejecutarHerramienta(nombre, args, ctx = {}) {
       const { data: cont } = await supabase
         .from("contactos").select("id,nombre,telefono,vendedor,direccion").eq("id", args.contacto_id).single();
       const items = (args.items || []).map((i) => ({
-        desc: i.desc, qty: i.qty || 1, precio: Number(i.precio) || 0,
+        desc: i.desc, qty: Number(i.qty) || 1, unidad: i.unidad === "kg" ? "kg" : "un", precio: Number(i.precio) || 0,
       }));
       const detalle = JSON.stringify({
         tipo: "pedido",
@@ -422,7 +423,7 @@ export async function ejecutarHerramienta(nombre, args, ctx = {}) {
       if (error) return { error: error.message };
       return {
         datos: { ok: true, pedido_id: data.id, total },
-        resumen: `Pedido cargado para ${cont?.nombre || "el cliente"} · ${items.map((i) => `${i.qty}x ${i.desc}`).join(", ")}`,
+        resumen: `Pedido cargado para ${cont?.nombre || "el cliente"} · ${items.map((i) => `${cantidadItem(i)} ${i.desc}`).join(", ")}`,
       };
     }
 

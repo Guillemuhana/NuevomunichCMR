@@ -270,7 +270,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         tipo: form.tipo,
         clienteNombre: form.clienteNombre,
         clienteTel: form.clienteTel,
-        items: form.items.filter(i => i.desc?.trim()).map(i => ({ qty: Number(i.qty) || 1, desc: i.desc, precio: 0 })),
+        items: form.items.filter(i => i.desc?.trim()).map(i => ({ qty: Number(i.qty) || 1, unidad: i.unidad || "un", desc: i.desc, precio: 0 })),
         observacion: form.observacion,
         detalle_extra: form.detalle_extra,
         fecha_visita: form.fechaVisita,
@@ -364,7 +364,13 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
             {form.items.map((it, i) => (
               <div key={i} style={{ display: "flex", gap: 8, marginBottom: 7, alignItems: "center" }}>
                 <input value={it.qty} onChange={e => setItem(i, "qty", e.target.value)}
-                  style={{ ...inp, width: 56, textAlign: "center", padding: "9px 8px" }} placeholder="Cant" type="number" min="1" />
+                  style={{ ...inp, width: 56, textAlign: "center", padding: "9px 8px" }} placeholder="Cant"
+                  type="number" min="0" step={it.unidad === "kg" ? "0.1" : "1"} />
+                <select value={it.unidad || "un"} onChange={e => setItem(i, "unidad", e.target.value)}
+                  title="Unidad de medida"
+                  style={{ ...inp, width: 62, padding: "9px 4px", textAlign: "center", cursor: "pointer" }}>
+                  {UNIDADES.map(u => <option key={u.key} value={u.key}>{u.label}</option>)}
+                </select>
                 <input value={it.desc} onChange={e => setItem(i, "desc", e.target.value)}
                   style={{ ...inp, flex: 1 }} placeholder="Descripción del producto" />
                 {form.items.length > 1 && (
@@ -770,7 +776,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                       <span style={{ color: L.light, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3, marginRight: 6 }}>Pedido:</span>
                       {det.items.filter(i => i.desc?.trim()).slice(0, 5).map((it, idx) => (
                         <span key={idx}>{idx > 0 ? " · " : ""}
-                          <strong style={{ color: L.text }}>{it.qty}×</strong> {it.desc}
+                          <strong style={{ color: L.text }}>{cantidadItem(it)}</strong> {it.desc}
                         </span>
                       ))}
                       {det.items.filter(i => i.desc?.trim()).length > 5 && <span style={{ color: L.light }}> +{det.items.filter(i=>i.desc?.trim()).length - 5} más</span>}

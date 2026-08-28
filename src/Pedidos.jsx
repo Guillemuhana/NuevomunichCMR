@@ -8,7 +8,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
-  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios, UNIDADES, cantidadItem,
 } from "./lib";
 
 // Paleta light (igual que App.jsx)
@@ -153,7 +153,7 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
     startY: y + 5,
     head: [["Cant.", "Descripción"]],
     body: items.map((i) => [
-      String(i.qty || 1),
+      cantidadItem(i),
       limpiarPrecios(i.desc || ""),
     ]),
     headStyles:  { fillColor: [156, 27, 27], fontSize: 9.5, fontStyle: "bold", halign: "center" },
@@ -203,7 +203,7 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
 // MODAL — Nuevo / Editar Pedido
 // ═══════════════════════════════════════════════
 export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onClose, onGuardado }) {
-  const [items, setItems]         = useState(mensajeInicial ? [{ desc: mensajeInicial, qty: 1, precio: 0 }] : [{ desc: "", qty: 1, precio: 0 }]);
+  const [items, setItems]         = useState(mensajeInicial ? [{ desc: mensajeInicial, qty: 1, unidad: "un", precio: 0 }] : [{ desc: "", qty: 1, unidad: "un", precio: 0 }]);
   const [notas, setNotas]         = useState("");
   const [entrega, setEntrega]     = useState("Retiro en local");
   const [direccion, setDireccion] = useState(contacto?.direccion || "");
@@ -215,7 +215,7 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
 
   const total = 0; // En este CRM no se manejan precios
 
-  const addItem    = () => setItems((p) => [...p, { desc: "", qty: 1, precio: 0 }]);
+  const addItem    = () => setItems((p) => [...p, { desc: "", qty: 1, unidad: "un", precio: 0 }]);
   const removeItem = (i) => setItems((p) => p.filter((_, idx) => idx !== i));
   const updItem    = (i, k, v) => setItems((p) => p.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
 
@@ -276,11 +276,18 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
 
             {/* Filas */}
             {items.map((item, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 88px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 74px 68px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
                 <input value={item.desc} onChange={(e) => updItem(i, "desc", e.target.value)}
                   placeholder="Ej: Empanadas de carne" style={inp} />
-                <input type="number" min="1" value={item.qty} onChange={(e) => updItem(i, "qty", e.target.value)}
+                {/* Con kg hacen falta decimales: 3,5 kg es un pedido normal. */}
+                <input type="number" min="0" step={item.unidad === "kg" ? "0.1" : "1"} value={item.qty}
+                  onChange={(e) => updItem(i, "qty", e.target.value)}
                   style={{ ...inp, textAlign: "center" }} />
+                <select value={item.unidad || "un"} onChange={(e) => updItem(i, "unidad", e.target.value)}
+                  title="Unidad de medida"
+                  style={{ ...inp, padding: "10px 6px", cursor: "pointer", textAlign: "center" }}>
+                  {UNIDADES.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
+                </select>
                 <button onClick={() => removeItem(i)} disabled={items.length === 1}
                   style={{ background: "transparent", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? L.border : "#EF4444", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, padding: 4 }}>
                   <Trash2 size={15} />
@@ -530,7 +537,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                     {/* Preview de items */}
                     <div style={{ fontSize: 12.5, color: L.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {itemsValidos.slice(0, 3).map((it, idx) => (
-                        <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>
+                        <span key={idx}>{idx > 0 ? " · " : ""}<strong>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}</span>
                       ))}
                       {itemsValidos.length > 3 && ` +${itemsValidos.length - 3} más`}
                     </div>
@@ -572,7 +579,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
                         </div>
                         {itemsValidos.map((item, i) => (
                           <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr", borderTop: `1px solid ${L.border}`, background: i % 2 === 0 ? L.white : "#FAFBFC" }}>
-                            <div style={{ padding: "10px 12px", fontSize: 14, fontWeight: 700, color: L.text }}>{item.qty}</div>
+                            <div style={{ padding: "10px 12px", fontSize: 14, fontWeight: 700, color: L.text }}>{cantidadItem(item)}</div>
                             <div style={{ padding: "10px 12px", fontSize: 14, color: L.text }}>{limpiarPrecios(item.desc)}</div>
                           </div>
                         ))}

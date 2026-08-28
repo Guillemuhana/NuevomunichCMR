@@ -13,7 +13,7 @@ import {
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
-  rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV,
+  rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV, cantidadItem,
 } from "./lib";
 
 const PALETA = ["#9C1B1B", "#6366F1", "#D4A13A", "#0891B2", "#5D6B3A", "#EA580C", "#16A34A", "#BE185D"];
@@ -272,7 +272,7 @@ export default function Reportes() {
         filas.push({ "N° Pedido": shortId(p.id), Fecha: fecha, Cliente: cliente, Teléfono: telefono, Empresa: empresa, Vendedor: p.vendedor || "", Estado: p.estado || "", Artículo: "", Cantidad: "", Notas: det.notas, Entrega: det.entrega, Dirección: det.direccion, Pago: det.pago });
       } else {
         det.items.forEach((it, idx) => {
-          filas.push({ "N° Pedido": idx === 0 ? shortId(p.id) : "", Fecha: idx === 0 ? fecha : "", Cliente: idx === 0 ? cliente : "", Teléfono: idx === 0 ? telefono : "", Empresa: idx === 0 ? empresa : "", Vendedor: idx === 0 ? (p.vendedor || "") : "", Estado: idx === 0 ? (p.estado || "") : "", Artículo: limpiarPrecios(it.desc), Cantidad: it.qty, Notas: idx === 0 ? det.notas : "", Entrega: idx === 0 ? det.entrega : "", Dirección: idx === 0 ? det.direccion : "", Pago: idx === 0 ? det.pago : "" });
+          filas.push({ "N° Pedido": idx === 0 ? shortId(p.id) : "", Fecha: idx === 0 ? fecha : "", Cliente: idx === 0 ? cliente : "", Teléfono: idx === 0 ? telefono : "", Empresa: idx === 0 ? empresa : "", Vendedor: idx === 0 ? (p.vendedor || "") : "", Estado: idx === 0 ? (p.estado || "") : "", Artículo: limpiarPrecios(it.desc), Cantidad: cantidadItem(it), Notas: idx === 0 ? det.notas : "", Entrega: idx === 0 ? det.entrega : "", Dirección: idx === 0 ? det.direccion : "", Pago: idx === 0 ? det.pago : "" });
         });
       }
     }
@@ -587,7 +587,7 @@ export default function Reportes() {
                               {det.items.length > 0
                                 ? det.items.map((it, k) => (
                                     <div key={k} style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                                      <strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}
+                                      <strong>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}
                                     </div>
                                   ))
                                 : "—"}

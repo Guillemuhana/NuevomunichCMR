@@ -13,7 +13,7 @@ import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
-  construirMensajeMeta, marketingHabilitado,
+  construirMensajeMeta, marketingHabilitado, cantidadItem,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -2517,7 +2517,7 @@ function PedidosDelDia({ isMobile }) {
                   {esRep
                     ? <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion || det.notas) || "Sin detalle"}</span>
                     : items.length > 0
-                      ? items.map((it, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong>{it.qty}×</strong> {limpiarPrecios(it.desc)}</span>)
+                      ? items.map((it, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}</span>)
                       : <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion) || "Sin detalle"}</span>}
                 </div>
               </div>

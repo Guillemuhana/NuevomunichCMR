@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
-  limpiarPrecios, LOGO_URL, exportarCSV,
+  limpiarPrecios, LOGO_URL, exportarCSV, cantidadItem,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
@@ -221,7 +221,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
         Cliente: cont.nombre || cont.telefono || "",
         Telefono: cont.telefono || "",
         Empresa: cont.empresa || "",
-        Productos: (det.items || []).filter(i => i.desc).map(i => `${i.qty}x ${limpiarPrecios(i.desc)}`).join(", "),
+        Productos: (det.items || []).filter(i => i.desc).map(i => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", "),
         Estado: (EP[p.estado] || {}).label || p.estado,
         Entrega: det.entrega || "",
         Direccion: det.direccion || "",
@@ -421,7 +421,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                       <div style={{ fontSize: 13.5, color: L.muted, marginBottom: 10, lineHeight: 1.55 }}>
                         {det.items.filter(i => i.desc?.trim()).slice(0, 4).map((it, idx) => (
                           <span key={idx}>{idx > 0 ? " · " : ""}
-                            <strong style={{ color: L.text }}>{it.qty}×</strong> {limpiarPrecios(it.desc)}
+                            <strong style={{ color: L.text }}>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}
                           </span>
                         ))}
                         {det.items.filter(i => i.desc?.trim()).length > 4 && (
