@@ -57,6 +57,9 @@ function VendedorBadge({ alias }) {
   );
 }
 
+// Tocar un día SIEMPRE lo abre, aunque ya estuviera elegido: antes el segundo
+// clic lo deseleccionaba y no pasaba nada, que parecía que la ventana no
+// funcionaba. Para quitar el filtro está la X del chip de la fecha.
 function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
   const [mes, setMes] = useState(new Date());
   const year = mes.getFullYear(), month = mes.getMonth();
@@ -98,10 +101,6 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
           const isSelected = selectedDate === iso;
           const isToday = new Date().toDateString() === new Date(iso + "T12:00").toDateString();
           return (
-            {/* Tocar un día SIEMPRE lo abre, aunque ya estuviera elegido: antes
-                el segundo clic lo deseleccionaba y no pasaba nada, que parecía
-                que la ventana no funcionaba. Para quitar el filtro está la X
-                del chip de la fecha. */}
             <button key={d} onClick={() => onSelectDate(iso)}
               style={{ position: "relative", textAlign: "center", padding: "5px 0", borderRadius: 7, border: "none", cursor: count || isToday ? "pointer" : "default", background: isSelected ? C.red : isToday ? "#FEF2F2" : "transparent", color: isSelected ? "#fff" : isToday ? C.red : L.text, fontWeight: count ? 700 : 400, fontSize: 13 }}>
               {d}
