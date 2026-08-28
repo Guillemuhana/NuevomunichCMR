@@ -972,9 +972,8 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
   const avatarMuni = (size = 32) => (
     <div style={{
       width: size, height: size, borderRadius: size * 0.34, flexShrink: 0,
-      background: `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`,
+      background: C.red,
       display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: "0 3px 10px rgba(168,31,31,.28)",
     }}>
       <Sparkles size={size * 0.46} color="#fff" />
     </div>
@@ -984,9 +983,9 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
     <>
       {/* Botón flotante */}
       <button onClick={() => setOpen((v) => !v)} title="Muni · tu asistente"
-        style={{ position: "fixed", bottom: isMobile ? "calc(96px + env(safe-area-inset-bottom))" : 150, right: isMobile ? 16 : 24, width: isMobile ? 52 : 58, height: isMobile ? 52 : 58, borderRadius: "50%", background: open ? L.white : `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`, border: open ? `1px solid ${L.border}` : "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: open ? SH.md : "0 8px 24px rgba(168,31,31,.38)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform .18s, box-shadow .18s" }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.07)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
+        style={{ position: "fixed", bottom: isMobile ? "calc(96px + env(safe-area-inset-bottom))" : 150, right: isMobile ? 16 : 24, width: isMobile ? 52 : 58, height: isMobile ? 52 : 58, borderRadius: "50%", background: open ? L.white : C.red, border: open ? `1px solid ${L.border}` : "none", color: open ? C.red : "#fff", cursor: "pointer", boxShadow: open ? SH.md : "0 6px 18px rgba(168,31,31,.28)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform .18s, box-shadow .18s" }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 10px 26px rgba(168,31,31,.4)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = open ? SH.md : "0 6px 18px rgba(168,31,31,.28)"; }}>
         {open ? <X size={22} /> : <Sparkles size={24} />}
       </button>
 
@@ -995,30 +994,32 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
         <div className="muni-panel" style={{ position: "fixed", bottom: isMobile ? "calc(104px + env(safe-area-inset-bottom))" : 156, right: isMobile ? 12 : 24, ...(isMobile ? { left: 12 } : { width: 440 }), height: isMobile ? "76dvh" : "min(660px, calc(100vh - 130px))", maxHeight: isMobile ? "calc(100% - 90px)" : "calc(100vh - 130px)", background: L.white, borderRadius: R.xl, boxShadow: SH.xl, border: `1px solid ${L.border}`, zIndex: 299, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
 
         {/* ── Cabecera ── */}
-        <div style={{ background: `linear-gradient(135deg, ${C.red} 0%, ${C.redDark} 100%)`, padding: "13px 14px", display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 13, background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.28)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Sparkles size={19} color="#fff" />
+        {/* Cabecera blanca con una línea roja arriba: el degradé rojo pesaba
+            demasiado para un panel chico y competía con el resto del CRM. */}
+        <div style={{ background: L.white, borderTop: `3px solid ${C.red}`, borderBottom: `1px solid ${L.border}`, padding: "12px 14px", display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: R.sm, background: C.redSoft, border: `1px solid ${C.red}33`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Sparkles size={18} color={C.red} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: "#fff", letterSpacing: 0.2, lineHeight: 1.15 }}>Muni</div>
-            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.82)", marginTop: 2, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: typing ? "#FCD34D" : "#4ADE80", flexShrink: 0, animation: typing ? "muniBrillo 1s infinite" : "none" }} />
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15.5, color: L.text, letterSpacing: 0.2, lineHeight: 1.15 }}>Muni</div>
+            <div style={{ fontSize: 11.5, color: L.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: typing ? "#B45309" : "#2F6B46", flexShrink: 0, animation: typing ? "muniBrillo 1s infinite" : "none" }} />
               {typing ? (actividad || "pensando…") : contactoActivo ? `viendo a ${contactoActivo.nombre || contactoActivo.telefono}` : "tu asistente, listo"}
             </div>
           </div>
           <button onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "Silenciar voz" : "Que me hable"}
-            style={{ background: voiceOn ? "rgba(255,255,255,.24)" : "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {voiceOn ? <Volume2 size={15} color="#fff" /> : <VolumeX size={15} color="rgba(255,255,255,.7)" />}
+            style={{ background: voiceOn ? C.redSoft : L.white, border: `1px solid ${voiceOn ? C.red : L.border}`, borderRadius: R.xs, width: 31, height: 31, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {voiceOn ? <Volume2 size={15} color={C.red} /> : <VolumeX size={15} color={L.light} />}
           </button>
           {msgs.length > 1 && (
             <button onClick={() => { setMsgs([msgs[0]]); setInput(""); }} title="Empezar de nuevo"
-              style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <RotateCcw size={14} color="rgba(255,255,255,.85)" />
+              style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: R.xs, width: 31, height: 31, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <RotateCcw size={14} color={L.light} />
             </button>
           )}
           <button onClick={() => setOpen(false)} title="Cerrar"
-            style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 9, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <X size={15} color="#fff" />
+            style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: R.xs, width: 31, height: 31, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={15} color={L.muted} />
           </button>
         </div>
 
@@ -1032,7 +1033,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
                   {avatarMuni(52)}
                   <div>
                     <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, color: L.text }}>
-                      Hola{userName ? `, ${userName.split(" ")[0]}` : ""} 👋
+                      Hola{userName ? `, ${userName.split(" ")[0]}` : ""}
                     </div>
                     <div style={{ fontSize: 13.5, color: L.muted, marginTop: 6, lineHeight: 1.55, maxWidth: 320 }}>
                       Soy <strong>Muni</strong>. Preguntame lo que quieras o pedime que haga cosas en el CRM:
@@ -1053,7 +1054,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
                       {!!m.acciones?.length && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
                           {m.acciones.map((a, ai) => (
-                            <div key={ai} style={{ display: "flex", alignItems: "center", gap: 7, background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#15803D", borderRadius: R.sm, padding: "6px 10px", fontSize: 12, fontWeight: 500 }}>
+                            <div key={ai} style={{ display: "flex", alignItems: "center", gap: 7, background: L.soft, border: `1px solid ${L.border}`, borderLeft: `2px solid #2F6B46`, color: L.muted, borderRadius: R.xs, padding: "6px 10px", fontSize: 12, fontWeight: 500 }}>
                               <Check size={13} style={{ flexShrink: 0 }} />
                               <span style={{ minWidth: 0 }}>{a.resumen}</span>
                             </div>
@@ -1164,7 +1165,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
             style={{ flex: 1, padding: "11px 16px", borderRadius: R.lg, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, outline: "none", color: L.text, background: L.soft, resize: "none", lineHeight: 1.5, maxHeight: 110, overflowY: "auto" }} />
           <button onClick={() => enviar()} disabled={typing || !input.trim()}
             title="Enviar"
-            style={{ background: typing || !input.trim() ? L.border : `linear-gradient(140deg, ${C.red} 0%, ${C.redDark} 100%)`, border: "none", color: "#fff", borderRadius: R.pill, width: 42, height: 42, cursor: typing || !input.trim() ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: typing || !input.trim() ? "none" : "0 4px 12px rgba(168,31,31,.3)" }}>
+            style={{ background: typing || !input.trim() ? L.border : C.red, border: "none", color: "#fff", borderRadius: R.sm, width: 42, height: 42, cursor: typing || !input.trim() ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: typing || !input.trim() ? "none" : "0 4px 12px rgba(168,31,31,.3)" }}>
             <Send size={17} />
           </button>
         </div>
