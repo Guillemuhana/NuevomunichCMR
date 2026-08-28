@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense, Component } from "react";
 import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
@@ -211,6 +211,66 @@ function Avatar({ nombre, foto, size = 40, border }) {
       {initials}
     </div>
   );
+}
+
+// ============================================================
+// RED DE SEGURIDAD DE LAS PANTALLAS QUE CARGAN APARTE
+// ============================================================
+// Calendario, Marketing y Notas se descargan recién cuando se entra, para
+// que el arranque sea liviano. El problema: si la pestaña quedó abierta
+// desde antes de un deploy, esos archivos ya no existen con ese nombre,
+// la descarga falla y React desmonta TODO — pantalla en blanco, sin menú
+// y sin explicación.
+//
+// Esto lo agarra: si el que falló es un archivo de la app, recarga sola
+// una vez (es siempre la solución). Si vuelve a fallar, muestra el error
+// en vez de recargar en bucle.
+class LimiteDeError extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { falló: false, detalle: "" };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { falló: true, detalle: error?.message || String(error) };
+  }
+
+  componentDidCatch(error) {
+    const msg = String(error?.message || error);
+    const esChunkViejo = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(msg);
+    let yaRecargo = false;
+    try { yaRecargo = sessionStorage.getItem("munich-recargado") === "1"; } catch { /* modo privado */ }
+
+    if (esChunkViejo && !yaRecargo) {
+      try { sessionStorage.setItem("munich-recargado", "1"); } catch { /* nada */ }
+      window.location.reload();
+    }
+  }
+
+  render() {
+    if (!this.state.falló) return this.props.children;
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: L.bg, padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <AlertCircle size={30} color={C.red} />
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: L.text, margin: "14px 0 8px" }}>
+            No se pudo abrir esta sección
+          </div>
+          <div style={{ fontSize: 13.5, color: L.muted, lineHeight: 1.6, marginBottom: 18 }}>
+            Suele pasar cuando el sistema se actualizó con la página abierta.
+            Recargá y listo.
+          </div>
+          <button onClick={() => { try { sessionStorage.removeItem("munich-recargado"); } catch { /* nada */ } window.location.reload(); }}
+            style={{ background: C.red, color: "#fff", border: "none", borderRadius: R.sm, padding: "11px 22px", fontSize: 14, fontWeight: 700, fontFamily: FONT_BODY, cursor: "pointer" }}>
+            Recargar
+          </button>
+          <div style={{ fontSize: 11, color: L.light, marginTop: 16, wordBreak: "break-word" }}>
+            {this.state.detalle}
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 // ============================================================
@@ -2728,23 +2788,29 @@ export default function App() {
         ) : vista === "calendario" ? (
           <>
             {isMobile && <MobileBack title="Calendario" onBack={() => setVista("chat")} />}
-            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+            <LimiteDeError>
+              <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Calendario userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
+            </LimiteDeError>
           </>
         ) : vista === "marketing" && rol === "admin" && marketingHabilitado() ? (
           <>
             {isMobile && <MobileBack title="Marketing" onBack={() => setVista("chat")} />}
-            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+            <LimiteDeError>
+              <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Marketing userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
+            </LimiteDeError>
           </>
         ) : vista === "notas" ? (
           <>
             {isMobile && <MobileBack title="Notas" onBack={() => setVista("chat")} />}
-            <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+            <LimiteDeError>
+              <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
+            </LimiteDeError>
           </>
         ) : vista === "reportes" ? (
           <>
