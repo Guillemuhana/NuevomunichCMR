@@ -155,29 +155,41 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
   doc.setTextColor(40, 30, 20);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
-  doc.text("ARTÍCULOS DEL PEDIDO", 14, y);
-  doc.setDrawColor(220, 210, 195);
-  doc.line(14, y + 2, 196, y + 2);
-
   const items = det.items.filter((i) => i.desc?.trim());
-  autoTable(doc, {
-    startY: y + 5,
-    head: [["Cant.", "Descripción"]],
-    body: items.map((i) => [
-      cantidadItem(i),
-      limpiarPrecios(i.desc || ""),
-    ]),
-    headStyles:  { fillColor: [156, 27, 27], fontSize: 9.5, fontStyle: "bold", halign: "center" },
-    bodyStyles:  { fontSize: 10, cellPadding: 4 },
-    columnStyles: {
-      0: { cellWidth: 18, halign: "center" },
-      1: { cellWidth: 164 },
-    },
-    alternateRowStyles: { fillColor: [252, 248, 240] },
-    margin: { left: 14, right: 14 },
-  });
 
-  y = doc.lastAutoTable.finalY + 10;
+  // Sin artículos no dibujamos la tabla: quedaba el encabezado "Cant. |
+  // Descripción" flotando sobre el vacío, como si el PDF estuviera roto.
+  // Pasa con los reportes de visita, que llevan sólo la observación.
+  if (items.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.setTextColor(140, 132, 114);
+    doc.text("Este pedido no tiene artículos cargados.", 14, y + 10);
+    y += 18;
+  } else {
+    doc.text("ARTÍCULOS DEL PEDIDO", 14, y);
+    doc.setDrawColor(220, 210, 195);
+    doc.line(14, y + 2, 196, y + 2);
+
+    autoTable(doc, {
+      startY: y + 5,
+      head: [["Cant.", "Descripción"]],
+      body: items.map((i) => [
+        cantidadItem(i),
+        limpiarPrecios(i.desc || ""),
+      ]),
+      headStyles:  { fillColor: [156, 27, 27], fontSize: 9.5, fontStyle: "bold", halign: "center" },
+      bodyStyles:  { fontSize: 10, cellPadding: 4 },
+      columnStyles: {
+        0: { cellWidth: 22, halign: "center" },
+        1: { cellWidth: 160 },
+      },
+      alternateRowStyles: { fillColor: [252, 248, 240] },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+  }
 
   // ── Observación y detalle adicional ──
   // Antes se imprimía sólo `notas`, cortada a 110 caracteres en un renglón:

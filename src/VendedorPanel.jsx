@@ -221,8 +221,11 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
       const cont = contactosMap[editando.contacto_id] || {};
       return {
         tipo: det.tipo || "pedido",
-        clienteNombre: cont.nombre || "",
-        clienteTel: cont.telefono || "",
+        // Si el pedido se cargó sin teléfono no hay contacto, y el nombre vive
+        // dentro del detalle. Mirando sólo el contacto, al editar quedaba vacío
+        // y al guardar se escribía ese vacío encima: el nombre se borraba.
+        clienteNombre: cont.nombre || det.clienteNombre || "",
+        clienteTel: cont.telefono || det.clienteTel || "",
         clienteDireccion: det.direccion || cont.direccion || "",
         items: det.items.length ? det.items : FORM_VACIO.items,
         observacion: det.observacion || det.notas || "",
