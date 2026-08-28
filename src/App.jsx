@@ -2749,8 +2749,11 @@ export default function App() {
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario" || vista === "notas");
 
   return (
-    // CSS media queries en index.html controlan qué panel es visible en mobile
+    // Toda la app va dentro de la red: si algo explota en cualquier pantalla,
+    // se ve el error y un botón de recargar, no una pantalla en blanco muda.
+    // CSS media queries en index.html controlan qué panel es visible en mobile:
     // .in-panel = hay panel activo → ocultar sidebar, mostrar app-main
+    <LimiteDeError>
     <div className={`app-layout${mobileInPanel ? " in-panel" : ""}`}
       style={{ fontFamily: FONT_BODY, background: L.bg }}>
       <FontLoader />
@@ -2873,6 +2876,7 @@ export default function App() {
       {rol === "admin" && <AIAsistente contactoActivo={activo} onActualizarContacto={setActivo} userName={userName} userEmail={userEmail} />}
       {showImportarApp && <ImportarContactosModal onClose={() => setShowImportarApp(false)} />}
     </div>
+    </LimiteDeError>
   );
 }
 
