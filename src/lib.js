@@ -128,7 +128,7 @@ export const VENDEDORES_INFO = [
   { nombre: "Marcelino Allende", alias: "Marcelino", emailPrefix: "marcelino" },
   { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },
   { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
-  { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario" },
+  { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario",     telefono: "5493516177741" },
 ];
 
 // Personal de administración (reciben y ven pedidos de vendedores)
