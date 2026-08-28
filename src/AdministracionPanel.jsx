@@ -112,6 +112,178 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
   );
 }
 
+
+// ============================================================
+// EL DÍA, EN GRANDE
+// ============================================================
+// Al tocar un día del calendario se abre esto: todo lo de esa jornada
+// junto, con los números arriba y la hoja de ruta a un clic. Es la
+// pantalla que administración mira a la mañana para armar el reparto.
+function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
+  const delDia = pedidos.filter((p) => fechaPedido(p).startsWith(dia));
+
+  const porEstado = {};
+  const porVendedor = {};
+  let entregas = 0;
+  for (const p of delDia) {
+    const e = EP[p.estado]?.label || p.estado;
+    porEstado[e] = (porEstado[e] || 0) + 1;
+    const v = p.vendedor || "Sin asignar";
+    porVendedor[v] = (porVendedor[v] || 0) + 1;
+    if (parseDet(p.detalle).entrega === "Delivery") entregas++;
+  }
+
+  const fechaLarga = new Date(dia + "T12:00").toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+
+  const doc = () => docHojaRuta(delDia, contactos, parseDet, new Date(dia + "T12:00"));
+  const archivo = `hoja-de-ruta-${dia}.pdf`;
+
+  const exportar = () => {
+    exportarCSV(delDia.map((p) => {
+      const cont = contactos[p.contacto_id] || {};
+      const det = parseDet(p.detalle);
+      return {
+        Cliente: nombreCliente(cont, det),
+        "Teléfono": cont.telefono || det.clienteTel || "",
+        Vendedor: p.vendedor || "",
+        Estado: EP[p.estado]?.label || p.estado,
+        Entrega: det.entrega || "",
+        "Dirección": det.direccion || cont.direccion || "",
+        Pago: det.pago || "",
+        Productos: (det.items || []).filter((i) => i.desc).map((i) => `${cantidadItem(i)} ${limpiarPrecios(i.desc)}`).join(", "),
+        "Observación": det.notas || det.observacion || "",
+      };
+    }), `pedidos-${dia}.csv`);
+  };
+
+  const btnDia = (tono) => ({
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+    padding: "9px 15px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+    fontFamily: FONT_BODY, cursor: delDia.length ? "pointer" : "not-allowed",
+    opacity: delDia.length ? 1 : .45, whiteSpace: "nowrap",
+    ...(tono === "primario"
+      ? { background: C.red, color: "#fff", border: "none" }
+      : { background: L.white, color: L.muted, border: `1px solid ${L.border}` }),
+  });
+
+  return (
+    <>
+      <div onClick={onCerrar}
+        style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,.5)", backdropFilter: "blur(3px)", zIndex: 420 }} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(96vw, 780px)", maxHeight: "90vh", background: L.bg, borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,.35)", zIndex: 421, display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: FONT_BODY }}>
+
+        {/* Cabecera */}
+        <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, borderTop: `3px solid ${C.red}`, padding: "16px 22px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FEF2F2", border: "1px solid #FECACA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1 }}>
+            <span style={{ fontSize: 8.5, fontWeight: 800, color: C.red, textTransform: "uppercase", letterSpacing: .5 }}>
+              {new Date(dia + "T12:00").toLocaleDateString("es-AR", { month: "short" }).replace(".", "")}
+            </span>
+            <span style={{ fontFamily: FONT_DISPLAY, fontSize: 19, fontWeight: 800, color: C.red }}>
+              {new Date(dia + "T12:00").getDate()}
+            </span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text, textTransform: "capitalize", lineHeight: 1.2 }}>
+              {fechaLarga}
+            </div>
+            <div style={{ fontSize: 12.5, color: L.muted, marginTop: 3 }}>
+              {delDia.length === 0
+                ? "No hay nada agendado para este día"
+                : `${delDia.length} ${delDia.length === 1 ? "pedido" : "pedidos"}${entregas ? ` · ${entregas} con delivery` : ""}`}
+            </div>
+          </div>
+          <button onClick={onCerrar} title="Cerrar"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 34, height: 34, cursor: "pointer", color: L.muted, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Resumen del día */}
+        {delDia.length > 0 && (
+          <div style={{ display: "flex", gap: 8, padding: "12px 22px 0", flexWrap: "wrap", flexShrink: 0 }}>
+            {Object.entries(porEstado).map(([e, n]) => (
+              <span key={e} style={{ fontSize: 11.5, fontWeight: 700, color: L.muted, background: L.white, border: `1px solid ${L.border}`, borderRadius: 999, padding: "5px 12px" }}>
+                {e}: <strong style={{ color: L.text }}>{n}</strong>
+              </span>
+            ))}
+            {Object.entries(porVendedor).map(([v, n]) => (
+              <span key={v} style={{ fontSize: 11.5, fontWeight: 700, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 999, padding: "5px 12px" }}>
+                {v}: {n}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Los pedidos del día */}
+        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "14px 22px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {delDia.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "50px 20px", color: L.light }}>
+              <Package size={30} color={L.border} />
+              <div style={{ fontSize: 14, marginTop: 12 }}>Este día no tiene pedidos cargados.</div>
+            </div>
+          ) : delDia.map((p) => {
+            const cont = contactos[p.contacto_id] || {};
+            const det = parseDet(p.detalle);
+            const ep = EP[p.estado] || EP.pendiente;
+            const items = (det.items || []).filter((i) => i.desc?.trim());
+            return (
+              <div key={p.id} style={{ background: L.white, border: `1px solid ${L.border}`, borderLeft: `3px solid ${ep.color}`, borderRadius: 10, padding: "12px 15px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 6 }}>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14.5, color: L.text }}>
+                    {nombreCliente(cont, det)}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: ep.bg, color: ep.color, textTransform: "uppercase" }}>
+                    {ep.label}
+                  </span>
+                  <span style={{ marginLeft: "auto", fontSize: 11.5, color: L.light }}>{p.vendedor || "sin vendedor"}</span>
+                </div>
+
+                <div style={{ fontSize: 12.5, color: L.muted, lineHeight: 1.5 }}>
+                  {items.length
+                    ? items.map((i, idx) => <span key={idx}>{idx > 0 ? " · " : ""}<strong style={{ color: L.text }}>{cantidadItem(i)}</strong> {limpiarPrecios(i.desc)}</span>)
+                    : <span style={{ fontStyle: "italic" }}>{limpiarPrecios(det.observacion || det.notas) || "Sin detalle"}</span>}
+                </div>
+
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8, fontSize: 11, color: L.muted, alignItems: "center" }}>
+                  <span style={{ background: L.soft, borderRadius: 6, padding: "3px 9px", fontWeight: 600 }}>{det.entrega || "—"}</span>
+                  <span style={{ background: L.soft, borderRadius: 6, padding: "3px 9px", fontWeight: 600 }}>{det.pago || "—"}</span>
+                  {det.direccion && (
+                    <span style={{ background: L.soft, borderRadius: 6, padding: "3px 9px", display: "flex", alignItems: "center", gap: 4 }}>
+                      <MapPin size={10} /> {det.direccion.slice(0, 40)}
+                    </span>
+                  )}
+                  <button onClick={() => imprimirPedido(p, cont, { imprimir: true })}
+                    style={{ marginLeft: "auto", background: L.white, border: `1px solid ${L.border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: L.muted, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY }}>
+                    <Printer size={11} /> Imprimir
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Acciones del día */}
+        <div style={{ background: L.white, borderTop: `1px solid ${L.border}`, padding: "13px 22px", display: "flex", gap: 9, flexWrap: "wrap", flexShrink: 0 }}>
+          <button onClick={() => delDia.length && imprimirDoc(doc(), archivo)} style={btnDia("primario")}>
+            <Printer size={15} /> Imprimir hoja de ruta
+          </button>
+          <button onClick={() => delDia.length && descargarDoc(doc(), archivo)} style={btnDia()}>
+            <Download size={15} /> Descargar PDF
+          </button>
+          <button onClick={() => delDia.length && exportar()} style={btnDia()}>
+            <FileDown size={15} /> Exportar CSV
+          </button>
+          <button onClick={onVerEnLista} style={{ ...btnDia(), marginLeft: "auto", opacity: 1, cursor: "pointer" }}>
+            Ver en la lista
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function AdministracionPanel({ userName, userEmail, rol, onLogout }) {
   // El reporte de ventas muestra facturación y ranking de vendedores: eso lo
   // mira sólo Cristian. El personal de administración gestiona pedidos; no
@@ -138,6 +310,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(true);
   const [reporteAbierto, setReporteAbierto] = useState(null); // { titulo, texto }
+  const [diaAbierto, setDiaAbierto] = useState(null);        // día del calendario en pantalla grande
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -555,7 +728,8 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12.5, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
               <Calendar size={14} color={C.red} /> Calendario de entregas
             </div>
-            <MiniCalendar pedidos={pedidos} onSelectDate={setSelectedDate} selectedDate={selectedDate} />
+            <MiniCalendar pedidos={pedidos} selectedDate={selectedDate}
+              onSelectDate={(d) => { setSelectedDate(d); if (d) setDiaAbierto(d); }} />
 
             {selectedDate && (() => {
               const pedidosDia = pedidos.filter(p => fechaPedido(p).startsWith(selectedDate));
@@ -591,6 +765,12 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           </div>
         </div>
       </div>
+
+      {diaAbierto && (
+        <ModalDia dia={diaAbierto} pedidos={pedidos} contactos={contactos}
+          onCerrar={() => setDiaAbierto(null)}
+          onVerEnLista={() => setDiaAbierto(null)} />
+      )}
 
       {/* Modal: reporte de ventas por rango de fechas */}
       {showVentas && esCristian && (
