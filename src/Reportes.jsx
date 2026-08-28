@@ -14,6 +14,7 @@ import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
   rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV, cantidadItem,
+  fechaLocalISO, hoyLocalISO,
 } from "./lib";
 
 const PALETA = ["#9C1B1B", "#6366F1", "#D4A13A", "#0891B2", "#5D6B3A", "#EA580C", "#16A34A", "#BE185D"];
@@ -149,7 +150,7 @@ function BtnExport({ onClick, Icon: Ic, label, variant = "outline" }) {
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
-function hoyISO() { return new Date().toISOString().slice(0, 10); }
+function hoyISO() { return hoyLocalISO(); }
 function shortId(id) { return (id || "").slice(0, 6).toUpperCase(); }
 function parseDet(det) {
   if (!det) return { items: [], notas: "", entrega: "Retiro en local", direccion: "", pago: "Efectivo" };
@@ -170,12 +171,12 @@ export default function Reportes() {
   const [loading, setLoading] = useState(true);
   const [data, setData]       = useState(null);
 
-  const [pDesde, setPDesde]         = useState(() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10); });
+  const [pDesde, setPDesde]         = useState(() => { const d = new Date(); d.setDate(d.getDate() - 29); return fechaLocalISO(d); });
   const [pHasta, setPHasta]         = useState(hoyISO);
   const [pedResult, setPedResult]   = useState(null);
   const [loadingPed, setLoadingPed] = useState(false);
 
-  const [mDesde, setMDesde]         = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
+  const [mDesde, setMDesde]         = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return fechaLocalISO(d); });
   const [mHasta, setMHasta]         = useState(hoyISO);
   const [msgResult, setMsgResult]   = useState(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
@@ -331,16 +332,16 @@ export default function Reportes() {
     const dias = {};
     const cur = new Date(inicio);
     while (cur <= fin) {
-      const k = cur.toISOString().slice(0, 10);
+      const k = fechaLocalISO(cur);
       dias[k] = { dia: fmtFecha(cur), clientes: 0, respuestas: 0, nuevos: 0 };
       cur.setDate(cur.getDate() + 1);
     }
     for (const m of msgs) {
-      const k = m.created_at.slice(0, 10);
+      const k = fechaLocalISO(m.created_at);
       if (dias[k]) { if (m.direccion === "in") dias[k].clientes++; else dias[k].respuestas++; }
     }
     for (const c of nuevos) {
-      const k = c.created_at.slice(0, 10);
+      const k = fechaLocalISO(c.created_at);
       if (dias[k]) dias[k].nuevos++;
     }
     const serie = Object.values(dias);
@@ -429,7 +430,7 @@ export default function Reportes() {
     });
     doc.setFontSize(8); doc.setTextColor(140, 132, 114);
     doc.text(`Generado el ${new Date().toLocaleString("es-AR")} · Munich CRM`, 14, 285);
-    const nombre = `reporte-nm-${periodo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const nombre = `reporte-nm-${periodo}-${hoyLocalISO()}.pdf`;
     if (opciones.imprimir) imprimirDoc(doc, nombre); else descargarDoc(doc, nombre);
   };
 

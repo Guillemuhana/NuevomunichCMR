@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
+  hoyLocalISO,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
@@ -614,7 +615,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const reporteDelDia = () =>
     docReporteDiario(vendorInfo.alias || vendorInfo.nombre, pedidos, parseDetEx, contactos, diaReporte);
   const nombreReporteDia = () => {
-    const d = typeof diaReporte === "string" ? diaReporte : new Date().toISOString().slice(0, 10);
+    const d = typeof diaReporte === "string" ? diaReporte : hoyLocalISO();
     return `reporte-diario-${(vendorInfo.alias || "vendedor").toLowerCase()}-${d}.pdf`;
   };
 

@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   StickyNote, Plus, X, Check, Trash2, Pin, Search, Calendar, Clock,
 } from "lucide-react";
-import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY } from "./lib";
+import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, hoyLocalISO } from "./lib";
 
 // Los colores son un ACENTO, no el relleno. Antes la nota era un papelito
 // pastel completo, y cinco de esos juntos parecían un cuaderno de escuela.
@@ -27,7 +27,7 @@ const COLORES = {
 
 const colorDe = (c) => COLORES[c] || COLORES.gris;
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => hoyLocalISO();
 
 function cuandoRecordatorio(fecha) {
   if (!fecha) return null;

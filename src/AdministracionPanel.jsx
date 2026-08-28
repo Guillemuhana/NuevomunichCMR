@@ -8,6 +8,7 @@ import {
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   limpiarPrecios, LOGO_URL, exportarCSV, cantidadItem,
+  fechaLocalISO, hoyLocalISO,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
@@ -31,11 +32,13 @@ function isVencido(iso) {
   if (!iso) return false;
   return new Date(iso + "T23:59:59") < new Date() && !isHoy(iso);
 }
-// Fecha "efectiva" del pedido para el calendario: usa la fecha de entrega si
-// está cargada; si no, cae en la fecha de creación (YYYY-MM-DD).
+// El día al que pertenece un pedido en el calendario: el día en que se cargó.
+// Antes mandaba la fecha de entrega, así que un pedido tomado ayer con entrega
+// para el viernes recién aparecía el viernes y "los pedidos de ayer" se veían
+// vacíos. Para lo que hay que repartir tal día están los avisos de entrega de
+// arriba, el filtro por fecha de entrega y la hoja de ruta.
 function fechaPedido(p) {
-  const fe = parseDet(p.detalle).fecha_entrega;
-  return fe || (p.created_at || "").slice(0, 10);
+  return fechaLocalISO(p.created_at);
 }
 
 const VENDOR_COLORS = ["#B91C1C","#1D4ED8","#15803D","#7C3AED","#B45309","#0E7490"];
@@ -124,6 +127,12 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
 // pantalla que administración mira a la mañana para armar el reparto.
 function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
   const delDia = pedidos.filter((p) => fechaPedido(p).startsWith(dia));
+  // Lo que hay que repartir ese día es otra cosa que lo que se cargó ese día,
+  // y la hoja de ruta va por lo primero. Se cuenta aparte para que el botón no
+  // quede apagado cuando hay entregas agendadas pero no se cargó nada.
+  const entregasDia = pedidos.filter(
+    (p) => parseDet(p.detalle).fecha_entrega === dia && p.estado !== "cancelado"
+  );
 
   const porEstado = {};
   const porVendedor = {};
@@ -140,7 +149,7 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
-  const doc = () => docHojaRuta(delDia, contactos, parseDet, new Date(dia + "T12:00"));
+  const doc = () => docHojaRuta(pedidos, contactos, parseDet, new Date(dia + "T12:00"));
   const archivo = `hoja-de-ruta-${dia}.pdf`;
 
   const exportar = () => {
@@ -161,11 +170,11 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
     }), `pedidos-${dia}.csv`);
   };
 
-  const btnDia = (tono) => ({
+  const btnDia = (tono, activo = delDia.length > 0) => ({
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
     padding: "9px 15px", borderRadius: 9, fontSize: 13, fontWeight: 700,
-    fontFamily: FONT_BODY, cursor: delDia.length ? "pointer" : "not-allowed",
-    opacity: delDia.length ? 1 : .45, whiteSpace: "nowrap",
+    fontFamily: FONT_BODY, cursor: activo ? "pointer" : "not-allowed",
+    opacity: activo ? 1 : .45, whiteSpace: "nowrap",
     ...(tono === "primario"
       ? { background: C.red, color: "#fff", border: "none" }
       : { background: L.white, color: L.muted, border: `1px solid ${L.border}` }),
@@ -192,9 +201,13 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
               {fechaLarga}
             </div>
             <div style={{ fontSize: 12.5, color: L.muted, marginTop: 3 }}>
-              {delDia.length === 0
-                ? "No hay nada agendado para este día"
-                : `${delDia.length} ${delDia.length === 1 ? "pedido" : "pedidos"}${entregas ? ` · ${entregas} con delivery` : ""}`}
+              {delDia.length === 0 && entregasDia.length === 0
+                ? "Este día no tuvo movimiento"
+                : [
+                    delDia.length ? `${delDia.length} ${delDia.length === 1 ? "pedido cargado" : "pedidos cargados"}` : null,
+                    entregasDia.length ? `${entregasDia.length} ${entregasDia.length === 1 ? "entrega agendada" : "entregas agendadas"}` : null,
+                    entregas ? `${entregas} con delivery` : null,
+                  ].filter(Boolean).join(" · ")}
             </div>
           </div>
           <button onClick={onCerrar} title="Cerrar"
@@ -269,10 +282,10 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
 
         {/* Acciones del día */}
         <div style={{ background: L.white, borderTop: `1px solid ${L.border}`, padding: "13px 22px", display: "flex", gap: 9, flexWrap: "wrap", flexShrink: 0 }}>
-          <button onClick={() => delDia.length && imprimirDoc(doc(), archivo)} style={btnDia("primario")}>
+          <button onClick={() => entregasDia.length && imprimirDoc(doc(), archivo)} style={btnDia("primario", entregasDia.length > 0)}>
             <Printer size={15} /> Imprimir hoja de ruta
           </button>
-          <button onClick={() => delDia.length && descargarDoc(doc(), archivo)} style={btnDia()}>
+          <button onClick={() => entregasDia.length && descargarDoc(doc(), archivo)} style={btnDia("", entregasDia.length > 0)}>
             <Download size={15} /> Descargar PDF
           </button>
           <button onClick={() => delDia.length && exportar()} style={btnDia()}>
@@ -295,7 +308,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [pedidos, setPedidos] = useState([]);
   // Reporte de ventas por rango de fechas (modal)
   const [showVentas, setShowVentas] = useState(false);
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  const hoyISO = hoyLocalISO();
   const primeroDeMes = `${hoyISO.slice(0, 7)}-01`;
   const [vDesde, setVDesde] = useState(primeroDeMes);
   const [vHasta, setVHasta] = useState(hoyISO);
@@ -307,7 +320,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
-  const [fechaCampo, setFechaCampo] = useState("entrega"); // "entrega" | "creado"
+  const [fechaCampo, setFechaCampo] = useState("creado"); // "entrega" | "creado"
   const [selectedDate, setSelectedDate] = useState(null);
   const [editandoFecha, setEditandoFecha] = useState(null);
   const [notifs, setNotifs] = useState([]);
@@ -382,10 +395,10 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
     const porBusq = !busqueda || nombre.includes(busqueda.toLowerCase()) || items.includes(busqueda.toLowerCase()) || (p.vendedor || "").toLowerCase().includes(busqueda.toLowerCase());
     const porVend = filtroVendedor === "todos" || p.vendedor === filtroVendedor;
     const porEstado = filtroEstado === "todos" || p.estado === filtroEstado;
-    // Fecha: el calendario selecciona un día puntual (por entrega). Si no hay día
+    // Fecha: el calendario selecciona un día puntual (por carga). Si no hay día
     // seleccionado, aplica el rango Desde/Hasta sobre el campo elegido (entrega/creado).
     const fe = det.fecha_entrega;
-    const fechaRef = fechaCampo === "creado" ? (p.created_at || "").slice(0, 10) : fe;
+    const fechaRef = fechaCampo === "creado" ? fechaLocalISO(p.created_at) : fe;
     let porFecha = true;
     if (selectedDate) {
       porFecha = fechaPedido(p).startsWith(selectedDate);
@@ -420,7 +433,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
         Creado: new Date(p.created_at).toLocaleDateString("es-AR"),
       };
     });
-    exportarCSV(rows, `pedidos_${new Date().toISOString().slice(0, 10)}.csv`);
+    exportarCSV(rows, `pedidos_${hoyLocalISO()}.csv`);
   };
 
   // Ventas del período elegido en el modal.
@@ -433,7 +446,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
 
   // Hoja de ruta: las entregas agendadas para hoy, para quien reparte.
   const hojaRuta = () => docHojaRuta(pedidos, contactos, parseDet, new Date());
-  const nombreHojaRuta = () => `hoja-de-ruta-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const nombreHojaRuta = () => `hoja-de-ruta-${hoyLocalISO()}.pdf`;
 
   const alertColor = {
     hoy: { bg: "#FFFBEB", border: "#FDE68A", text: "#92400E", icon: "#D97706" },
@@ -542,7 +555,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                 <select value={fechaCampo} onChange={e => setFechaCampo(e.target.value)} title="Campo de fecha"
                   style={{ padding: "8px 10px", borderRadius: 9, border: `1px solid ${L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                   <option value="entrega">Entrega</option>
-                  <option value="creado">Creado</option>
+                  <option value="creado">Carga</option>
                 </select>
                 <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} title="Desde"
                   style={{ padding: "7px 10px", borderRadius: 9, border: `1px solid ${fechaDesde ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: fechaDesde ? "#FEF2F2" : L.white, color: L.text, outline: "none" }} />
@@ -748,7 +761,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           {/* Calendario */}
           <div style={{ width: 270, flexShrink: 0 }}>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12.5, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
-              <Calendar size={14} color={C.red} /> Calendario de entregas
+              <Calendar size={14} color={C.red} /> Calendario de pedidos
             </div>
             <MiniCalendar pedidos={pedidos} selectedDate={selectedDate}
               onSelectDate={(d) => { setSelectedDate(d); if (d) setDiaAbierto(d); }} />
@@ -817,7 +830,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                 {[
                   { k: "hoy",    label: "Hoy",            d: hoyISO },
-                  { k: "semana", label: "Últimos 7 días", d: new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10) },
+                  { k: "semana", label: "Últimos 7 días", d: fechaLocalISO(new Date(Date.now() - 6 * 864e5)) },
                   { k: "mes",    label: "Este mes",       d: primeroDeMes },
                   { k: "anio",   label: "Este año",       d: `${hoyISO.slice(0, 4)}-01-01` },
                 ].map((r) => {

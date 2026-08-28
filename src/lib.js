@@ -298,6 +298,22 @@ export function rangoFechas(periodo) {
   return { inicio, fin };
 }
 
+// ---------- Fechas en hora nuestra ----------
+// `created_at` es timestamptz y Supabase lo devuelve en UTC. Cortarle los
+// primeros 10 caracteres da la fecha de Londres, no la de acá: todo lo cargado
+// después de las 21:00 quedaba con la fecha del día siguiente y un pedido de
+// ayer a la noche aparecía como de hoy. Estas dos arman el YYYY-MM-DD con el
+// reloj del que está mirando la pantalla.
+export function fechaLocalISO(ts) {
+  if (!ts) return "";
+  const d = ts instanceof Date ? ts : new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+export function hoyLocalISO() {
+  return fechaLocalISO(new Date());
+}
+
 export function fmtFecha(d) {
   return new Date(d).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
 }
