@@ -618,6 +618,25 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                         )}
                       </div>
 
+                      {/* La observación a la vista. Antes vivía detrás del botón
+                          "Ver reporte", que se sacó de este panel: quedaba escrita
+                          por el vendedor y administración no la leía nunca. Es
+                          justo lo que hace falta para preparar el pedido. */}
+                      {(det.notas || det.observacion)?.trim() && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8, padding: "8px 11px", marginBottom: 10 }}>
+                          <FileText size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                          <span style={{ fontSize: 12.5, color: "#7C2D12", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                            {limpiarPrecios(det.notas || det.observacion)}
+                          </span>
+                        </div>
+                      )}
+
+                      {det.detalle_extra?.trim() && (
+                        <div style={{ fontSize: 12, color: L.muted, marginBottom: 10, paddingLeft: 2, lineHeight: 1.5 }}>
+                          <strong style={{ color: L.text }}>Detalle adicional:</strong> {limpiarPrecios(det.detalle_extra)}
+                        </div>
+                      )}
+
                       <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", paddingTop: 10, borderTop: `1px solid ${L.soft}` }}>
                         {cont.telefono && (
                           <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
