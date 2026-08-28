@@ -3,7 +3,7 @@ import {
   Package, Search, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
   Trash2, AlertCircle, User,
-  Phone, Download, MapPin, FileDown, FileText, Printer, Truck,
+  Phone, Download, MapPin, FileDown, FileText, Printer, Truck, Paperclip,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
@@ -444,6 +444,16 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                           </span>
                         )}
                         <span style={{ fontSize: 11.5, color: L.muted, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>{det.pago}</span>
+                        {det.adjunto_url && (
+                          <a href={det.adjunto_url} target="_blank" rel="noreferrer"
+                            title={det.adjunto_nombre || "Adjunto del vendedor"}
+                            style={{ fontSize: 11.5, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: "4px 10px", borderRadius: 6, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 5, maxWidth: 190 }}>
+                            <Paperclip size={12} />
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {det.adjunto_nombre || "Ver adjunto"}
+                            </span>
+                          </a>
+                        )}
                         {det.notas?.trim() && esCristian && (
                           <button onClick={() => setReporteAbierto({ titulo: cont.nombre || cont.telefono || "Cliente sin nombre", vendedor: ped.vendedor, texto: det.notas })}
                             style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 11px", borderRadius: 6, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY, transition: "all .15s" }}

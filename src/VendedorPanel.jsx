@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, LogOut, Bell,
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
-  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer,
+  FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer, Paperclip,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
@@ -207,6 +207,7 @@ const FORM_VACIO = {
   clienteNombre: "", clienteTel: "", clienteDireccion: "",
   items: [{ qty: 1, desc: "" }, { qty: 1, desc: "" }, { qty: 1, desc: "" }],
   observacion: "", detalle_extra: "",
+  adjunto_url: "", adjunto_nombre: "",
   fechaVisita: new Date().toISOString().split("T")[0],
   fechaEntrega: "",
   pago: "Efectivo", entrega: "Delivery",
@@ -226,6 +227,8 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         items: det.items.length ? det.items : FORM_VACIO.items,
         observacion: det.observacion || det.notas || "",
         detalle_extra: det.detalle_extra || "",
+        adjunto_url: det.adjunto_url || "",
+        adjunto_nombre: det.adjunto_nombre || "",
         fechaVisita: det.fecha_visita || new Date().toISOString().split("T")[0],
         fechaEntrega: det.fecha_entrega || "",
         pago: det.pago || "Efectivo",
@@ -245,6 +248,31 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
   });
   const addItem = () => setForm(f => ({ ...f, items: [...f.items, { qty: 1, desc: "" }] }));
   const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+
+  // ── Adjuntar el pedido como archivo ──
+  // Muchos vendedores anotan el pedido en papel: que puedan sacarle una foto
+  // en vez de tipearlo de nuevo. Va al mismo bucket que los archivos del chat.
+  const adjuntoRef = useRef(null);
+  const [subiendoAdj, setSubiendoAdj] = useState(false);
+  const [errorAdj, setErrorAdj] = useState("");
+
+  const subirAdjunto = async (file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { setErrorAdj("El archivo supera los 10 MB."); return; }
+    setSubiendoAdj(true); setErrorAdj("");
+    try {
+      const limpio = file.name.replace(/[^w.-]+/g, "_").slice(-60);
+      const ruta = `pedidos/${Date.now()}-${limpio || "adjunto"}`;
+      const { error } = await supabase.storage
+        .from("chat-media").upload(ruta, file, { contentType: file.type || undefined, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from("chat-media").getPublicUrl(ruta);
+      setForm(f => ({ ...f, adjunto_url: data?.publicUrl || "", adjunto_nombre: file.name }));
+    } catch (e) {
+      setErrorAdj("No se pudo subir: " + (e?.message || e));
+    }
+    setSubiendoAdj(false);
+  };
 
   const guardar = async () => {
     setGuardando(true);
@@ -382,6 +410,44 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
             ))}
           </div>
           )}
+
+          {/* Adjunto: la foto del pedido escrito a mano, un remito, una lista */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Adjuntar pedido
+            </label>
+
+            {form.adjunto_url ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: C.red, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Paperclip size={15} />
+                </div>
+                <a href={form.adjunto_url} target="_blank" rel="noreferrer"
+                  style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: L.text, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {form.adjunto_nombre || "Archivo adjunto"}
+                </a>
+                <button onClick={() => { set("adjunto_url", ""); set("adjunto_nombre", ""); }}
+                  title="Quitar el archivo"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 4, flexShrink: 0 }}>
+                  <X size={15} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <button onClick={() => adjuntoRef.current?.click()} disabled={subiendoAdj}
+                  style={{ width: "100%", background: "transparent", border: `1.5px dashed ${L.border}`, borderRadius: 9, padding: "11px", fontSize: 13.5, color: subiendoAdj ? L.light : C.red, cursor: subiendoAdj ? "wait" : "pointer", fontFamily: FONT_BODY, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                  <Paperclip size={15} /> {subiendoAdj ? "Subiendo…" : "Adjuntar foto o archivo"}
+                </button>
+                <div style={{ fontSize: 11, color: L.light, marginTop: 5 }}>
+                  Sacale una foto al pedido escrito, o subí un remito o una lista. Hasta 10 MB.
+                </div>
+              </>
+            )}
+            <input ref={adjuntoRef} type="file" style={{ display: "none" }}
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv"
+              onChange={e => subirAdjunto(e.target.files?.[0])} />
+            {errorAdj && <div style={{ fontSize: 12, color: C.red, marginTop: 6 }}>{errorAdj}</div>}
+          </div>
 
           {/* Observación (+ Detalle adicional, salvo en Visita) */}
           <div style={{ display: "grid", gridTemplateColumns: form.tipo === "visita" ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
