@@ -119,7 +119,7 @@ export function limpiarPrecios(txt) {
     .trim();
 }
 
-export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Pablo", "Sandra", "Oficina"];
+export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Mario", "Pablo", "Sandra", "Oficina"];
 
 // Vendedores externos con panel propio
 export const VENDEDORES_INFO = [
@@ -128,6 +128,7 @@ export const VENDEDORES_INFO = [
   { nombre: "Marcelino Allende", alias: "Marcelino", emailPrefix: "marcelino" },
   { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },
   { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
+  { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario" },
 ];
 
 // Personal de administración (reciben y ven pedidos de vendedores)
