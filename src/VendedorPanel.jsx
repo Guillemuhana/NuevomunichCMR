@@ -7,7 +7,7 @@ import {
   FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer, Paperclip,
 } from "lucide-react";
 import {
-  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
