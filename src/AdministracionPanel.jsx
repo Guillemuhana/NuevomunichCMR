@@ -217,6 +217,11 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
       if (fechaDesde) porFecha = porFecha && !!fechaRef && fechaRef >= fechaDesde;
       if (fechaHasta) porFecha = porFecha && !!fechaRef && fechaRef <= fechaHasta;
     }
+    // Al tocar un día en el calendario se quiere ver TODO lo de ese día, sin
+    // importar el estado: si quedaba un filtro puesto de antes, el día se veía
+    // a medias y parecía que faltaban pedidos.
+    if (selectedDate) return porBusq && porVend && porFecha;
+
     return porBusq && porVend && porEstado && porFecha;
   });
 
@@ -339,8 +344,10 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                 <option value="todos">Todos los vendedores</option>
                 {vendedoresList.map(v => <option key={v.nombre} value={v.nombre}>{v.nombre}</option>)}
               </select>
+              {/* Con un día elegido el estado no se aplica: se ve apagado para que
+                  se entienda que está en pausa, no que dejó de funcionar. */}
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-                style={{ padding: "8px 12px", borderRadius: 9, border: `1px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
+                style={{ padding: "8px 12px", borderRadius: 9, border: `1px solid ${filtroEstado !== "todos" && !selectedDate ? C.red : L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" && !selectedDate ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600, opacity: selectedDate ? 0.5 : 1 }}>
                 <option value="todos">Todos los estados</option>
                 {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
@@ -349,6 +356,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                   style={{ display: "flex", alignItems: "center", gap: 6, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 9, padding: "7px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                   <Calendar size={12} />
                   {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
+                  {filtroEstado !== "todos" && <span style={{ fontWeight: 600, opacity: .8 }}>· todos los estados</span>}
                   <X size={11} />
                 </button>
               )}
