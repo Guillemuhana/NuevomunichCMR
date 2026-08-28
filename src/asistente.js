@@ -12,6 +12,8 @@
 import { supabase, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES, limpiarPrecios } from "./lib";
 
 export const MODELO = "openai/gpt-oss-120b";
+// Suplente para cuando el principal está al tope: su cuota es aparte.
+export const MODELO_ALTERNATIVO = "openai/gpt-oss-20b";
 const API = "https://api.groq.com/openai/v1/chat/completions";
 
 /** La clave de Groq. El nombre de la variable quedó de la época de Grok. */
@@ -230,6 +232,49 @@ export const HERRAMIENTAS = [
       parameters: {
         type: "object",
         properties: { dias: { type: "integer", description: "Período en días" } },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pendientes",
+      description:
+        "Lo que está esperando algo: clientes sin responder, leads sin vendedor asignado, seguimientos vencidos y notas vencidas. Usala cuando pregunten qué hay que hacer o en qué conviene enfocarse.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "asignar_vendedor_masivo",
+      description:
+        "Reparte varios clientes entre uno o más vendedores de una sola vez. Con sin_asignar en true agarra los que no tienen vendedor.",
+      parameters: {
+        type: "object",
+        properties: {
+          vendedores: { type: "array", items: { type: "string" }, description: "Entre quiénes repartir" },
+          contacto_ids: { type: "array", items: { type: "string" }, description: "Clientes puntuales" },
+          sin_asignar: { type: "boolean", description: "Tomar los que no tienen vendedor" },
+          limite: { type: "integer", description: "Tope de clientes a tocar (por defecto 50)" },
+        },
+        required: ["vendedores"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cambiar_estado_masivo",
+      description:
+        "Cambia el estado de varios clientes a la vez. Hay que pasarle los ids: buscalos antes con buscar_contactos.",
+      parameters: {
+        type: "object",
+        properties: {
+          contacto_ids: { type: "array", items: { type: "string" } },
+          estado: { type: "string", enum: ESTADOS_ACTIVOS },
+        },
+        required: ["contacto_ids", "estado"],
       },
     },
   },
@@ -455,7 +500,7 @@ export async function ejecutarHerramienta(nombre, args, ctx = {}) {
       const dias = args.dias || 7;
       const desde = hace(dias);
       const [cRes, pRes, mRes] = await Promise.all([
-        supabase.from("contactos").select("id,estado,vendedor,created_at,ultimo_in_at,ultimo_out_at"),
+        supabase.from("contactos").select("id,estado,vendedor,created_at,ultimo_in_at,ultimo_out_at,seguimiento_at"),
         supabase.from("pedidos").select("id,total,estado,vendedor,created_at").gte("created_at", iso(desde)),
         supabase.from("mensajes").select("id,direccion,created_at").gte("created_at", iso(desde)),
       ]);
@@ -485,12 +530,97 @@ export async function ejecutarHerramienta(nombre, args, ctx = {}) {
           sin_responder: contactos.filter(
             (c) => c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))
           ).length,
+          // Van acá porque esta consulta ya trajo todos los contactos: sacarlos
+          // aparte serían dos viajes más para el mismo dato.
+          leads_sin_vendedor: contactos.filter((c) => !c.vendedor).length,
+          seguimientos_vencidos: contactos.filter(
+            (c) => c.seguimiento_at && new Date(c.seguimiento_at) <= new Date()
+          ).length,
           pedidos_periodo: pedidos.length,
           facturacion_periodo: pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0),
           mensajes_recibidos: mensajes.filter((m) => m.direccion === "in").length,
           ranking_vendedores: ranking,
         },
         resumen: `Saqué los números de los últimos ${dias} días`,
+      };
+    }
+
+    case "pendientes": {
+      const ahora = new Date();
+      const [cRes, nRes] = await Promise.all([
+        supabase.from("contactos").select(CAMPOS_CONTACTO).limit(2000),
+        supabase.from("notas").select("titulo,texto,recordatorio").eq("hecha", false)
+          .not("recordatorio", "is", null).lte("recordatorio", iso(ahora).slice(0, 10)).limit(20),
+      ]);
+      const contactos = cRes.data || [];
+
+      const esperando = contactos
+        .filter((c) => c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at)))
+        .map((c) => ({
+          ...resumirContacto(c),
+          espera_horas: Math.round((ahora - new Date(c.ultimo_in_at)) / 36e5),
+        }))
+        .sort((a, b) => b.espera_horas - a.espera_horas);
+
+      const sinVendedor = contactos
+        .filter((c) => !c.vendedor && !c.es_vendedor)
+        .map((c) => ({ id: c.id, nombre: c.nombre || c.telefono, desde: fechaCorta(c.created_at) }));
+
+      const seguimientos = contactos
+        .filter((c) => c.seguimiento_at && new Date(c.seguimiento_at) <= ahora)
+        .map((c) => ({ id: c.id, nombre: c.nombre || c.telefono, motivo: c.nota_seguimiento, era: fechaCorta(c.seguimiento_at) }));
+
+      return {
+        datos: {
+          esperando_respuesta: { total: esperando.length, primeros: esperando.slice(0, 12) },
+          leads_sin_vendedor:  { total: sinVendedor.length, primeros: sinVendedor.slice(0, 12) },
+          seguimientos_vencidos: { total: seguimientos.length, primeros: seguimientos.slice(0, 10) },
+          notas_vencidas: (nRes.data || []).map((n) => ({ nota: n.titulo || String(n.texto).slice(0, 80), era: n.recordatorio })),
+        },
+        resumen: `Revisé lo pendiente · ${esperando.length} esperando respuesta · ${sinVendedor.length} sin vendedor`,
+      };
+    }
+
+    case "asignar_vendedor_masivo": {
+      const vendedores = (args.vendedores || []).map((v) => String(v).trim()).filter(Boolean);
+      if (!vendedores.length) return { error: "Decime entre qué vendedores repartir." };
+
+      let ids = args.contacto_ids || [];
+      if (!ids.length && args.sin_asignar) {
+        const { data } = await supabase.from("contactos").select("id")
+          .is("vendedor", null).order("created_at", { ascending: false })
+          .limit(Math.min(args.limite || 50, 200));
+        ids = (data || []).map((c) => c.id);
+      }
+      if (!ids.length) return { datos: { asignados: 0 }, resumen: "No había clientes para repartir." };
+
+      // Reparto parejo y en orden: el primero al primero, y así.
+      const porVendedor = {};
+      ids.forEach((id, i) => {
+        const v = vendedores[i % vendedores.length];
+        (porVendedor[v] ||= []).push(id);
+      });
+
+      let total = 0;
+      for (const [vendedor, lote] of Object.entries(porVendedor)) {
+        const { error } = await supabase.from("contactos").update({ vendedor }).in("id", lote);
+        if (error) return { error: error.message };
+        total += lote.length;
+      }
+      return {
+        datos: { asignados: total, reparto: Object.fromEntries(Object.entries(porVendedor).map(([v, l]) => [v, l.length])) },
+        resumen: `Repartí ${total} clientes · ${Object.entries(porVendedor).map(([v, l]) => `${v}: ${l.length}`).join(" · ")}`,
+      };
+    }
+
+    case "cambiar_estado_masivo": {
+      const ids = (args.contacto_ids || []).slice(0, 200);
+      if (!ids.length) return { error: "Necesito los ids de los clientes. Buscalos primero." };
+      const { error } = await supabase.from("contactos").update({ estado: args.estado }).in("id", ids);
+      if (error) return { error: error.message };
+      return {
+        datos: { cambiados: ids.length },
+        resumen: `${ids.length} clientes pasaron a ${ESTADOS[args.estado]?.label || args.estado}`,
       };
     }
 
@@ -531,13 +661,16 @@ CÓMO TRABAJÁS
 - Cosas que cambian datos (estado, vendedor, pedidos, eventos, seguimientos): hacelas directamente cuando te las piden. No pidas permiso para algo que ya te pidieron.
 - Para escribirle a un cliente usá siempre proponer_whatsapp. El mensaje queda esperando que la persona toque "Enviar": nunca sale solo, y eso está bien.
 - Si algo te falta para actuar (por ejemplo, no sabés a qué cliente se refieren), preguntá una sola cosa concreta.
+- Podés hacer cosas de a muchas: repartir los leads sin vendedor entre varios, o cambiar el estado de un grupo. Para lo masivo, decí primero a cuántos va a afectar y esperá el visto bueno. Para algo puntual, hacelo y listo.
+- Con cambiar_estado_masivo necesitás los ids: buscalos antes con buscar_contactos.
 
 CÓMO HABLÁS
 - Español rioplatense (vos), cálido y directo, como un compañero de laburo. Nada de tono corporativo.
 - Respuestas cortas y masticadas. Si podés contestar en dos líneas, contestá en dos líneas.
 - Usá *negrita* para lo importante. Nada de listas larguísimas ni de cerrar siempre con "¿algo más?".
 - Cuando ejecutás algo, decilo en una línea y seguí. La persona ya ve el detalle en pantalla.
-- Si ves algo que conviene mirar (clientes sin responder hace rato, un vendedor frenado, un seguimiento vencido), mencionalo aunque no te lo pregunten.
+- Arriba tenés lo que está pendiente. Si hay clientes esperando respuesta hace horas, leads sin vendedor o seguimientos vencidos, decilo apenas puedas y ofrecé resolverlo: eso es lo que más plata mueve y nadie lo mira.
+- Un lead sin vendedor es un cliente que no está siguiendo nadie. Si ves varios, ofrecé repartirlos.
 
 ${contactoActivo
   ? `CLIENTE ABIERTO EN PANTALLA AHORA (usá este id salvo que te digan otra cosa):
@@ -574,6 +707,14 @@ async function pedir(key, cuerpo, intento = 0) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify(cuerpo),
   });
+
+  // El límite por minuto es POR MODELO. Antes de hacer esperar a la persona,
+  // reintentamos con el modelo chico, que tiene su propia cuota. Contesta un
+  // poco menos fino, pero contesta.
+  if (res.status === 429 && intento === 0 && cuerpo.model !== MODELO_ALTERNATIVO) {
+    await res.text();
+    return pedir(key, { ...cuerpo, model: MODELO_ALTERNATIVO }, intento + 1);
+  }
 
   if (res.status === 429 && intento < 2) {
     const cabecera = Number(res.headers.get("retry-after"));

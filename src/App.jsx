@@ -807,7 +807,7 @@ function AIAsistente({ contactoActivo, onActualizarContacto, userName, userEmail
       const resumen = !datos ? "(no pude leer los números en este momento)" : [
         `• Contactos: ${datos.contactos_totales} (nuevos hoy: ${datos.nuevos_hoy}, esta semana: ${datos.nuevos_periodo})`,
         `• Pipeline: ${Object.entries(datos.pipeline).map(([e, n]) => `${e} (${n})`).join(" · ")}`,
-        `• Sin responder: ${datos.sin_responder}`,
+        `• PENDIENTE AHORA: ${datos.sin_responder} esperando respuesta · ${datos.leads_sin_vendedor} leads sin vendedor · ${datos.seguimientos_vencidos} seguimientos vencidos`,
         `• Últimos 7 días: ${datos.pedidos_periodo} pedidos · $${datos.facturacion_periodo.toLocaleString("es-AR")} · ${datos.mensajes_recibidos} mensajes recibidos`,
         datos.ranking_vendedores.length
           ? `• Vendedores: ${datos.ranking_vendedores.map((v) => `${v.vendedor} ${v.pedidos}`).join(" · ")}`
