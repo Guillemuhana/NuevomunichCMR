@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY } from "./lib";
 
-// Colores del papelito. Pensados para leerse bien, no para gritar.
 // Los colores son un ACENTO, no el relleno. Antes la nota era un papelito
 // pastel completo, y cinco de esos juntos parecían un cuaderno de escuela.
 // Ahora la tarjeta es blanca y el color vive en una barra de 3px al costado.
@@ -310,7 +309,7 @@ function ModalNota({ nota, userName, userEmail, onCerrar, onGuardada }) {
             {nueva ? "Nueva nota" : "Editar nota"}
           </div>
           <button onClick={onCerrar}
-            style={{ background: "rgba(255,255,255,.7)", border: `1px solid ${col.borde}`, borderRadius: R.sm, width: 30, height: 30, cursor: "pointer", color: L.muted, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: R.sm, width: 30, height: 30, cursor: "pointer", color: L.muted, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={15} />
           </button>
         </div>
@@ -352,7 +351,7 @@ function ModalNota({ nota, userName, userEmail, onCerrar, onGuardada }) {
 
         <div style={{ padding: "13px 20px", borderTop: `1px solid ${L.border}`, display: "flex", justifyContent: "flex-end", gap: 9, background: L.soft }}>
           <button onClick={onCerrar}
-            style={{ padding: "9px 16px", borderRadius: R.sm, border: `1px solid ${col.borde}`, background: L.white, color: L.muted, fontSize: 13.5, fontWeight: 600, fontFamily: FONT_BODY, cursor: "pointer" }}>
+            style={{ padding: "9px 16px", borderRadius: R.sm, border: `1px solid ${L.border}`, background: L.white, color: L.muted, fontSize: 13.5, fontWeight: 600, fontFamily: FONT_BODY, cursor: "pointer" }}>
             Cancelar
           </button>
           <button onClick={guardar} disabled={guardando}

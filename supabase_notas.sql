@@ -11,7 +11,7 @@ create table if not exists public.notas (
   id           uuid primary key default gen_random_uuid(),
   titulo       text,
   texto        text not null default '',
-  color        text not null default 'amarillo',   -- amarillo | verde | azul | rosa | gris
+  color        text not null default 'gris',       -- rojo | ambar | verde | azul | gris
   fijada       boolean not null default false,     -- queda arriba de todo
   hecha        boolean not null default false,     -- tachada, ya resuelta
   recordatorio date,                               -- opcional: "acordate el…"
