@@ -40,6 +40,14 @@ function fechaPedido(p) {
 
 const VENDOR_COLORS = ["#B91C1C","#1D4ED8","#15803D","#7C3AED","#B45309","#0E7490"];
 
+// El vendedor puede cargar un pedido escribiendo sólo el nombre del cliente,
+// sin teléfono. En ese caso no se crea ningún contacto y el nombre queda
+// guardado dentro del detalle: si no lo miramos ahí, todos esos pedidos se
+// ven como "Cliente sin nombre".
+function nombreCliente(cont, det) {
+  return cont?.nombre || cont?.telefono || det?.clienteNombre || det?.clienteTel || "Cliente sin nombre";
+}
+
 function VendedorBadge({ alias }) {
   const idx = (alias || "").charCodeAt(0) % VENDOR_COLORS.length;
   return (
@@ -406,7 +414,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                           <User size={16} color={C.red} />
                         </span>
                         <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: L.text, letterSpacing: 0.2 }}>
-                          {cont.nombre || cont.telefono || "Cliente sin nombre"}
+                          {nombreCliente(cont, det)}
                         </span>
                         {cont.empresa && <span style={{ fontSize: 12, color: L.muted }}>· {cont.empresa}</span>}
                         <span style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 5, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
@@ -455,7 +463,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                           </a>
                         )}
                         {det.notas?.trim() && esCristian && (
-                          <button onClick={() => setReporteAbierto({ titulo: cont.nombre || cont.telefono || "Cliente sin nombre", vendedor: ped.vendedor, texto: det.notas })}
+                          <button onClick={() => setReporteAbierto({ titulo: nombreCliente(cont, det), vendedor: ped.vendedor, texto: det.notas })}
                             style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 11px", borderRadius: 6, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY, transition: "all .15s" }}
                             onMouseEnter={e => { e.currentTarget.style.background = "#FEF3C7"; e.currentTarget.style.borderColor = "#FCD34D"; }}
                             onMouseLeave={e => { e.currentTarget.style.background = "#FFFBEB"; e.currentTarget.style.borderColor = "#FDE68A"; }}>
@@ -562,7 +570,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                     <div key={p.id} style={{ padding: "8px 0", borderTop: `1px solid ${L.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <VendedorBadge alias={p.vendedor} />
-                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || cont.telefono || "Cliente sin nombre"}</span>
+                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{nombreCliente(cont, parseDet(p.detalle))}</span>
                         <span style={{ padding: "1px 7px", borderRadius: 6, background: ep.bg, color: ep.color, fontSize: 10.5, fontWeight: 700 }}>{ep.label}</span>
                       </div>
                       <div style={{ fontSize: 12, color: L.muted, marginTop: 3 }}>{parseDet(p.detalle).entrega}</div>

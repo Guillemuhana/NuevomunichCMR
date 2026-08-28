@@ -168,18 +168,31 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
 
   y = doc.lastAutoTable.finalY + 10;
 
-  // ── Notas ──
-  if (det.notas?.trim()) {
+  // ── Observación y detalle adicional ──
+  // Antes se imprimía sólo `notas`, cortada a 110 caracteres en un renglón:
+  // una observación larga se perdía a la mitad. Y `detalle_extra`, que el
+  // vendedor carga en "Detalle adicional", no se imprimía nunca.
+  const bloques = [
+    ["Observación", det.notas || det.observacion],
+    ["Detalle adicional", det.detalle_extra],
+  ].filter(([, txt]) => txt?.trim());
+
+  for (const [titulo, texto] of bloques) {
+    const lineas = doc.splitTextToSize(texto.trim(), 160);
+    const alto = Math.max(16, 11 + lineas.length * 4.6);
+
     doc.setFillColor(254, 249, 195);
     doc.setDrawColor(253, 230, 138);
-    doc.roundedRect(14, y, 182, 16, 3, 3, "FD");
+    doc.roundedRect(14, y, 182, alto, 3, 3, "FD");
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(113, 63, 18);
-    doc.text("Notas:", 18, y + 6.5);
+    doc.text(`${titulo}:`, 18, y + 6.5);
+
     doc.setFont("helvetica", "normal");
-    doc.text(det.notas.slice(0, 110), 36, y + 6.5);
-    y += 22;
+    doc.text(lineas, 18, y + 12);
+    y += alto + 6;
   }
 
   // ── Footer ──
