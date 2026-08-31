@@ -470,7 +470,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
       <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0, boxShadow: SH.sm, flexWrap: "wrap", rowGap: 8 }}>
         <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 42, objectFit: "contain" }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Administración</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Administración [v2]</div>
           <div style={{ fontSize: 12, color: L.muted }}>{userName || userEmail} · Gestión de pedidos</div>
         </div>
         <div className="barra-acciones">
