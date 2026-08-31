@@ -345,13 +345,8 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [selectedDate, setSelectedDate] = useState(null);
   const [editandoFecha, setEditandoFecha] = useState(null);
   const [notifs, setNotifs] = useState([]);
-  const [showNotifs, setShowNotifs] = useState(true);
   const [reporteAbierto, setReporteAbierto] = useState(null); // { titulo, texto }
   const [diaAbierto, setDiaAbierto] = useState(null);        // día del calendario en pantalla grande
-  // Pedidos y reportes vivían en la misma lista: los reportes de visita no
-  // tienen productos ni estado que gestionar, así que ensuciaban la pantalla
-  // y falseaban el conteo. Cada cosa en su pestaña.
-  const [tab, setTab] = useState("pedidos");   // "pedidos" | "reportes"
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -375,16 +370,10 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // La tabla `pedidos` guarda las tres cosas que carga el vendedor: pedidos,
-  // reportes de visita y reuniones. Acá se parten en dos y de ahí en más
-  // TODO lo de esta pantalla (lista, calendario, alertas, ventas, hoja de
-  // ruta, CSV) mira sólo los pedidos.
+  // La pantalla de administración queda enfocada en pedidos: los reportes de
+  // visita no se muestran en esta vista ni se cuentan como parte de la gestión.
   const soloPedidos = useMemo(
     () => pedidos.filter((p) => !esReporte(parseDet(p.detalle))),
-    [pedidos]
-  );
-  const soloReportes = useMemo(
-    () => pedidos.filter((p) => esReporte(parseDet(p.detalle))),
     [pedidos]
   );
 
@@ -504,7 +493,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
         </div>
         <div className="barra-acciones">
           {notifs.length > 0 && (
-            <button onClick={() => setShowNotifs(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "7px 14px", cursor: "pointer" }}>
+            <button style={{ display: "flex", alignItems: "center", gap: 8, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "7px 14px", cursor: "default", opacity: 0.9 }}>
               <Bell size={15} color={C.red} />
               <span style={{ fontSize: 13, fontWeight: 700, color: C.red }}>{notifs.length} alerta{notifs.length > 1 ? "s" : ""}</span>
             </button>
@@ -523,14 +512,10 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Download size={15} />
           </button>
-          {/* El CSV es de la lista de pedidos: en la pestaña Reportes no
-              tiene sentido, y exportaba pedidos sin avisar. */}
-          {tab === "pedidos" && (
           <button onClick={handleExportCSV} title="Exportar CSV"
             style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1D4ED8", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
             <FileDown size={15} /> <span className="solo-desktop">Exportar</span>
           </button>
-          )}
           {onLogout && (
             <button onClick={onLogout} title="Cerrar sesión"
               style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -545,45 +530,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           crece solo y centra el contenido en 1600px. */}
       <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "22px max(24px, calc((100% - 1600px) / 2))" }}>
 
-        {/* Alertas */}
-        {/* Las alertas se acomodan en columnas: una barra de 1600px por cada
-            "Entrega HOY — Boris: Fulano" empujaba la lista fuera de pantalla
-            cuando había varias. */}
-        {showNotifs && notifs.length > 0 && (
-          <div style={{ marginBottom: 18, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
-            {notifs.map((n, i) => {
-              const col = alertColor[n.tipo];
-              return (
-                <div key={`${n.id}-${i}`} style={{ background: col.bg, border: `1px solid ${col.border}`, borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <AlertCircle size={16} color={col.icon} />
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: col.text, flex: 1 }}>{n.texto}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Pestañas: Pedidos y Reportes son dos trabajos distintos */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          {[
-            { k: "pedidos",  label: "Pedidos",  icon: <Package size={14} />,  count: soloPedidos.length,  color: C.red },
-            { k: "reportes", label: "Reportes", icon: <FileText size={14} />, count: soloReportes.length, color: "#15803D" },
-          ].map(({ k, label, icon, count, color }) => {
-            const on = tab === k;
-            return (
-              <button key={k} onClick={() => { setTab(k); setDiaAbierto(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 9, border: `1px solid ${on ? color : L.border}`, background: on ? color : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
-                {icon} {label}
-                <span style={{ background: on ? "rgba(255,255,255,.25)" : L.soft, color: on ? "#fff" : L.muted, borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {tab === "reportes" ? (
-          <PanelReportes reportes={soloReportes} contactos={contactos}
-            parse={parseDet} loading={loading} />
-        ) : (
         <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
 
           {/* Lista de pedidos */}
@@ -855,7 +801,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             })()}
           </div>
         </div>
-        )}
       </div>
 
       {diaAbierto && (

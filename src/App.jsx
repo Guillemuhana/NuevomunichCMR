@@ -12,7 +12,8 @@ import {
 import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./Pedidos";
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
-  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
+  VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas,
+  getRol, limpiarPrecios, getIdentidadInterna, getNombreVisiblePorEmail,
   construirMensajeMeta, marketingHabilitado, cantidadItem, fechaLocalISO,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
@@ -1623,10 +1624,169 @@ function etiquetaDia(iso) {
   };
 }
 
-function AgendaPedidos({ contactos, isMobile }) {
+// ── Ficha del pedido ──────────────────────────────────────────
+// Tocar un renglón de la agenda abre acá el pedido entero: qué se pidió, la
+// observación del vendedor, cómo y cuándo se entrega, y el estado a mano.
+// Antes la agenda era sólo de lectura y para ver un pedido había que ir a
+// buscarlo a la lista grande del panel de al lado.
+function PedidoDetalleModal({ pedido, contacto, rol, onEstado, onAbrirChat, onClose }) {
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onClose]);
+
+  const det   = parseDet(pedido.detalle);
+  const ep    = EP[pedido.estado] || EP.pendiente;
+  const cont  = contacto || {};
+  const items = (det.items || []).filter((i) => i.desc?.trim());
+  const obs   = (det.notas || det.observacion || "").trim();
+  const fe    = det.fecha_entrega;
+
+  const chipDato = {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    fontSize: 12, fontWeight: 600, color: L.muted,
+    background: L.soft, border: `1px solid ${L.border}`,
+    borderRadius: 7, padding: "6px 10px", maxWidth: "100%",
+  };
+  const btn = {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+    height: 36, padding: "0 13px", background: L.soft,
+    border: `1px solid ${L.border}`, borderRadius: 9,
+    fontSize: 12.5, fontWeight: 700, fontFamily: FONT_BODY, color: L.muted,
+    cursor: "pointer", whiteSpace: "nowrap",
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+        width: "min(560px, 94vw)", maxHeight: "88dvh", background: L.white, borderRadius: 16,
+        boxShadow: "0 24px 70px rgba(0,0,0,.28)", zIndex: 401, display: "flex", flexDirection: "column",
+        fontFamily: FONT_BODY, overflow: "hidden" }}>
+
+        {/* ── Cabecera: de quién es y cómo viene ── */}
+        <div style={{ padding: "16px 18px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "flex-start", gap: 11, flexShrink: 0 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 10, background: "#FEF2F2", flexShrink: 0 }}>
+            <ShoppingBag size={19} color={C.red} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text, lineHeight: 1.25 }}>
+              {nombreCliente(cont, det)}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: 5 }}>
+              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>{ep.label}</span>
+              <span style={{ fontSize: 11.5, color: L.light }}>{pedido.vendedor || "Sin vendedor"}</span>
+              <span style={{ fontSize: 11.5, color: L.light }}>·</span>
+              <span style={{ fontSize: 11.5, color: L.light }}>
+                {new Date(pedido.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })} hs
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} title="Cerrar"
+            style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Cuerpo ── */}
+        <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "15px 18px" }}>
+
+          {/* Lo que pidió */}
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}>Pedido</div>
+          {items.length > 0 ? (
+            <div style={{ border: `1px solid ${L.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+              {items.map((it, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "9px 12px", background: idx % 2 ? L.soft : L.white, borderTop: idx ? `1px solid ${L.border}` : "none" }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 800, color: C.red, flexShrink: 0, minWidth: 46 }}>{cantidadItem(it)}</span>
+                  <span style={{ fontSize: 13.5, color: L.text, lineHeight: 1.45 }}>{limpiarPrecios(it.desc)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: L.light, fontStyle: "italic", marginBottom: 14 }}>Sin artículos cargados</div>
+          )}
+
+          {/* La observación del vendedor: es lo que hace falta para prepararlo */}
+          {obs && (
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 9, padding: "9px 11px", marginBottom: 14 }}>
+              <FileText size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 2 }} />
+              <span style={{ fontSize: 12.5, color: "#7C2D12", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{limpiarPrecios(obs)}</span>
+            </div>
+          )}
+
+          {det.detalle_extra?.trim() && (
+            <div style={{ fontSize: 12.5, color: L.muted, lineHeight: 1.5, marginBottom: 14 }}>
+              <strong style={{ color: L.text }}>Detalle adicional:</strong> {limpiarPrecios(det.detalle_extra)}
+            </div>
+          )}
+
+          {/* Entrega, pago y contacto */}
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}>Entrega y contacto</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            <span style={chipDato}><Package size={12} /> {det.entrega || "Retiro en local"}</span>
+            {det.entrega === "Delivery" && det.direccion && (
+              <span style={{ ...chipDato, whiteSpace: "normal" }}><MapPin size={12} /> {det.direccion}</span>
+            )}
+            <span style={chipDato}>{det.pago || "Efectivo"}</span>
+            <span style={{ ...chipDato, ...(fe ? { background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E" } : {}) }}>
+              <Calendar size={12} /> {fe ? `Entrega ${new Date(fe + "T12:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}` : "Sin fecha de entrega"}
+            </span>
+            {cont.telefono && <span style={chipDato}><Phone size={12} /> {cont.telefono}</span>}
+            {cont.empresa && <span style={chipDato}><Building2 size={12} /> {cont.empresa}</span>}
+            {det.adjunto_url && (
+              <a href={det.adjunto_url} target="_blank" rel="noreferrer" title={det.adjunto_nombre || "Adjunto del vendedor"}
+                style={{ ...chipDato, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", textDecoration: "none" }}>
+                <Paperclip size={12} /> {det.adjunto_nombre || "Ver adjunto"}
+              </a>
+            )}
+          </div>
+
+          {/* Estado: es lo que más se toca en esta pantalla */}
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, margin: "16px 0 7px" }}>Estado</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {Object.entries(EP).map(([k, v]) => {
+              // "Finalizado" lo cierra administración, no el vendedor.
+              if (k === "finalizado" && rol !== "admin" && rol !== "administracion") return null;
+              const on = pedido.estado === k;
+              return (
+                <button key={k} onClick={() => onEstado(k)}
+                  style={{ fontSize: 11.5, padding: "6px 13px", borderRadius: 20, border: `1px solid ${on ? v.color : L.border}`, cursor: "pointer", fontWeight: 700, fontFamily: FONT_BODY, background: on ? v.bg : L.white, color: on ? v.color : L.muted, transition: "all .15s" }}>
+                  {on && <Check size={11} style={{ display: "inline", marginRight: 4 }} />}{v.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Pie: el papel y el chat ── */}
+        <div className="barra-acciones" style={{ padding: "11px 18px", borderTop: `1px solid ${L.border}`, background: L.soft, flexShrink: 0 }}>
+          <button onClick={() => imprimirPedido(pedido, cont, { imprimir: true })} style={btn}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
+            <Printer size={14} /> Imprimir
+          </button>
+          <button onClick={() => imprimirPedido(pedido, cont)} style={btn}
+            onMouseEnter={(e) => { e.currentTarget.style.background = L.white; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = L.soft; }}>
+            <Download size={14} /> PDF
+          </button>
+          {onAbrirChat && (
+            <button onClick={onAbrirChat} style={{ ...btn, marginLeft: "auto", background: L.white }}>
+              <MessageSquare size={14} /> Abrir chat
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AgendaPedidos({ contactos, isMobile, rol, onAbrirChat }) {
   const [pedidos, setPedidos]   = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modo, setModo]         = useState("carga"); // "carga" | "entrega"
+  const [abierto, setAbierto]   = useState(null);    // id del pedido en la ficha
 
   const cargar = useCallback(async () => {
     const { data } = await supabase.from("pedidos")
@@ -1690,6 +1850,18 @@ function AgendaPedidos({ contactos, isMobile }) {
     };
   }, [pedidos, porId, modo]);
 
+  // La ficha se lee de la lista viva: si llega un cambio por realtime
+  // mientras está abierta, se actualiza sola.
+  const pedidoAbierto = useMemo(
+    () => (pedidos || []).find((p) => p.id === abierto) || null,
+    [pedidos, abierto],
+  );
+
+  const cambiarEstado = useCallback(async (id, estado) => {
+    setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)));
+    await supabase.from("pedidos").update({ estado }).eq("id", id);
+  }, []);
+
   const chip = (k, label) => (
     <button key={k} onClick={() => setModo(k)}
       style={{ flex: 1, padding: "7px 10px", borderRadius: 8, cursor: "pointer", fontFamily: FONT_BODY,
@@ -1739,7 +1911,12 @@ function AgendaPedidos({ contactos, isMobile }) {
             {g.items.map((it) => {
               const ep = EP[it.estado] || {};
               return (
-                <div key={it.id} style={{ display: "flex", gap: 10, padding: "9px 14px", borderBottom: `1px solid ${L.border}`, alignItems: "flex-start" }}>
+                <div key={it.id} onClick={() => setAbierto(it.id)}
+                  title="Ver el pedido"
+                  style={{ display: "flex", gap: 10, padding: "9px 14px", borderBottom: `1px solid ${L.border}`, alignItems: "flex-start",
+                    cursor: "pointer", background: abierto === it.id ? C.redSoft : "transparent", transition: "background .14s" }}
+                  onMouseEnter={(e) => { if (abierto !== it.id) e.currentTarget.style.background = L.soft; }}
+                  onMouseLeave={(e) => { if (abierto !== it.id) e.currentTarget.style.background = "transparent"; }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, width: 52, color: L.muted, fontSize: 11.5, fontWeight: 700, paddingTop: 1 }}>
                     <Clock size={11} color={L.light} /> {it.hora}
                   </div>
@@ -1768,6 +1945,18 @@ function AgendaPedidos({ contactos, isMobile }) {
           </div>
         )}
       </div>
+
+      {pedidoAbierto && (
+        <PedidoDetalleModal
+          pedido={pedidoAbierto}
+          contacto={porId[pedidoAbierto.contacto_id]}
+          rol={rol}
+          onEstado={(estado) => cambiarEstado(pedidoAbierto.id, estado)}
+          onAbrirChat={porId[pedidoAbierto.contacto_id] && onAbrirChat
+            ? () => { const c = porId[pedidoAbierto.contacto_id]; setAbierto(null); onAbrirChat(c); }
+            : null}
+          onClose={() => setAbierto(null)} />
+      )}
     </>
   );
 }
@@ -1835,7 +2024,10 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
         </div>
       </div>
 
-      {vista === "pedidos" && <AgendaPedidos contactos={contactos} isMobile={isMobile} />}
+      {vista === "pedidos" && (
+        <AgendaPedidos contactos={contactos} isMobile={isMobile} rol={rol}
+          onAbrirChat={(c) => { setVista("chat"); onSelect(c); }} />
+      )}
 
       {(vista === "chat" || vista === "contactos") && (
         <>
@@ -1961,7 +2153,10 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           </div>
         </>
       )}
-      {(vista === "reportes" || vista === "vendedores" || vista === "pedidos" || vista === "calendario") && <div style={{ flex: 1 }} />}
+      {/* Relleno para las vistas sin lista propia. Pedidos NO va acá: su
+          agenda ya crece con flex:1 y este segundo flex:1 le robaba la mitad
+          del alto, así que la lista cortaba a media pantalla. */}
+      {(vista === "reportes" || vista === "vendedores" || vista === "calendario") && <div style={{ flex: 1 }} />}
 
       {showImportar && <ImportarContactosModal onClose={() => setShowImportar(false)} />}
     </div>
@@ -2778,7 +2973,7 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     const rolActual  = getRol(session.user.email);
-    const userNombre = session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase());
+    const userNombre = getNombreVisiblePorEmail(session.user.email, session.user.email.split("@")[0].replace(/^\w/, m => m.toUpperCase()));
 
     const cargar = async () => {
       if (rolActual === "vendedor_panel") return;
@@ -2840,7 +3035,7 @@ export default function App() {
   if (!session) return null; // espera silenciosa si tuvo sesión (evita flash de login)
 
   const userEmail = session.user.email;
-  const userName  = userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase());
+  const userName  = getNombreVisiblePorEmail(userEmail, userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase()));
   const rol       = getRol(userEmail);
   const alertas   = calcularAlertas(contactos);
   // Contadores que muestra el rail de navegación

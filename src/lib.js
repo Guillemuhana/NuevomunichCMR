@@ -131,7 +131,8 @@ export const VENDEDORES_INFO = [
   { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario",     telefono: "5493516177741" },
 ];
 
-// Personal de administración (reciben y ven pedidos de vendedores)
+// Personal de administración (reciben y ven pedidos de vendedores).
+// Editá los nombres acá para que cada cuenta muestre la persona real.
 export const ADMINISTRACION_INFO = [
   { nombre: "Administración 1", emailPrefix: "admin1" },
   { nombre: "Administración 2", emailPrefix: "admin2" },
@@ -139,6 +140,26 @@ export const ADMINISTRACION_INFO = [
   { nombre: "Administración",   emailPrefix: "admin2026" },
   { nombre: "Administración",   emailPrefix: "administracion" },
 ];
+
+export function getNombreVisiblePorEmail(userEmail, fallback = "") {
+  const email = (userEmail || "").trim();
+  const prefix = email.split("@")[0].toLowerCase();
+  if (!prefix) return fallback;
+
+  if (prefix === "cristian") return "Cristian";
+
+  const admin = ADMINISTRACION_INFO.find((a) => a.emailPrefix === prefix);
+  if (admin?.nombre) return admin.nombre;
+
+  const vendedor = VENDEDORES_INFO.find((v) => v.emailPrefix === prefix);
+  if (vendedor?.nombre) return vendedor.nombre;
+
+  const nombreBase = prefix
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+
+  return fallback || nombreBase;
+}
 
 /**
  * ¿Este prefijo de mail es de Administración?
@@ -162,7 +183,10 @@ export function esPrefijoAdministracion(prefix) {
 export function getIdentidadInterna(userEmail) {
   const prefix = (userEmail || "").split("@")[0].toLowerCase();
   if (prefix === "cristian") return { key: "cristian", nombre: "Cristian" };
-  if (esPrefijoAdministracion(prefix)) return { key: "administracion", nombre: "Administración" };
+  if (esPrefijoAdministracion(prefix)) {
+    const admin = ADMINISTRACION_INFO.find((a) => a.emailPrefix === prefix);
+    return { key: "administracion", nombre: admin?.nombre || "Administración" };
+  }
   const v = VENDEDORES_INFO.find(v => v.emailPrefix === prefix);
   if (v) return { key: v.emailPrefix, nombre: v.alias || v.nombre };
   return { key: prefix, nombre: prefix };
