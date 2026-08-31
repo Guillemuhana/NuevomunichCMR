@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
+  useEsMovil,
   hoyLocalISO,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
@@ -616,6 +617,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [agenda, setAgenda] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef(null);
+  const esMovil = useEsMovil();
 
   // El menú se cierra al tocar afuera o con Escape: en el celular no hay
   // ningún otro lugar obvio para salir de él.
@@ -824,7 +826,8 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
       {agenda ? (
         <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
-          <Calendario userEmail={userEmail} vendedorFijo={vendorInfo.alias || vendorInfo.nombre} pedidos={pedidosAgenda} />
+          <Calendario userEmail={userEmail} isMobile={esMovil}
+            vendedorFijo={vendorInfo.alias || vendorInfo.nombre} pedidos={pedidosAgenda} />
         </Suspense>
       ) : (
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>

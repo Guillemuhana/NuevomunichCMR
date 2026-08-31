@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, X, Check, Plus, Minus, ChevronDown, ShoppingBag } from "lucide-react";
-import { C, L, FONT_BODY, FONT_DISPLAY, UNIDADES } from "./lib";
+import { C, L, FONT_BODY, FONT_DISPLAY, UNIDADES, useEsMovil } from "./lib";
 import {
   CATALOGO, buscarProductos, normalizar,
   productosRecientes, recordarProducto, esDelCatalogo,
@@ -21,19 +21,6 @@ import {
 //
 // Ninguna de las dos obliga: un producto que no esté en la lista se sigue
 // pudiendo escribir a mano.
-
-function useEsMovil() {
-  const [movil, setMovil] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 640 : false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const on = () => setMovil(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return movil;
-}
 
 /** Resalta en rojo lo que el vendedor tipeó dentro del nombre del producto. */
 function Resaltado({ texto, q }) {
@@ -89,7 +76,7 @@ export function SelectorProducto({ value, onChange, placeholder = "Elegir produc
   const anclaRef = useRef(null);
   const listaRef = useRef(null);
   const inputRef = useRef(null);
-  const movil = useEsMovil();
+  const movil = useEsMovil(640);
 
   const grupos = useGrupos(q);
   const cuantos = useMemo(() => grupos.reduce((s, g) => s + g.items.length, 0), [grupos]);
@@ -345,7 +332,7 @@ export function CatalogoModal({ onAgregar, onClose }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState(null);
   const [sel, setSel] = useState({});           // nombre -> { qty, unidad }
-  const movil = useEsMovil();
+  const movil = useEsMovil(640);
 
   const grupos = useMemo(() => {
     if (q.trim()) return [{ cat: null, icono: null, items: buscarProductos(q, 80).map(r => r.nombre) }];

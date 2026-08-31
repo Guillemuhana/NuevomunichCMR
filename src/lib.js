@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 export const supabase = createClient(
@@ -289,6 +290,23 @@ export const L = {
 };
 
 // ── Tokens de forma y profundidad ───────────────────────────
+// ── ¿Estamos en un celular? ─────────────────────────────────
+// Cada pantalla lo resolvía a su manera y algunas ni se enteraban: la agenda
+// del vendedor abría en el teléfono con la columna lateral de escritorio y
+// al calendario le quedaban ochenta puntos de ancho. Un solo lugar.
+export function useEsMovil(bp = 768) {
+  const [movil, setMovil] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < bp : false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp - 1}px)`);
+    const on = () => setMovil(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [bp]);
+  return movil;
+}
+
 export const R = { xs: 6, sm: 8, md: 12, lg: 16, xl: 20, pill: 999 };
 
 export const SH = {

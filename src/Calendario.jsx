@@ -59,6 +59,17 @@ const CAL_CSS = `
 .mn-cal .fc-daygrid-more-link { font-size: 11px; font-weight: 600; color: ${C.red}; padding: 1px 6px; }
 .mn-cal .fc-highlight { background: ${C.redSoft}; }
 .mn-cal a { text-decoration: none; }
+
+/* Celular: la grilla del mes entra igual, pero con todo un punto mas chico.
+   Con los tamanos de escritorio los nombres de los dias se pisaban unos con
+   otros y los numeros no entraban en la celda. */
+@media (max-width: 640px) {
+  .mn-cal .fc-col-header-cell { padding: 7px 0; font-size: 9.5px; letter-spacing: .04em; }
+  .mn-cal .fc-daygrid-day-number { font-size: 11.5px; padding: 4px 5px; }
+  .mn-cal .fc-event { padding: 0 1px 1px; }
+  .mn-cal .fc-daygrid-more-link { font-size: 10px; padding: 1px 4px; }
+  .mn-cal .fc-timegrid-slot-label-cushion { font-size: 10px; }
+}
 .mn-fade-in { animation: mnFade .18s ease-out; }
 @keyframes mnFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes mnSpin { to { transform: rotate(360deg); } }
