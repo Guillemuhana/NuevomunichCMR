@@ -3010,6 +3010,7 @@ export default function App() {
   const userEmail = session.user.email;
   const userName  = getNombreVisiblePorEmail(userEmail, userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase()));
   const rol       = getRol(userEmail);
+  const puedeVerReportes = ["admin", "administracion", "vendedor", "vendedor_panel"].includes(rol);
   const alertas   = calcularAlertas(contactos);
   // Contadores que muestra el rail de navegación
   // Cuántas conversaciones están esperando respuesta: el cliente escribió
@@ -3113,7 +3114,13 @@ export default function App() {
         ) : vista === "reportes" ? (
           <>
             {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
-            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
+            {puedeVerReportes ? (
+              <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
+            ) : (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, fontWeight: 600 }}>
+                No tenés acceso a reportes.
+              </div>
+            )}
           </>
         ) : vista === "pedidos" ? (
           <>

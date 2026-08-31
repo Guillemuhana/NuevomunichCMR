@@ -107,6 +107,10 @@ function GlowActivo({ inset, radio }) {
 // El chat interno no es una vista: abre su propio panel flotante.
 const ITEM_MENSAJES = { key: "mensajes", icon: MessageCircle, label: "Mensajes", panel: true };
 
+function puedeVerReportes(rol) {
+  return ["admin", "administracion", "vendedor", "vendedor_panel"].includes(rol);
+}
+
 // Ítems de navegación agrupados en secciones
 function getSecciones(rol) {
   const principal = [
@@ -121,7 +125,7 @@ function getSecciones(rol) {
     { key: "contactos",  icon: Users,          label: "Contactos" },
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
     ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
-    { key: "reportes",   icon: BarChart2,      label: "Reportes" },
+    ...(puedeVerReportes(rol) ? [{ key: "reportes", icon: BarChart2, label: "Reportes" }] : []),
   ];
   const sistema = [
     { key: "ajustes",    icon: Settings,       label: "Ajustes" },

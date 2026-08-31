@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Package, Search, Clock, Check, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
   FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer, Paperclip,
+  MoreVertical,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
@@ -63,6 +64,33 @@ function parseDetEx(raw) {
     const p = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
     return { ...base, tipo: p.tipo || "pedido", clienteNombre: p.clienteNombre || "", clienteTel: p.clienteTel || "", observacion: p.observacion || base.notas || "", detalle_extra: p.detalle_extra || "", fecha_visita: p.fecha_visita || null };
   } catch { return { ...base, tipo: "pedido", clienteNombre: "", clienteTel: "", observacion: "", detalle_extra: "", fecha_visita: null }; }
+}
+
+// ── Menú desplegable de la cabecera ──────────────────────────
+// La barra tenía siete botones sueltos y en un celular ocupaba dos filas
+// enteras. Quedan a la vista sólo los de uso diario (avisos, mensajes y
+// cargar); el resto vive acá adentro.
+function MenuItem({ icon, label, hint, onClick, activo, tono }) {
+  const [hover, setHover] = useState(false);
+  const danger = tono === "danger";
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 10, border: "none", cursor: "pointer", background: activo ? "#FEF2F2" : hover ? L.soft : "transparent", color: danger || activo ? C.red : L.text, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13.5, textAlign: "left", transition: "background .12s" }}>
+      <span style={{ width: 30, height: 30, borderRadius: 9, background: activo ? "#FEE2E2" : danger ? "#FEF2F2" : L.soft, display: "flex", alignItems: "center", justifyContent: "center", color: danger || activo ? C.red : L.muted, flexShrink: 0 }}>
+        {icon}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", lineHeight: 1.25 }}>{label}</span>
+        {hint && <span style={{ display: "block", fontSize: 11, color: L.light, fontWeight: 500, marginTop: 1 }}>{hint}</span>}
+      </span>
+      {activo && <Check size={14} color={C.red} />}
+    </button>
+  );
+}
+
+function MenuSep() {
+  return <div style={{ height: 1, background: L.border, margin: "5px 8px" }} />;
 }
 
 // ── Mini Calendario ──────────────────────────────────────────
@@ -549,7 +577,6 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [loading, setLoading]       = useState(true);
   const [busqueda, setBusqueda]     = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
-  const [tab, setTab] = useState("pedido"); // "pedido" | "reporte"
   const [selectedDate, setSelectedDate] = useState(null);
   const [showForm, setShowForm]     = useState(false);
   const [editando, setEditando]     = useState(null);
@@ -558,6 +585,19 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [confirmElim, setConfirmElim] = useState(null);
   const [showPerfil, setShowPerfil] = useState(false);
   const [agenda, setAgenda] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // El menú se cierra al tocar afuera o con Escape: en el celular no hay
+  // ningún otro lugar obvio para salir de él.
+  useEffect(() => {
+    if (!menu) return;
+    const fuera = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenu(false); };
+    const esc = (e) => { if (e.key === "Escape") setMenu(false); };
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fuera); document.removeEventListener("keydown", esc); };
+  }, [menu]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -591,9 +631,16 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     return () => supabase.removeChannel(ch);
   }, [vendorInfo.alias, cargar]);
 
+  // Los reportes de visita y las reuniones se siguen cargando desde el
+  // formulario, pero no se listan acá: esa lectura es de Cristian.
+  const soloPedidos = useMemo(
+    () => pedidos.filter(p => parseDetEx(p.detalle).tipo === "pedido"),
+    [pedidos]
+  );
+
   useEffect(() => {
     const alerts = [];
-    pedidos.forEach(p => {
+    soloPedidos.forEach(p => {
       const det = parseDetEx(p.detalle);
       if (!det.fecha_entrega || p.estado === "entregado" || p.estado === "cancelado") return;
       const cont = contactos[p.contacto_id] || {};
@@ -606,7 +653,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
         alerts.push({ id: p.id, tipo: "vencido", texto: `Vencida: ${nombre} (${fmtDate(det.fecha_entrega)})` });
     });
     setNotifs(alerts);
-  }, [pedidos, contactos]);
+  }, [soloPedidos, contactos]);
 
   // ── Documentos imprimibles ──────────────────────────────────
   // El reporte del día cubre la jornada mostrada en el calendario
@@ -631,7 +678,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     cargar();
   };
 
-  const lista = pedidos.filter(p => {
+  const lista = soloPedidos.filter(p => {
     const cont = contactos[p.contacto_id] || {};
     const det = parseDetEx(p.detalle);
     const porBusq = !busqueda ||
@@ -640,21 +687,14 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
       det.observacion.toLowerCase().includes(busqueda.toLowerCase()) ||
       (det.items || []).some(i => (i.desc || "").toLowerCase().includes(busqueda.toLowerCase()));
     const porEstado = filtroEstado === "todos" || p.estado === filtroEstado;
-    const porTab    = tab === "pedido" ? det.tipo === "pedido" : det.tipo !== "pedido";
     const porFecha  = !selectedDate || (det.fecha_entrega && det.fecha_entrega.startsWith(selectedDate));
-    return porBusq && porEstado && porTab && porFecha;
+    return porBusq && porEstado && porFecha;
   });
 
-  const conteo = pedidos.reduce((a, p) => {
-    const t = parseDetEx(p.detalle).tipo;
-    if (t === "pedido") a.pedido++; else a.reporte++;
-    return a;
-  }, { pedido: 0, reporte: 0 });
-
   const stats = {
-    total: pedidos.length,
-    enProceso: pedidos.filter(p => ["pendiente", "confirmado", "preparando", "listo"].includes(p.estado)).length,
-    entregados: pedidos.filter(p => p.estado === "entregado").length,
+    total: soloPedidos.length,
+    enProceso: soloPedidos.filter(p => ["pendiente", "confirmado", "preparando", "listo"].includes(p.estado)).length,
+    entregados: soloPedidos.filter(p => p.estado === "entregado").length,
   };
 
   const alertColor = {
@@ -667,47 +707,68 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
 
       {/* Header */}
-      <div style={{ background: L.white, borderBottom: `1px solid ${L.border}`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.sm, flexWrap: "wrap", rowGap: 8 }}>
-        <img src={LOGO_URL} alt="Nuevo Munich" style={{ height: 48, objectFit: "contain" }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: L.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Panel de Vendedor</div>
-          <div style={{ fontSize: 12, color: L.muted }}>{vendorInfo.nombre}</div>
+      <div className="header-vendedor" style={{ background: L.white, borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 14, flexShrink: 0, boxShadow: SH.sm, position: "relative", zIndex: 60 }}>
+        <img src={LOGO_URL} alt="Nuevo Munich" className="logo-vendedor" />
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="titulo-panel" style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: L.text, textTransform: "uppercase", letterSpacing: 0.6, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Panel de Vendedor
+          </div>
+          <div style={{ fontSize: 12.5, color: L.muted, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{vendorInfo.nombre}</div>
         </div>
-        <div className="barra-acciones">
+
+        <div className="barra-acciones" style={{ flexWrap: "nowrap", gap: 7 }}>
+
+          {/* Salir de la agenda. El botón para entrar vive en el menú, así que
+              sin esto no se ve cómo volver a los pedidos. */}
+          {agenda && (
+            <button onClick={() => setAgenda(false)} title="Volver a los pedidos" className="btn-compacto"
+              style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: C.red, borderRadius: 10, padding: "0 12px", height: 38, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_BODY }}>
+              <ChevronLeft size={15} /> <span className="solo-desktop">Pedidos</span>
+            </button>
+          )}
+
           {notifs.length > 0 && (
-            <button onClick={() => setShowNotifs(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, padding: "6px 12px", cursor: "pointer" }}>
-              <Bell size={14} color={C.red} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{notifs.length}</span>
+            <button onClick={() => setShowNotifs(v => !v)} title={showNotifs ? "Ocultar avisos" : "Ver avisos"}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: showNotifs ? "#FEF2F2" : L.white, border: `1px solid ${showNotifs ? "#FECACA" : L.border}`, borderRadius: 10, padding: "0 11px", height: 38, cursor: "pointer" }}>
+              <Bell size={15} color={C.red} />
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: C.red, fontFamily: FONT_DISPLAY }}>{notifs.length}</span>
             </button>
           )}
+
           {userEmail && !vendorAliasOverride && <BotonMensajes self={getIdentidadInterna(userEmail)} compact />}
-          {/* Reporte diario: imprimir o bajar en PDF */}
-          <button onClick={() => imprimirDoc(reporteDelDia(), nombreReporteDia())} title="Imprimir el reporte del día" className="btn-compacto"
-            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: R.sm, padding: "0 12px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
-            <Printer size={15} /> <span className="solo-desktop">Reporte del día</span>
+
+          <button onClick={() => { setEditando(null); setShowForm(true); }} title="Cargar una entrada nueva" className="btn-compacto"
+            style={{ background: C.red, color: "#fff", border: "none", borderRadius: 10, padding: "0 16px", height: 38, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 7, boxShadow: "0 2px 10px rgba(185,28,28,.3)", whiteSpace: "nowrap" }}>
+            <Plus size={16} /> <span className="solo-desktop">Cargar</span>
           </button>
-          <button onClick={() => descargarDoc(reporteDelDia(), nombreReporteDia())} title="Descargar el reporte del día en PDF"
-            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: R.sm, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Download size={15} />
-          </button>
-          <button onClick={() => setAgenda(v => !v)} title="Calendario"
-            style={{ background: agenda ? C.red : L.soft, border: `1px solid ${agenda ? C.red : L.border}`, color: agenda ? "#fff" : L.muted, borderRadius: R.sm, padding: "0 13px", height: 36, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600 }}>
-            <CalendarDays size={16} /> Agenda
-          </button>
-          <button onClick={() => setShowPerfil(true)} title="Mis datos"
-            style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <UserCircle size={18} />
-          </button>
-          <button onClick={() => { setEditando(null); setShowForm(true); }}
-            style={{ background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "8px 16px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 10px rgba(185,28,28,.3)" }}>
-            <Plus size={15} /> Cargar
-          </button>
-          {onLogout && (
-            <button onClick={onLogout} title="Cerrar sesión"
-              style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <LogOut size={15} />
+
+          {/* Menú desplegable con el resto de las acciones */}
+          <div ref={menuRef} style={{ position: "relative" }}>
+            <button onClick={() => setMenu(v => !v)} title="Más opciones"
+              style={{ background: menu ? "#FEF2F2" : L.white, border: `1px solid ${menu ? "#FECACA" : L.border}`, color: menu ? C.red : L.muted, borderRadius: 10, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <MoreVertical size={18} />
             </button>
-          )}
+
+            {menu && (
+              <div style={{ position: "absolute", top: "calc(100% + 9px)", right: 0, width: 250, maxWidth: "calc(100vw - 28px)", background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, boxShadow: "0 20px 55px rgba(16,24,40,.18)", padding: 6, zIndex: 300 }}>
+                <MenuItem icon={<CalendarDays size={16} />} label="Agenda" hint="Calendario completo" activo={agenda}
+                  onClick={() => { setAgenda(v => !v); setMenu(false); }} />
+                <MenuSep />
+                <MenuItem icon={<Printer size={16} />} label="Imprimir reporte del día"
+                  onClick={() => { setMenu(false); imprimirDoc(reporteDelDia(), nombreReporteDia()); }} />
+                <MenuItem icon={<Download size={16} />} label="Descargar reporte" hint="PDF del día seleccionado"
+                  onClick={() => { setMenu(false); descargarDoc(reporteDelDia(), nombreReporteDia()); }} />
+                <MenuSep />
+                <MenuItem icon={<UserCircle size={16} />} label="Mis datos" hint={vendorInfo.nombre}
+                  onClick={() => { setMenu(false); setShowPerfil(true); }} />
+                {onLogout && (
+                  <MenuItem icon={<LogOut size={16} />} label="Cerrar sesión" tono="danger"
+                    onClick={() => { setMenu(false); onLogout(); }} />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -753,21 +814,13 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           {/* Lista principal */}
           <div style={{ flex: 1, minWidth: 300 }}>
 
-            {/* Tabs: Pedidos / Reportes */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[
-                { k: "pedido",  label: "Pedidos",  icon: <Package size={15} />,  count: conteo.pedido },
-                { k: "reporte", label: "Reportes", icon: <FileText size={15} />, count: conteo.reporte },
-              ].map(t => {
-                const activa = tab === t.k;
-                return (
-                  <button key={t.k} onClick={() => setTab(t.k)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", borderRadius: 11, border: `1px solid ${activa ? C.red : L.border}`, background: activa ? C.red : L.white, color: activa ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14, letterSpacing: 0.3, boxShadow: activa ? "0 2px 10px rgba(185,28,28,.25)" : "0 1px 4px rgba(0,0,0,.04)", transition: "all .15s" }}>
-                    {t.icon} {t.label}
-                    <span style={{ fontSize: 12, fontWeight: 800, padding: "1px 8px", borderRadius: 8, background: activa ? "rgba(255,255,255,.25)" : L.soft, color: activa ? "#fff" : L.muted }}>{t.count}</span>
-                  </button>
-                );
-              })}
+            {/* Encabezado de la lista */}
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10, padding: "0 2px" }}>
+              <span style={{ width: 30, height: 30, borderRadius: 9, background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Package size={16} />
+              </span>
+              <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, letterSpacing: 0.3 }}>Mis pedidos</span>
+              <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 8, background: L.soft, color: L.muted, fontFamily: FONT_DISPLAY }}>{lista.length}</span>
             </div>
 
             {/* Filtros */}
@@ -915,14 +968,14 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
               <Calendar size={13} color={C.red} /> Calendario
             </div>
-            <MiniCalendar pedidos={pedidos} onSelectDate={setSelectedDate} selectedDate={selectedDate} />
+            <MiniCalendar pedidos={soloPedidos} onSelectDate={setSelectedDate} selectedDate={selectedDate} />
 
             {selectedDate && (
               <div style={{ marginTop: 10, background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "12px 14px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "capitalize" }}>
                   {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
                 </div>
-                {pedidos.filter(p => parseDetEx(p.detalle).fecha_entrega?.startsWith(selectedDate)).map(p => {
+                {soloPedidos.filter(p => parseDetEx(p.detalle).fecha_entrega?.startsWith(selectedDate)).map(p => {
                   const cont = contactos[p.contacto_id] || {};
                   const det = parseDetEx(p.detalle);
                   const ep = EP[p.estado] || EP.pendiente;

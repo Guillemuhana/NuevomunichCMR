@@ -64,6 +64,21 @@
       /* Barras de acciones: nunca desbordan, se envuelven en pantallas chicas */
       .barra-acciones { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 
+      /* Logo de la cabecera del panel de vendedor: grande, pero sin comerse
+         el alto de la barra en un celular. */
+      .logo-vendedor { height: 68px; width: auto; object-fit: contain; flex-shrink: 0; display: block; }
+      .header-vendedor { padding: 8px 18px; }
+      @media (max-width: 767px) {
+        .logo-vendedor  { height: 52px; }
+        .header-vendedor { padding: 7px 12px !important; gap: 10px !important; }
+      }
+      /* Celulares angostos: el logo manda, el rótulo "Panel de vendedor"
+         sobra —queda el nombre— y así los botones nunca se apretujan. */
+      @media (max-width: 430px) {
+        .logo-vendedor { height: 46px; }
+        .titulo-panel  { display: none !important; }
+      }
+
       @media (max-width: 767px) {
         /* Etiqueta de botón que se esconde en celular: queda solo el ícono */
         .solo-desktop { display: none !important; }
