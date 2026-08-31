@@ -64,13 +64,17 @@
       /* Barras de acciones: nunca desbordan, se envuelven en pantallas chicas */
       .barra-acciones { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 
-      /* Logo de la cabecera del panel de vendedor: grande, pero sin comerse
-         el alto de la barra en un celular. */
-      .logo-vendedor { height: 68px; width: auto; max-width: 42vw; object-fit: contain; flex-shrink: 0; display: block; }
+      /* Logo de la cabecera del panel de vendedor. El PNG venia con un 40%
+         de margen transparente, asi que de estos pixeles solo seis de cada
+         diez eran logo y se veia chico por mas que se agrandara la caja.
+         Recortado el margen, esta altura es toda logo.
+         El max-width solo entra en telefonos muy angostos (por debajo de
+         unos 340 px), para que no empuje a los botones fuera de la barra. */
+      .logo-vendedor { height: 68px; width: auto; max-width: 38vw; object-fit: contain; flex-shrink: 0; display: block; }
       .header-vendedor { padding: 8px 18px; }
       @media (max-width: 767px) {
         .logo-vendedor  { height: 80px; }
-        .header-vendedor { padding: 6px 12px !important; gap: 10px !important; }
+        .header-vendedor { padding: 6px 12px !important; gap: 8px !important; }
       }
       /* Celulares angostos: el logo manda, el rótulo "Panel de vendedor"
          sobra —queda el nombre— y así los botones nunca se apretujan. */
