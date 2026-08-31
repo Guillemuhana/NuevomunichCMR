@@ -66,16 +66,16 @@
 
       /* Logo de la cabecera del panel de vendedor: grande, pero sin comerse
          el alto de la barra en un celular. */
-      .logo-vendedor { height: 68px; width: auto; object-fit: contain; flex-shrink: 0; display: block; }
+      .logo-vendedor { height: 68px; width: auto; max-width: 42vw; object-fit: contain; flex-shrink: 0; display: block; }
       .header-vendedor { padding: 8px 18px; }
       @media (max-width: 767px) {
-        .logo-vendedor  { height: 64px; }
+        .logo-vendedor  { height: 80px; }
         .header-vendedor { padding: 6px 12px !important; gap: 10px !important; }
       }
       /* Celulares angostos: el logo manda, el rótulo "Panel de vendedor"
          sobra —queda el nombre— y así los botones nunca se apretujan. */
       @media (max-width: 430px) {
-        .logo-vendedor { height: 58px; }
+        .logo-vendedor { height: 72px; }
         .titulo-panel  { display: none !important; }
       }
 

@@ -684,6 +684,27 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     setNotifs(alerts);
   }, [soloPedidos, contactos]);
 
+  // ── Los pedidos del vendedor, para pintarlos en la agenda ───
+  // La agenda mostraba sólo los eventos cargados a mano y los pedidos no
+  // aparecían por ningún lado: el vendedor tenía que acordarse de las
+  // entregas mirando la lista. Van los suyos y nada más — `pedidos` ya
+  // viene filtrado por vendedor desde la base, así que no hay forma de que
+  // se cuele el de otro.
+  const pedidosAgenda = useMemo(() => pedidos.flatMap(p => {
+    const det = parseDetEx(p.detalle);
+    // Los reportes de visita no tienen fecha de entrega; el resto sí.
+    if (det.tipo === "visita" || !det.fecha_entrega) return [];
+    const cont = contactos[p.contacto_id] || {};
+    const ep = EP[p.estado] || EP.pendiente;
+    return [{
+      id: p.id,
+      fecha: det.fecha_entrega,
+      titulo: cont.nombre || det.clienteNombre || "Cliente",
+      tipo: det.tipo === "reunion" ? "reunion" : "entrega",
+      estadoLabel: ep.label,
+    }];
+  }), [pedidos, contactos]);
+
   // ── Documentos imprimibles ──────────────────────────────────
   // El reporte del día cubre la jornada mostrada en el calendario
   // (o el día de hoy si no hay ninguna seleccionada).
@@ -803,7 +824,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
       {agenda ? (
         <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
-          <Calendario userEmail={userEmail} vendedorFijo={vendorInfo.alias || vendorInfo.nombre} />
+          <Calendario userEmail={userEmail} vendedorFijo={vendorInfo.alias || vendorInfo.nombre} pedidos={pedidosAgenda} />
         </Suspense>
       ) : (
       <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>

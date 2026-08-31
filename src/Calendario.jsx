@@ -24,6 +24,10 @@ export const TIPOS_EVENTO = {
 };
 const tipoDe = (t) => TIPOS_EVENTO[t] || TIPOS_EVENTO.otro;
 
+// Constante, no un literal por render: si no, los useMemo que dependen de
+// `pedidos` se recalculan siempre en las pantallas que no los pasan.
+const SIN_PEDIDOS = [];
+
 const VISTAS = [
   { k: "dayGridMonth", label: "Mes" },
   { k: "timeGridWeek", label: "Semana" },
@@ -302,7 +306,7 @@ function ModalEvento({ evento, onClose, onGuardado, onEliminado, userEmail }) {
 // ============================================================
 // PANEL DE CALENDARIO
 // ============================================================
-export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
+export default function Calendario({ userEmail, isMobile, vendedorFijo, pedidos = SIN_PEDIDOS }) {
   const calRef = useRef(null);
   const [eventos, setEventos]   = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -341,13 +345,36 @@ export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
       };
     }), [eventos, filtros]);
 
+  // ── Pedidos del vendedor → eventos de todo el día ──
+  // Vienen ya filtrados por quien los abre (el panel sólo carga los del
+  // vendedor logueado). No se pueden arrastrar ni abrir: la fecha de entrega
+  // se cambia editando el pedido, no acá.
+  const fcPedidos = useMemo(() => pedidos
+    .filter((p) => filtros.length === 0 || filtros.includes(p.tipo))
+    .map((p) => {
+      const t = tipoDe(p.tipo);
+      return {
+        id: `pedido-${p.id}`,
+        title: p.titulo,
+        start: p.fecha,
+        allDay: true,
+        editable: false,
+        extendedProps: { pedido: p, color: t.color, bg: t.bg },
+      };
+    }), [pedidos, filtros]);
+
   // ── Próximos eventos (panel lateral) ──
   const proximos = useMemo(() => {
     const ahora = Date.now();
-    return eventos
+    const dePedidos = pedidos.map((p) => ({
+      id: `pedido-${p.id}`, titulo: p.titulo, inicio: `${p.fecha}T09:00:00`,
+      tipo: p.tipo, todo_el_dia: true, lugar: p.estadoLabel, esPedido: true,
+    }));
+    return [...eventos, ...dePedidos]
       .filter((e) => new Date(e.fin || e.inicio).getTime() >= ahora)
+      .sort((a, b) => new Date(a.inicio) - new Date(b.inicio))
       .slice(0, 6);
-  }, [eventos]);
+  }, [eventos, pedidos]);
 
   const api = () => calRef.current?.getApi();
   const sincTitulo = () => { const a = api(); if (a) setTitulo(a.view.title); };
@@ -461,14 +488,14 @@ export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
             editable
             selectable
             selectMirror
-            events={fcEventos}
+            events={[...fcEventos, ...fcPedidos]}
             datesSet={sincTitulo}
             select={(info) => setModal({ inicio: info.start.toISOString(), fin: info.end?.toISOString(), todo_el_dia: info.allDay })}
-            eventClick={(info) => setModal(info.event.extendedProps.raw)}
+            eventClick={(info) => { const raw = info.event.extendedProps.raw; if (raw) setModal(raw); }}
             eventDrop={moverEvento}
             eventResize={moverEvento}
             eventContent={(arg) => {
-              const { color, bg, raw } = arg.event.extendedProps;
+              const { color, bg, raw, pedido } = arg.event.extendedProps;
               const conHora = !arg.event.allDay && arg.view.type === "dayGridMonth";
               return (
                 <div style={{
@@ -479,6 +506,7 @@ export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
                   {conHora && <span style={{ color, fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{arg.timeText}</span>}
                   <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arg.event.title}</span>
                   {raw?.vendedor && <span style={{ marginLeft: "auto", fontSize: 10.5, color: L.light, flexShrink: 0 }}>{raw.vendedor}</span>}
+                  {pedido && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color, flexShrink: 0, textTransform: "uppercase", letterSpacing: .3 }}>{pedido.estadoLabel}</span>}
                 </div>
               );
             }}
@@ -502,8 +530,8 @@ export default function Calendario({ userEmail, isMobile, vendedorFijo }) {
                   const t = tipoDe(e.tipo);
                   const d = new Date(e.inicio);
                   return (
-                    <button key={e.id} onClick={() => setModal(e)}
-                      style={{ display: "flex", gap: 11, alignItems: "flex-start", textAlign: "left", padding: "10px 8px", borderRadius: R.sm, border: "none", background: "transparent", cursor: "pointer", transition: "background .12s" }}
+                    <button key={e.id} onClick={() => { if (!e.esPedido) setModal(e); }}
+                      style={{ display: "flex", gap: 11, alignItems: "flex-start", textAlign: "left", padding: "10px 8px", borderRadius: R.sm, border: "none", background: "transparent", cursor: e.esPedido ? "default" : "pointer", transition: "background .12s" }}
                       onMouseEnter={(ev) => { ev.currentTarget.style.background = L.soft; }}
                       onMouseLeave={(ev) => { ev.currentTarget.style.background = "transparent"; }}>
                       <div style={{ width: 42, flexShrink: 0, textAlign: "center" }}>
