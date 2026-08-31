@@ -322,17 +322,8 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
 }
 
 export default function AdministracionPanel({ userName, userEmail, rol, onLogout }) {
-  // El reporte de ventas muestra facturación y ranking de vendedores: eso lo
-  // mira sólo Cristian. El personal de administración gestiona pedidos; no
-  // necesita ver los números del negocio.
-  const esCristian = rol === "admin";
   const [pedidos, setPedidos] = useState([]);
-  // Reporte de ventas por rango de fechas (modal)
-  const [showVentas, setShowVentas] = useState(false);
   const hoyISO = hoyLocalISO();
-  const primeroDeMes = `${hoyISO.slice(0, 7)}-01`;
-  const [vDesde, setVDesde] = useState(primeroDeMes);
-  const [vHasta, setVHasta] = useState(hoyISO);
   const [contactos, setContactos] = useState({});
   const [vendedoresList, setVendedoresList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -345,7 +336,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [selectedDate, setSelectedDate] = useState(null);
   const [editandoFecha, setEditandoFecha] = useState(null);
   const [notifs, setNotifs] = useState([]);
-  const [reporteAbierto, setReporteAbierto] = useState(null); // { titulo, texto }
   const [diaAbierto, setDiaAbierto] = useState(null);        // día del calendario en pantalla grande
 
   const cargar = useCallback(async () => {
@@ -463,14 +453,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
     exportarCSV(rows, `pedidos_${hoyLocalISO()}.csv`);
   };
 
-  // Ventas del período elegido en el modal.
-  const docVentas = () => docVentasRango(soloPedidos, contactos, parseDet, vDesde, vHasta, EP);
-  const nombreVentas = () => `ventas-${vDesde}-al-${vHasta}.pdf`;
-  const ventasEnRango = soloPedidos.filter((p) => {
-    const fch = new Date(p.created_at);
-    return fch >= new Date(`${vDesde}T00:00:00`) && fch <= new Date(`${vHasta}T23:59:59`);
-  }).length;
-
   // Hoja de ruta: las entregas agendadas para hoy, para quien reparte.
   const hojaRuta = () => docHojaRuta(soloPedidos, contactos, parseDet, new Date());
   const nombreHojaRuta = () => `hoja-de-ruta-${hoyLocalISO()}.pdf`;
@@ -496,12 +478,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             <button style={{ display: "flex", alignItems: "center", gap: 8, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "7px 14px", cursor: "default", opacity: 0.9 }}>
               <Bell size={15} color={C.red} />
               <span style={{ fontSize: 13, fontWeight: 700, color: C.red }}>{notifs.length} alerta{notifs.length > 1 ? "s" : ""}</span>
-            </button>
-          )}
-          {esCristian && (
-            <button onClick={() => setShowVentas(true)} title="Reporte de ventas por rango de fechas" className="btn-compacto"
-              style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#15803D", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
-              <FileText size={15} /> <span className="solo-desktop">Ventas</span>
             </button>
           )}
           <button onClick={() => imprimirDoc(hojaRuta(), nombreHojaRuta())} title="Imprimir la hoja de ruta de entregas de hoy" className="btn-compacto"
@@ -809,102 +785,6 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           onVerEnLista={() => setDiaAbierto(null)} />
       )}
 
-      {/* Modal: reporte de ventas por rango de fechas */}
-      {showVentas && esCristian && (
-        <>
-          <div onClick={() => setShowVentas(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,440px)", background: L.white, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,.3)", zIndex: 401, fontFamily: FONT_BODY, overflow: "hidden" }}>
-            <div style={{ padding: "18px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#F0FDF4", border: "1px solid #BBF7D0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <FileText size={19} color="#15803D" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text }}>Reporte de ventas</div>
-                <div style={{ fontSize: 12.5, color: L.muted, marginTop: 1 }}>Elegí el período a informar</div>
-              </div>
-              <button onClick={() => setShowVentas(false)} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ padding: "20px 22px" }}>
-              {/* Atajos de período */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                {[
-                  { k: "hoy",    label: "Hoy",            d: hoyISO },
-                  { k: "semana", label: "Últimos 7 días", d: fechaLocalISO(new Date(Date.now() - 6 * 864e5)) },
-                  { k: "mes",    label: "Este mes",       d: primeroDeMes },
-                  { k: "anio",   label: "Este año",       d: `${hoyISO.slice(0, 4)}-01-01` },
-                ].map((r) => {
-                  const activo = vDesde === r.d && vHasta === hoyISO;
-                  return (
-                    <button key={r.k} onClick={() => { setVDesde(r.d); setVHasta(hoyISO); }}
-                      style={{ background: activo ? C.red : L.soft, color: activo ? "#fff" : L.muted, border: `1px solid ${activo ? C.red : L.border}`, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: FONT_BODY }}>
-                      {r.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <label style={{ flex: 1, minWidth: 130, fontSize: 11.5, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.3 }}>
-                  Desde
-                  <input type="date" value={vDesde} max={vHasta} onChange={(e) => setVDesde(e.target.value)}
-                    style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 11px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none" }} />
-                </label>
-                <label style={{ flex: 1, minWidth: 130, fontSize: 11.5, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.3 }}>
-                  Hasta
-                  <input type="date" value={vHasta} min={vDesde} max={hoyISO} onChange={(e) => setVHasta(e.target.value)}
-                    style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 11px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY, color: L.text, outline: "none" }} />
-                </label>
-              </div>
-
-              <div style={{ marginTop: 14, padding: "10px 13px", background: L.soft, borderRadius: 9, fontSize: 13, color: L.muted }}>
-                {ventasEnRango === 0
-                  ? "No hay ventas en el período elegido."
-                  : `${ventasEnRango} ${ventasEnRango === 1 ? "venta" : "ventas"} en el período.`}
-              </div>
-
-              <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-                <button onClick={() => imprimirDoc(docVentas(), nombreVentas())} disabled={ventasEnRango === 0}
-                  style={{ flex: 1, minWidth: 130, background: ventasEnRango === 0 ? L.soft : C.red, color: ventasEnRango === 0 ? L.light : "#fff", border: "none", borderRadius: 9, padding: "11px 16px", cursor: ventasEnRango === 0 ? "not-allowed" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                  <Printer size={16} /> Imprimir
-                </button>
-                <button onClick={() => descargarDoc(docVentas(), nombreVentas())} disabled={ventasEnRango === 0}
-                  style={{ flex: 1, minWidth: 130, background: L.soft, color: ventasEnRango === 0 ? L.light : L.text, border: `1px solid ${L.border}`, borderRadius: 9, padding: "11px 16px", cursor: ventasEnRango === 0 ? "not-allowed" : "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                  <Download size={16} /> Descargar PDF
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Modal: ver reporte completo */}
-      {reporteAbierto && esCristian && (
-        <>
-          <div onClick={() => setReporteAbierto(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 400 }} />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,560px)", maxHeight: "85vh", background: L.white, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,.3)", zIndex: 401, display: "flex", flexDirection: "column", fontFamily: FONT_BODY, overflow: "hidden" }}>
-            <div style={{ padding: "18px 22px", borderBottom: `1px solid ${L.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <FileText size={19} color="#B45309" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text }}>Reporte</div>
-                <div style={{ fontSize: 12.5, color: L.muted, marginTop: 1 }}>
-                  {reporteAbierto.titulo}{reporteAbierto.vendedor ? ` · ${reporteAbierto.vendedor}` : ""}
-                </div>
-              </div>
-              <button onClick={() => setReporteAbierto(null)} style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 9, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, flexShrink: 0 }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px", fontSize: 14.5, lineHeight: 1.6, color: L.text, whiteSpace: "pre-wrap" }}>
-              {reporteAbierto.texto}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
