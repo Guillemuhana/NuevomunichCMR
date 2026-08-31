@@ -247,6 +247,143 @@ export function docFichaVisita(entrada, contacto, parse) {
 }
 
 // ============================================================
+// 2b. REPORTES DE UN DÍA
+// ============================================================
+/**
+ * Todos los reportes de visita / reuniones cargados en una jornada,
+ * uno abajo del otro y con la observación completa. Es lo que se
+ * imprime para leer de un saque lo que pasó ese día en la calle.
+ *
+ * Recibe las entradas ya filtradas a reportes (no pedidos); acá sólo
+ * se recorta al día pedido.
+ *
+ * @param {object[]} entradas  filas de `pedidos` de tipo visita/reunión
+ * @param {Record<string,object>} contactos  mapa id -> contacto
+ * @param {(raw:any)=>object} parse  parser del campo detalle
+ * @param {Date|string|null} dia  jornada a imprimir (por defecto hoy).
+ *   Con null no filtra: imprime las entradas que le pasen, que es como
+ *   se imprime una selección suelta de reportes.
+ */
+export function docReportesDia(entradas, contactos, parse, dia = new Date()) {
+  const doc = new jsPDF({ format: "a4" });
+  // dia = null imprime las entradas tal cual vienen: es el caso de "elegí
+  // estos reportes sueltos e imprimilos", que pueden ser de días distintos.
+  const fecha = dia === null ? null : (aFechaLocal(dia) || new Date());
+  const fechaLarga = fecha
+    ? fecha.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
+    : "";
+
+  const delDia = (fecha
+    ? (entradas || []).filter((e) => esMismoDia(e.created_at, fecha))
+    : [...(entradas || [])]
+  ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  let y = cabecera(
+    doc,
+    fecha ? "Reportes del día" : "Reportes seleccionados",
+    fecha ? fechaLarga : `${delDia.length} ${delDia.length === 1 ? "reporte" : "reportes"}`
+  );
+
+  if (!delDia.length) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(11);
+    doc.setTextColor(130, 122, 105);
+    doc.text("No hay reportes para imprimir.", 14, y + 4);
+    pie(doc);
+    return doc;
+  }
+
+  // Cuántos trajo cada vendedor: es el primer dato que se mira.
+  const porVendedor = {};
+  for (const e of delDia) {
+    const v = e.vendedor || "Sin asignar";
+    porVendedor[v] = (porVendedor[v] || 0) + 1;
+  }
+
+  y = seccion(doc, "Resumen", y);
+  y = campos(doc, [
+    [fecha ? "Reportes del día" : "Reportes", String(delDia.length)],
+    ["Vendedores", String(Object.keys(porVendedor).length)],
+    ...Object.entries(porVendedor).map(([v, n]) => [v, String(n)]),
+  ], y);
+
+  y = seccion(doc, "Índice", y);
+  autoTable(doc, {
+    ...TABLA,
+    startY: y,
+    head: [[fecha ? "Hora" : "Fecha", "Vendedor", "Cliente", "Tipo"]],
+    body: delDia.map((e) => {
+      const d = parse(e.detalle);
+      const c = contactos[e.contacto_id] || {};
+      return [
+        fecha ? fHora(e.created_at) : `${fFecha(e.created_at)} ${fHora(e.created_at)}`,
+        e.vendedor || "—",
+        c.nombre || d.clienteNombre || c.telefono || d.clienteTel || "—",
+        ETIQUETA_TIPO[d.tipo] || "Reporte de visita",
+      ];
+    }),
+    columnStyles: { 0: { cellWidth: fecha ? 18 : 32 }, 1: { cellWidth: 32 }, 3: { cellWidth: 42 } },
+  });
+  y = doc.lastAutoTable.finalY + 12;
+
+  // El cuerpo: un bloque por reporte con el texto entero, que es lo único
+  // que de verdad interesa leer. Nunca se recorta.
+  delDia.forEach((e, i) => {
+    const d = parse(e.detalle);
+    const c = contactos[e.contacto_id] || {};
+    const nombre = c.nombre || d.clienteNombre || c.telefono || d.clienteTel || "Cliente sin nombre";
+
+    if (y > 250) { doc.addPage(); y = 20; }
+    y = seccion(doc, `${i + 1}. ${nombre}`, y);
+
+    y = campos(doc, [
+      ["Vendedor", e.vendedor],
+      [fecha ? "Hora" : "Fecha", fecha ? fHora(e.created_at) : `${fFecha(e.created_at)} ${fHora(e.created_at)}`],
+      ["Tipo", ETIQUETA_TIPO[d.tipo] || "Reporte de visita"],
+      ["Teléfono", c.telefono || d.clienteTel],
+      ["Dirección", d.direccion || c.direccion],
+      ["Agendado", (d.fecha_visita || d.fecha_entrega) ? fFecha(d.fecha_visita || d.fecha_entrega) : null],
+    ], y);
+
+    const texto = [d.observacion, d.notas, d.detalle_extra].filter(Boolean).join("\n\n");
+    doc.setFont("helvetica", texto.trim() ? "normal" : "italic");
+    doc.setFontSize(10.5);
+    doc.setTextColor(40, 30, 20);
+    const lineas = doc.splitTextToSize(
+      texto.trim() ? limpiarPrecios(texto) : "Sin observaciones.", 182
+    );
+    lineas.forEach((linea) => {
+      if (y > 275) { doc.addPage(); y = 20; }
+      doc.text(linea, 14, y);
+      y += 5.5;
+    });
+
+    const items = (d.items || []).filter((it) => it.desc?.trim());
+    if (items.length) {
+      y += 3;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(130, 122, 105);
+      const conversado = doc.splitTextToSize(
+        "PRODUCTOS CONVERSADOS: " + items.map((it) => `${cantidadItem(it)} ${limpiarPrecios(it.desc)}`).join(", "),
+        182
+      );
+      conversado.forEach((linea) => {
+        if (y > 275) { doc.addPage(); y = 20; }
+        doc.text(linea, 14, y);
+        y += 5;
+      });
+      doc.setTextColor(40, 30, 20);
+    }
+
+    y += 10;
+  });
+
+  pie(doc);
+  return doc;
+}
+
+// ============================================================
 // 3. HOJA DE RUTA — ENTREGAS DEL DÍA
 // ============================================================
 /**

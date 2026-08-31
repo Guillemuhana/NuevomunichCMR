@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Package, Plus, Printer, X, Check, Clock, Zap,
   ChevronDown, Search, Phone, MapPin, FileText,
@@ -10,6 +10,7 @@ import { imprimirDoc, descargarDoc, logoPDF } from "./imprimir";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, limpiarPrecios, UNIDADES, cantidadItem,
 } from "./lib";
+import PanelReportes, { esReporte } from "./ReportesVendedores";
 
 // Paleta light (igual que App.jsx)
 
@@ -432,6 +433,10 @@ export default function PedidosPanel({ rol = "vendedor" }) {
   const [contactoSelec, setContactoSelec]       = useState(null);
   const [busqContacto, setBusqContacto]         = useState("");
   const [listaContactos, setListaContactos]     = useState([]);
+  // La tabla `pedidos` guarda también los reportes de visita y las reuniones
+  // que carga el vendedor. Acá se muestran los pedidos; los reportes tienen
+  // su propia pestaña, con calendario e impresión por día.
+  const [tab, setTab] = useState("pedidos");    // "pedidos" | "reportes"
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -465,7 +470,16 @@ export default function PedidosPanel({ rol = "vendedor" }) {
     setPedidos((p) => p.filter((x) => x.id !== id));
   };
 
-  const lista = pedidos.filter((p) => {
+  const soloPedidos = useMemo(
+    () => pedidos.filter((p) => !esReporte(parseDet(p.detalle))),
+    [pedidos]
+  );
+  const soloReportes = useMemo(
+    () => pedidos.filter((p) => esReporte(parseDet(p.detalle))),
+    [pedidos]
+  );
+
+  const lista = soloPedidos.filter((p) => {
     const porEstado = filtro === "todos" || p.estado === filtro;
     const cont = contactos[p.contacto_id];
     const texto = `${cont?.nombre || ""} ${cont?.telefono || ""} ${p.vendedor || ""}`.toLowerCase();
@@ -500,17 +514,19 @@ export default function PedidosPanel({ rol = "vendedor" }) {
             </div>
             <div>
               <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: L.text, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Pedidos
+                {tab === "reportes" ? "Reportes" : "Pedidos"}
               </div>
               <div style={{ fontSize: 11.5, color: L.muted }}>
-                {lista.length} pedido{lista.length !== 1 ? "s" : ""}
+                {tab === "reportes"
+                  ? `${soloReportes.length} reporte${soloReportes.length !== 1 ? "s" : ""} de vendedores`
+                  : `${lista.length} pedido${lista.length !== 1 ? "s" : ""}`}
               </div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {/* Búsqueda */}
-            <div style={{ position: "relative" }}>
+            {/* Búsqueda — sólo en Pedidos: el panel de reportes trae la suya */}
+            <div style={{ position: "relative", display: tab === "reportes" ? "none" : "block" }}>
               <Search size={14} color={L.light} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar cliente o vendedor…"
@@ -524,14 +540,32 @@ export default function PedidosPanel({ rol = "vendedor" }) {
           </div>
         </div>
 
+        {/* Pestañas: los reportes de visita no son pedidos */}
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          {[
+            { k: "pedidos",  label: "Pedidos",  icon: <Package size={14} />,  count: soloPedidos.length,  color: C.red },
+            { k: "reportes", label: "Reportes", icon: <FileText size={14} />, count: soloReportes.length, color: "#15803D" },
+          ].map(({ k, label, icon, count, color }) => {
+            const on = tab === k;
+            return (
+              <button key={k} onClick={() => setTab(k)}
+                style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 15px", borderRadius: 9, border: `1px solid ${on ? color : L.border}`, background: on ? color : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12.5, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
+                {icon} {label}
+                <span style={{ background: on ? "rgba(255,255,255,.25)" : L.soft, color: on ? "#fff" : L.muted, borderRadius: 10, padding: "1px 8px", fontSize: 10.5, fontWeight: 800 }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Filtros por estado */}
+        {tab === "pedidos" && (
         <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
           <button onClick={() => setFiltro("todos")}
             style={{ fontSize: 11.5, padding: "5px 14px", borderRadius: 20, border: `1px solid ${filtro === "todos" ? C.red : L.border}`, cursor: "pointer", fontWeight: 700, background: filtro === "todos" ? "#FEF2F2" : L.white, color: filtro === "todos" ? C.red : L.muted, transition: "all .15s" }}>
-            Todos <span style={{ background: filtro === "todos" ? C.red : L.light, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10, marginLeft: 3 }}>{pedidos.length}</span>
+            Todos <span style={{ background: filtro === "todos" ? C.red : L.light, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10, marginLeft: 3 }}>{soloPedidos.length}</span>
           </button>
           {Object.entries(EP).map(([k, v]) => {
-            const cnt = pedidos.filter((p) => p.estado === k).length;
+            const cnt = soloPedidos.filter((p) => p.estado === k).length;
             if (cnt === 0 && filtro !== k) return null;
             const on = filtro === k;
             return (
@@ -542,10 +576,16 @@ export default function PedidosPanel({ rol = "vendedor" }) {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* ── Contenido ── */}
-      {loading ? (
+      {tab === "reportes" ? (
+        <div style={{ padding: "20px 26px" }}>
+          <PanelReportes reportes={soloReportes} contactos={contactos}
+            parse={parseDet} loading={loading} />
+        </div>
+      ) : loading ? (
         <div style={{ padding: 80, textAlign: "center", color: L.muted, fontSize: 15 }}>Cargando pedidos…</div>
       ) : lista.length === 0 ? (
         <div style={{ padding: 80, textAlign: "center" }}>

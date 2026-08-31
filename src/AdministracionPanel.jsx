@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Package, Search, X, Calendar,
   ChevronLeft, ChevronRight, LogOut, Bell,
@@ -13,6 +13,7 @@ import {
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docHojaRuta, docVentasRango } from "./documentos";
+import PanelReportes, { esReporte } from "./ReportesVendedores";
 
 
 function fmtDate(iso) {
@@ -42,6 +43,26 @@ function fechaPedido(p) {
 }
 
 const VENDOR_COLORS = ["#B91C1C","#1D4ED8","#15803D","#7C3AED","#B45309","#0E7490"];
+
+// Los datos del pie de la tarjeta (teléfono, entrega, dirección, pago) son
+// todos del mismo rango: se ven iguales para que la vista los barra de un
+// saque y no compitan con el nombre del cliente ni con los botones.
+const chipPie = {
+  display: "inline-flex", alignItems: "center", gap: 5,
+  fontSize: 11.5, fontWeight: 600, color: L.muted,
+  background: L.soft, border: `1px solid ${L.border}`,
+  borderRadius: 6, padding: "4px 9px", whiteSpace: "nowrap",
+};
+
+// Imprimir / PDF / Eliminar: mismo alto que el selector de estado y el
+// botón de fecha, para que la barra de acciones quede a una sola línea.
+const btnAccion = {
+  display: "flex", alignItems: "center", gap: 5,
+  height: 34, boxSizing: "border-box", padding: "0 11px",
+  background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8,
+  fontSize: 12.5, fontWeight: 600, fontFamily: FONT_BODY, color: L.muted,
+  cursor: "pointer", whiteSpace: "nowrap",
+};
 
 // El vendedor puede cargar un pedido escribiendo sólo el nombre del cliente,
 // sin teléfono. En ese caso no se crea ningún contacto y el nombre queda
@@ -327,6 +348,10 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   const [showNotifs, setShowNotifs] = useState(true);
   const [reporteAbierto, setReporteAbierto] = useState(null); // { titulo, texto }
   const [diaAbierto, setDiaAbierto] = useState(null);        // día del calendario en pantalla grande
+  // Pedidos y reportes vivían en la misma lista: los reportes de visita no
+  // tienen productos ni estado que gestionar, así que ensuciaban la pantalla
+  // y falseaban el conteo. Cada cosa en su pestaña.
+  const [tab, setTab] = useState("pedidos");   // "pedidos" | "reportes"
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -350,9 +375,22 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // La tabla `pedidos` guarda las tres cosas que carga el vendedor: pedidos,
+  // reportes de visita y reuniones. Acá se parten en dos y de ahí en más
+  // TODO lo de esta pantalla (lista, calendario, alertas, ventas, hoja de
+  // ruta, CSV) mira sólo los pedidos.
+  const soloPedidos = useMemo(
+    () => pedidos.filter((p) => !esReporte(parseDet(p.detalle))),
+    [pedidos]
+  );
+  const soloReportes = useMemo(
+    () => pedidos.filter((p) => esReporte(parseDet(p.detalle))),
+    [pedidos]
+  );
+
   useEffect(() => {
     const alerts = [];
-    pedidos.forEach(p => {
+    soloPedidos.forEach(p => {
       const det = parseDet(p.detalle);
       if (!det.fecha_entrega) return;
       const cont = contactos[p.contacto_id] || {};
@@ -366,7 +404,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
         alerts.push({ id: p.id, tipo: "vencido", texto: `Vencida — ${nombre} (${fmtDate(det.fecha_entrega)})` });
     });
     setNotifs(alerts);
-  }, [pedidos, contactos]);
+  }, [soloPedidos, contactos]);
 
   const updateFechaEntrega = async (pedidoId, detalleStr, newDate) => {
     const det = parseDet(detalleStr);
@@ -387,7 +425,7 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
     setPedidos(prev => prev.filter(p => p.id !== pedidoId));
   };
 
-  const lista = pedidos.filter(p => {
+  const lista = soloPedidos.filter(p => {
     const cont = contactos[p.contacto_id] || {};
     const nombre = (cont.nombre || cont.telefono || "").toLowerCase();
     const det = parseDet(p.detalle);
@@ -437,15 +475,15 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
   };
 
   // Ventas del período elegido en el modal.
-  const docVentas = () => docVentasRango(pedidos, contactos, parseDet, vDesde, vHasta, EP);
+  const docVentas = () => docVentasRango(soloPedidos, contactos, parseDet, vDesde, vHasta, EP);
   const nombreVentas = () => `ventas-${vDesde}-al-${vHasta}.pdf`;
-  const ventasEnRango = pedidos.filter((p) => {
+  const ventasEnRango = soloPedidos.filter((p) => {
     const fch = new Date(p.created_at);
     return fch >= new Date(`${vDesde}T00:00:00`) && fch <= new Date(`${vHasta}T23:59:59`);
   }).length;
 
   // Hoja de ruta: las entregas agendadas para hoy, para quien reparte.
-  const hojaRuta = () => docHojaRuta(pedidos, contactos, parseDet, new Date());
+  const hojaRuta = () => docHojaRuta(soloPedidos, contactos, parseDet, new Date());
   const nombreHojaRuta = () => `hoja-de-ruta-${hoyLocalISO()}.pdf`;
 
   const alertColor = {
@@ -485,10 +523,14 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Download size={15} />
           </button>
+          {/* El CSV es de la lista de pedidos: en la pestaña Reportes no
+              tiene sentido, y exportaba pedidos sin avisar. */}
+          {tab === "pedidos" && (
           <button onClick={handleExportCSV} title="Exportar CSV"
             style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1D4ED8", borderRadius: 9, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY }}>
             <FileDown size={15} /> <span className="solo-desktop">Exportar</span>
           </button>
+          )}
           {onLogout && (
             <button onClick={onLogout} title="Cerrar sesión"
               style={{ background: L.soft, border: `1px solid ${L.border}`, color: L.muted, borderRadius: 9, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -498,11 +540,17 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "22px 24px" }}>
+      {/* Con la lista de la izquierda fuera, esta pantalla puede quedar de
+          1900px: una tarjeta de ese ancho no se lee. El padding lateral
+          crece solo y centra el contenido en 1600px. */}
+      <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "22px max(24px, calc((100% - 1600px) / 2))" }}>
 
         {/* Alertas */}
+        {/* Las alertas se acomodan en columnas: una barra de 1600px por cada
+            "Entrega HOY — Boris: Fulano" empujaba la lista fuera de pantalla
+            cuando había varias. */}
         {showNotifs && notifs.length > 0 && (
-          <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 7 }}>
+          <div style={{ marginBottom: 18, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
             {notifs.map((n, i) => {
               const col = alertColor[n.tipo];
               return (
@@ -515,6 +563,27 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
           </div>
         )}
 
+        {/* Pestañas: Pedidos y Reportes son dos trabajos distintos */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {[
+            { k: "pedidos",  label: "Pedidos",  icon: <Package size={14} />,  count: soloPedidos.length,  color: C.red },
+            { k: "reportes", label: "Reportes", icon: <FileText size={14} />, count: soloReportes.length, color: "#15803D" },
+          ].map(({ k, label, icon, count, color }) => {
+            const on = tab === k;
+            return (
+              <button key={k} onClick={() => { setTab(k); setDiaAbierto(null); }}
+                style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 9, border: `1px solid ${on ? color : L.border}`, background: on ? color : L.white, color: on ? "#fff" : L.muted, cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase", transition: "all .15s" }}>
+                {icon} {label}
+                <span style={{ background: on ? "rgba(255,255,255,.25)" : L.soft, color: on ? "#fff" : L.muted, borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === "reportes" ? (
+          <PanelReportes reportes={soloReportes} contactos={contactos}
+            parse={parseDet} loading={loading} />
+        ) : (
         <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
 
           {/* Lista de pedidos */}
@@ -591,125 +660,116 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
               const fe = det.fecha_entrega;
               const alertaFecha = fe && (isHoy(fe) || isVencido(fe));
               const borderColor = alertaFecha ? (isVencido(fe) ? "#FECACA" : "#FDE68A") : L.border;
+              const items = det.items.filter(i => i.desc?.trim());
+              const obs = (det.notas || det.observacion || "").trim();
 
               return (
                 <div key={ped.id}
                   // Antes la tarjeta crecía al pasar el mouse (scale 1.018): con la
                   // lista llena, el cursor la agrandaba, corría la de al lado y costaba
                   // apuntarle a los botones. Ahora sólo se marca el borde.
-                  style={{ background: L.white, border: `1px solid ${borderColor}`, borderLeft: `3px solid ${ep.color}`, borderRadius: R.md, marginBottom: 8, padding: "15px 18px", transition: "border-color .15s ease, box-shadow .15s ease" }}
+                  style={{ background: L.white, border: `1px solid ${borderColor}`, borderLeft: `3px solid ${ep.color}`, borderRadius: R.md, marginBottom: 9, padding: "14px 18px", transition: "border-color .15s ease, box-shadow .15s ease" }}
                   onMouseEnter={e => { e.currentTarget.style.boxShadow = SH.md; e.currentTarget.style.borderColor = L.light; e.currentTarget.style.borderLeftColor = ep.color; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.borderLeftColor = ep.color; }}>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  {/* ── Renglón 1: de quién es el pedido ──
+                      Cliente, estado y vendedor en una sola línea. Antes el
+                      vendedor y el estado vivían en dos bloques distintos y
+                      había que barrer la tarjeta con la vista para saber
+                      de quién era y cómo venía. */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: items.length || obs ? 9 : 0 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: "50%", background: "#FEF2F2", flexShrink: 0 }}>
+                      <User size={15} color={C.red} />
+                    </span>
+                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text, letterSpacing: 0.2 }}>
+                      {nombreCliente(cont, det)}
+                    </span>
+                    {cont.empresa && <span style={{ fontSize: 12, color: L.muted }}>· {cont.empresa}</span>}
+                    <span style={{ fontSize: 10.5, padding: "3px 10px", borderRadius: 5, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
+                    <VendedorBadge alias={ped.vendedor} />
+                    <span style={{ marginLeft: "auto", fontSize: 11.5, color: L.light, whiteSpace: "nowrap" }}>
+                      {new Date(ped.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
 
-                    {/* Izquierda */}
-                    <div style={{ flex: 1, minWidth: 220 }}>
-                      {/* Cliente + Estado */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: "#FEF2F2", flexShrink: 0 }}>
-                          <User size={16} color={C.red} />
+                  {/* ── Renglón 2: qué pidió ── */}
+                  {items.length > 0 && (
+                    <div style={{ fontSize: 13.5, color: L.muted, lineHeight: 1.55, marginBottom: obs || det.detalle_extra?.trim() ? 9 : 0 }}>
+                      {items.slice(0, 6).map((it, idx) => (
+                        <span key={idx}>{idx > 0 ? " · " : ""}
+                          <strong style={{ color: L.text }}>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}
                         </span>
-                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: L.text, letterSpacing: 0.2 }}>
-                          {nombreCliente(cont, det)}
-                        </span>
-                        {cont.empresa && <span style={{ fontSize: 12, color: L.muted }}>· {cont.empresa}</span>}
-                        <span style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 5, background: ep.bg, color: ep.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, border: `1px solid ${ep.color}33` }}>{ep.label}</span>
-                      </div>
-
-                      {/* Vendedor */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
-                        <span style={{ fontSize: 10.5, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</span>
-                        <VendedorBadge alias={ped.vendedor} />
-                      </div>
-
-                      <div style={{ fontSize: 13.5, color: L.muted, marginBottom: 10, lineHeight: 1.55 }}>
-                        {det.items.filter(i => i.desc?.trim()).slice(0, 4).map((it, idx) => (
-                          <span key={idx}>{idx > 0 ? " · " : ""}
-                            <strong style={{ color: L.text }}>{cantidadItem(it)}</strong> {limpiarPrecios(it.desc)}
-                          </span>
-                        ))}
-                        {det.items.filter(i => i.desc?.trim()).length > 4 && (
-                          <span style={{ color: L.light }}> +{det.items.filter(i => i.desc?.trim()).length - 4} más</span>
-                        )}
-                      </div>
-
-                      {/* La observación a la vista. Antes vivía detrás del botón
-                          "Ver reporte", que se sacó de este panel: quedaba escrita
-                          por el vendedor y administración no la leía nunca. Es
-                          justo lo que hace falta para preparar el pedido. */}
-                      {(det.notas || det.observacion)?.trim() && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8, padding: "8px 11px", marginBottom: 10 }}>
-                          <FileText size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
-                          <span style={{ fontSize: 12.5, color: "#7C2D12", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                            {limpiarPrecios(det.notas || det.observacion)}
-                          </span>
-                        </div>
-                      )}
-
-                      {det.detalle_extra?.trim() && (
-                        <div style={{ fontSize: 12, color: L.muted, marginBottom: 10, paddingLeft: 2, lineHeight: 1.5 }}>
-                          <strong style={{ color: L.text }}>Detalle adicional:</strong> {limpiarPrecios(det.detalle_extra)}
-                        </div>
-                      )}
-
-                      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", paddingTop: 10, borderTop: `1px solid ${L.soft}` }}>
-                        {cont.telefono && (
-                          <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
-                            <Phone size={11} /> {cont.telefono}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
-                          <Package size={11} /> {det.entrega}
-                        </span>
-                        {det.entrega === "Delivery" && det.direccion && (
-                          <span style={{ fontSize: 11.5, color: L.muted, display: "flex", alignItems: "center", gap: 4, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>
-                            <MapPin size={11} /> {det.direccion.slice(0, 35)}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 11.5, color: L.muted, background: L.soft, padding: "4px 9px", borderRadius: 6, fontWeight: 600 }}>{det.pago}</span>
-                        {det.adjunto_url && (
-                          <a href={det.adjunto_url} target="_blank" rel="noreferrer"
-                            title={det.adjunto_nombre || "Adjunto del vendedor"}
-                            style={{ fontSize: 11.5, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: "4px 10px", borderRadius: 6, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 5, maxWidth: 190 }}>
-                            <Paperclip size={12} />
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {det.adjunto_nombre || "Ver adjunto"}
-                            </span>
-                          </a>
-                        )}
-                        {det.notas?.trim() && esCristian && (
-                          <button onClick={() => setReporteAbierto({ titulo: nombreCliente(cont, det), vendedor: ped.vendedor, texto: det.notas })}
-                            style={{ fontSize: 11.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", padding: "4px 11px", borderRadius: 6, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY, transition: "all .15s" }}
-                            onMouseEnter={e => { e.currentTarget.style.background = "#FEF3C7"; e.currentTarget.style.borderColor = "#FCD34D"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "#FFFBEB"; e.currentTarget.style.borderColor = "#FDE68A"; }}>
-                            <FileText size={12} /> Ver reporte
-                          </button>
-                        )}
-                      </div>
+                      ))}
+                      {items.length > 6 && <span style={{ color: L.light }}> +{items.length - 6} más</span>}
                     </div>
+                  )}
 
-                    {/* Derecha */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, color: L.light }}>
-                        {new Date(ped.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  {/* La observación a la vista. Antes vivía detrás del botón
+                      "Ver reporte", que se sacó de este panel: quedaba escrita
+                      por el vendedor y administración no la leía nunca. Es
+                      justo lo que hace falta para preparar el pedido. */}
+                  {obs && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8, padding: "8px 11px", marginBottom: det.detalle_extra?.trim() ? 9 : 0 }}>
+                      <FileText size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ fontSize: 12.5, color: "#7C2D12", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                        {limpiarPrecios(obs)}
                       </span>
+                    </div>
+                  )}
 
-                      {/* Fecha entrega */}
+                  {det.detalle_extra?.trim() && (
+                    <div style={{ fontSize: 12, color: L.muted, paddingLeft: 2, lineHeight: 1.5 }}>
+                      <strong style={{ color: L.text }}>Detalle adicional:</strong> {limpiarPrecios(det.detalle_extra)}
+                    </div>
+                  )}
+
+                  {/* ── Pie: los datos del reparto a la izquierda y todo lo
+                      que se toca a la derecha, en una sola barra. Antes esto
+                      era una columna apretada contra el borde derecho que en
+                      pantallas angostas se desarmaba. ── */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingTop: 11, marginTop: 11, borderTop: `1px solid ${L.soft}` }}>
+
+                    {cont.telefono && (
+                      <span style={chipPie}><Phone size={11} /> {cont.telefono}</span>
+                    )}
+                    <span style={chipPie}><Package size={11} /> {det.entrega}</span>
+                    {det.entrega === "Delivery" && det.direccion && (
+                      <span style={chipPie} title={det.direccion}>
+                        <MapPin size={11} /> {det.direccion.length > 34 ? det.direccion.slice(0, 34) + "…" : det.direccion}
+                      </span>
+                    )}
+                    <span style={chipPie}>{det.pago}</span>
+                    {det.adjunto_url && (
+                      <a href={det.adjunto_url} target="_blank" rel="noreferrer"
+                        title={det.adjunto_nombre || "Adjunto del vendedor"}
+                        style={{ ...chipPie, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", textDecoration: "none", maxWidth: 190 }}>
+                        <Paperclip size={11} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {det.adjunto_nombre || "Ver adjunto"}
+                        </span>
+                      </a>
+                    )}
+
+                    {/* Lo que se toca, siempre pegado a la derecha */}
+                    <div className="barra-acciones" style={{ marginLeft: "auto" }}>
+
+                      {/* Fecha de entrega */}
                       {editF ? (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                           <input type="date" defaultValue={fe || ""}
                             onBlur={e => updateFechaEntrega(ped.id, ped.detalle, e.target.value)}
                             onKeyDown={e => e.key === "Enter" && updateFechaEntrega(ped.id, ped.detalle, e.target.value)}
                             autoFocus
                             style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.red}`, fontSize: 13, fontFamily: FONT_BODY, outline: "none", background: "#FEF2F2" }} />
-                          <button onClick={() => setEditandoFecha(null)} style={{ background: "none", border: "none", cursor: "pointer", color: L.muted }}>
+                          <button onClick={() => setEditandoFecha(null)} title="Cancelar"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: L.muted, display: "flex" }}>
                             <X size={14} />
                           </button>
                         </div>
                       ) : (
                         <button onClick={() => setEditandoFecha(ped.id)}
-                          style={{ display: "flex", alignItems: "center", gap: 6, background: fe ? (alertaFecha ? (isVencido(fe) ? "#FEF2F2" : "#FFFBEB") : L.soft) : L.soft, border: `1px solid ${fe ? (alertaFecha ? (isVencido(fe) ? "#FECACA" : "#FDE68A") : L.border) : L.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12.5, fontWeight: fe ? 700 : 400, color: fe ? (isHoy(fe) ? "#D97706" : isVencido(fe) ? C.red : L.muted) : L.light }}>
+                          title={fe ? "Cambiar la fecha de entrega" : "Poner fecha de entrega"}
+                          style={{ display: "flex", alignItems: "center", gap: 6, height: 34, boxSizing: "border-box", background: fe ? (alertaFecha ? (isVencido(fe) ? "#FEF2F2" : "#FFFBEB") : L.soft) : L.soft, border: `1px solid ${fe && alertaFecha ? (isVencido(fe) ? "#FECACA" : "#FDE68A") : L.border}`, borderRadius: 8, padding: "0 11px", cursor: "pointer", fontSize: 12.5, fontFamily: FONT_BODY, fontWeight: fe ? 700 : 500, color: fe ? (isHoy(fe) ? "#D97706" : isVencido(fe) ? C.red : L.muted) : L.light }}>
                           <Calendar size={12} />
                           {fe ? fmtDate(fe) : "Fecha entrega"}
                           {isHoy(fe) && <span style={{ fontSize: 9.5, background: "#FDE68A", color: "#92400E", borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>HOY</span>}
@@ -717,40 +777,36 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
                         </button>
                       )}
 
-                      {/* Estado */}
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                        <span style={{ fontSize: 9.5, color: L.light, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Estado del pedido</span>
-                        <select value={ped.estado} onChange={e => updateEstado(ped.id, e.target.value)}
-                          style={{ padding: "9px 14px", borderRadius: 6, border: `1px solid ${ep.color}`, borderBottom: `3px solid ${ep.color}`, fontSize: 14, fontFamily: FONT_DISPLAY, background: "#fff", color: ep.color, cursor: "pointer", outline: "none", fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", boxShadow: "0 2px 5px rgba(15,23,42,.10)", transition: "transform .12s ease, box-shadow .12s ease, border-bottom-width .12s ease" }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 5px 12px rgba(15,23,42,.16)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 5px rgba(15,23,42,.10)"; e.currentTarget.style.borderBottomWidth = "3px"; }}
-                          onMouseDown={e => { e.currentTarget.style.transform = "translateY(1px)"; e.currentTarget.style.borderBottomWidth = "1px"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(15,23,42,.12)"; }}
-                          onMouseUp={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderBottomWidth = "3px"; }}>
-                          {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                        </select>
-                      </div>
+                      {/* Estado: es lo que más se toca en esta pantalla, así
+                          que va con el color del estado y bien a mano. */}
+                      <select value={ped.estado} onChange={e => updateEstado(ped.id, e.target.value)}
+                        title="Cambiar el estado del pedido"
+                        style={{ height: 34, boxSizing: "border-box", padding: "0 10px", borderRadius: 8, border: `1px solid ${ep.color}`, background: ep.bg, color: ep.color, fontSize: 12.5, fontFamily: FONT_DISPLAY, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", cursor: "pointer", outline: "none" }}>
+                        {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
 
-                      {/* PDF + Eliminar */}
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => imprimirPedido(ped, cont, { imprimir: true })} title="Imprimir"
-                          style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
-                          onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
-                          <Printer size={12} /> <span className="solo-desktop">Imprimir</span>
-                        </button>
-                        <button onClick={() => imprimirPedido(ped, cont)} title="Descargar PDF"
-                          style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
-                          onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
-                          <Download size={12} /> <span className="solo-desktop">PDF</span>
-                        </button>
-                        <button onClick={() => eliminarPedido(ped.id)} title="Eliminar pedido"
-                          style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: "#EF4444", fontFamily: FONT_BODY, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#EF4444"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = L.border; }}>
-                          <Trash2 size={12} /> <span className="solo-desktop">Eliminar</span>
-                        </button>
-                      </div>
+                      {/* Separador: los tres de la derecha son acciones sobre
+                          el papel, no sobre el pedido. */}
+                      <span className="solo-desktop" style={{ width: 1, height: 22, background: L.border, margin: "0 2px" }} />
+
+                      <button onClick={() => imprimirPedido(ped, cont, { imprimir: true })} title="Imprimir el pedido"
+                        style={btnAccion}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
+                        <Printer size={13} /> <span className="solo-desktop">Imprimir</span>
+                      </button>
+                      <button onClick={() => imprimirPedido(ped, cont)} title="Descargar el PDF"
+                        style={btnAccion}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = C.red; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = L.muted; e.currentTarget.style.borderColor = L.border; }}>
+                        <Download size={13} /> <span className="solo-desktop">PDF</span>
+                      </button>
+                      <button onClick={() => eliminarPedido(ped.id)} title="Eliminar el pedido"
+                        style={{ ...btnAccion, color: "#EF4444" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#EF4444"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = L.soft; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = L.border; }}>
+                        <Trash2 size={13} /> <span className="solo-desktop">Eliminar</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -758,16 +814,16 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             })}
           </div>
 
-          {/* Calendario */}
-          <div style={{ width: 270, flexShrink: 0 }}>
+          {/* Calendario — queda a la vista mientras se baja por la lista */}
+          <div style={{ width: 288, flexShrink: 0, position: "sticky", top: 0 }}>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12.5, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
               <Calendar size={14} color={C.red} /> Calendario de pedidos
             </div>
-            <MiniCalendar pedidos={pedidos} selectedDate={selectedDate}
+            <MiniCalendar pedidos={soloPedidos} selectedDate={selectedDate}
               onSelectDate={(d) => { setSelectedDate(d); if (d) setDiaAbierto(d); }} />
 
             {selectedDate && (() => {
-              const pedidosDia = pedidos.filter(p => fechaPedido(p).startsWith(selectedDate));
+              const pedidosDia = soloPedidos.filter(p => fechaPedido(p).startsWith(selectedDate));
               return (
               <div style={{ marginTop: 12, background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -799,10 +855,11 @@ export default function AdministracionPanel({ userName, userEmail, rol, onLogout
             })()}
           </div>
         </div>
+        )}
       </div>
 
       {diaAbierto && (
-        <ModalDia dia={diaAbierto} pedidos={pedidos} contactos={contactos}
+        <ModalDia dia={diaAbierto} pedidos={soloPedidos} contactos={contactos}
           onCerrar={() => setDiaAbierto(null)}
           onVerEnLista={() => setDiaAbierto(null)} />
       )}

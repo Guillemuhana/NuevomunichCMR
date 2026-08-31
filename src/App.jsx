@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import {
   Bell, Search, LogOut, MessageSquare, BarChart2, Package,
   Pencil, Bot, User, Calendar, Send, X, Check,
@@ -13,7 +13,7 @@ import PedidosPanel, { NuevoPedidoModal, imprimirPedido, parseDet, EP } from "./
 import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas, getRol, limpiarPrecios, getIdentidadInterna,
-  construirMensajeMeta, marketingHabilitado, cantidadItem,
+  construirMensajeMeta, marketingHabilitado, cantidadItem, fechaLocalISO,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -1588,6 +1588,190 @@ const TITULO_VISTA = {
   marketing: "Marketing", notas: "Notas",
 };
 
+// ============================================================
+// AGENDA DE PEDIDOS — columna izquierda de la vista Pedidos
+// ============================================================
+// La lista de contactos no aplica en Pedidos y la columna quedaba en blanco
+// al lado del panel de gestión. Acá va la agenda: los pedidos agrupados por
+// día, con la hora de cada uno, para tener el panorama del día a la vista
+// mientras se trabaja la lista grande.
+//
+// Dos lecturas del mismo dato, porque las dos hacen falta:
+//   · Ingresos → por día en que se cargó el pedido (siempre tiene fecha).
+//   · Entregas → por fecha de entrega pactada; los atrasados quedan arriba.
+
+const esVisita = (det) => (det?.tipo || "pedido") !== "pedido";
+
+const nombreCliente = (cont, det) =>
+  cont?.nombre || cont?.telefono || det?.clienteNombre || det?.clienteTel || "Cliente sin nombre";
+
+const soloHora = (ts) =>
+  new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+// Devuelve el día en palabras: "hoy", "mañana", "ayer" o el nombre del día.
+function etiquetaDia(iso) {
+  const d = new Date(iso + "T12:00");
+  const hoy = new Date();
+  const dif = Math.round((new Date(iso + "T12:00") - new Date(hoy.toDateString())) / 86400000);
+  const relativo = dif === 0 ? "Hoy" : dif === 1 ? "Mañana" : dif === -1 ? "Ayer" : null;
+  return {
+    relativo,
+    dia: d.toLocaleDateString("es-AR", { weekday: "long" }),
+    fecha: d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }),
+    esHoy: dif === 0,
+    vencido: dif < 0,
+  };
+}
+
+function AgendaPedidos({ contactos, isMobile }) {
+  const [pedidos, setPedidos]   = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [modo, setModo]         = useState("carga"); // "carga" | "entrega"
+
+  const cargar = useCallback(async () => {
+    const { data } = await supabase.from("pedidos")
+      .select("id,vendedor,detalle,estado,contacto_id,created_at")
+      .order("created_at", { ascending: false });
+    setPedidos(data || []);
+    setCargando(false);
+  }, []);
+
+  useEffect(() => {
+    cargar();
+    const ch = supabase.channel("pedidos-agenda")
+      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargar).subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [cargar]);
+
+  // Los contactos llegan como lista desde App; acá se busca por id.
+  const porId = useMemo(() => {
+    const map = {};
+    (contactos || []).forEach((c) => { map[c.id] = c; });
+    return map;
+  }, [contactos]);
+
+  const { grupos, sinFecha } = useMemo(() => {
+    const filas = [];
+    let sin = 0;
+
+    (pedidos || []).forEach((p) => {
+      const det = parseDet(p.detalle);
+      if (esVisita(det)) return; // los reportes de visita tienen su propia pestaña
+
+      const dia = modo === "entrega" ? det.fecha_entrega : fechaLocalISO(p.created_at);
+      if (!dia) { sin++; return; }
+
+      filas.push({
+        id: p.id,
+        dia,
+        hora: soloHora(p.created_at),
+        cliente: nombreCliente(porId[p.contacto_id], det),
+        vendedor: p.vendedor || "—",
+        estado: p.estado,
+      });
+    });
+
+    const mapa = new Map();
+    filas.forEach((f) => {
+      if (!mapa.has(f.dia)) mapa.set(f.dia, []);
+      mapa.get(f.dia).push(f);
+    });
+
+    // Ingresos: lo más nuevo arriba. Entregas: lo que vence primero arriba.
+    const dias = [...mapa.keys()].sort((a, b) => (modo === "entrega" ? a.localeCompare(b) : b.localeCompare(a)));
+
+    return {
+      grupos: dias.map((d) => ({
+        dia: d,
+        ...etiquetaDia(d),
+        items: mapa.get(d).sort((a, b) => a.hora.localeCompare(b.hora)),
+      })),
+      sinFecha: sin,
+    };
+  }, [pedidos, porId, modo]);
+
+  const chip = (k, label) => (
+    <button key={k} onClick={() => setModo(k)}
+      style={{ flex: 1, padding: "7px 10px", borderRadius: 8, cursor: "pointer", fontFamily: FONT_BODY,
+        fontSize: 12, fontWeight: 700, outline: "none",
+        border: `1px solid ${modo === k ? C.red : L.border}`,
+        background: modo === k ? C.redSoft : L.white,
+        color: modo === k ? C.red : L.muted }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <>
+      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${L.border}`, display: "flex", gap: 8 }}>
+        {chip("carga", "Ingresos")}
+        {chip("entrega", "Entregas")}
+      </div>
+
+      <div className="scroll-y" style={{ overflowY: "auto", flex: 1, paddingBottom: isMobile ? "calc(66px + env(safe-area-inset-bottom))" : 8 }}>
+        {cargando && (
+          <div style={{ padding: 30, color: L.light, fontSize: 13, textAlign: "center" }}>Cargando agenda…</div>
+        )}
+
+        {!cargando && grupos.length === 0 && (
+          <div style={{ padding: 30, color: L.light, fontSize: 13, textAlign: "center", lineHeight: 1.6 }}>
+            {modo === "entrega" ? "Ningún pedido tiene fecha de entrega cargada" : "Todavía no hay pedidos"}
+          </div>
+        )}
+
+        {grupos.map((g) => (
+          <div key={g.dia}>
+            {/* ── Cabecera del día: día, fecha y cuántos ── */}
+            <div style={{ position: "sticky", top: 0, zIndex: 1, display: "flex", alignItems: "center", gap: 7,
+              padding: "7px 14px", background: g.esHoy ? "#FFFBEB" : L.soft,
+              borderBottom: `1px solid ${L.border}`, borderTop: `1px solid ${L.border}` }}>
+              <CalendarCheck size={13} color={g.esHoy ? "#B45309" : L.light} />
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: g.esHoy ? "#B45309" : L.muted, textTransform: "capitalize", letterSpacing: 0.2 }}>
+                {g.relativo || g.dia} {g.fecha}
+              </span>
+              {modo === "entrega" && g.vencido && (
+                <span style={{ fontSize: 9.5, background: "#FECACA", color: C.red, borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>VENCIDA</span>
+              )}
+              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: L.light }}>{g.items.length}</span>
+            </div>
+
+            {/* ── Pedidos de ese día, por hora ── */}
+            {g.items.map((it) => {
+              const ep = EP[it.estado] || {};
+              return (
+                <div key={it.id} style={{ display: "flex", gap: 10, padding: "9px 14px", borderBottom: `1px solid ${L.border}`, alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, width: 52, color: L.muted, fontSize: 11.5, fontWeight: 700, paddingTop: 1 }}>
+                    <Clock size={11} color={L.light} /> {it.hora}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: L.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {it.cliente}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                      <span style={{ fontSize: 11, color: L.light, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.vendedor}</span>
+                      {ep.label && (
+                        <span style={{ fontSize: 9.5, fontWeight: 800, borderRadius: 4, padding: "1px 6px", background: ep.bg, color: ep.color, flexShrink: 0 }}>
+                          {ep.label.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {!cargando && modo === "entrega" && sinFecha > 0 && (
+          <div style={{ padding: "12px 14px", fontSize: 11.5, color: L.light, lineHeight: 1.5 }}>
+            {sinFecha} {sinFecha === 1 ? "pedido sin fecha de entrega" : "pedidos sin fecha de entrega"} — se les asigna desde el panel.
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, userEmail, userName, vista, setVista, alertas, isMobile, rol }) {
   const [filtro, setFiltro]           = useState("todos");
   const [soloDestacados, setSoloDestacados] = useState(false);
@@ -1650,6 +1834,8 @@ function Sidebar({ contactos, activo, onSelect, onToggleDestacado, onLogout, use
           <AlertasBtn alertas={alertas} onSelect={(c) => { setVista("chat"); onSelect(c); }} />
         </div>
       </div>
+
+      {vista === "pedidos" && <AgendaPedidos contactos={contactos} isMobile={isMobile} />}
 
       {(vista === "chat" || vista === "contactos") && (
         <>
@@ -2688,6 +2874,14 @@ export default function App() {
   // En mobile: mostramos sidebar O panel, no ambos a la vez
   const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario" || vista === "notas");
 
+  // La lista de la izquierda tiene contenido en Chats, Contactos y Pedidos
+  // (ahí muestra la agenda por día y hora). En Reportes o el Calendario
+  // quedaba una columna de 368px vacía con el panel apretado al lado: en esas
+  // vistas no se dibuja y el panel se queda con toda la pantalla. En mobile se
+  // sigue montando siempre: ahí el CSS decide qué se ve y sin ella no habría
+  // de dónde volver.
+  const vistaConLista = vista === "chat" || vista === "contactos" || vista === "pedidos";
+
   return (
     // CSS media queries en index.html controlan qué panel es visible en mobile
     // .in-panel = hay panel activo → ocultar sidebar, mostrar app-main
@@ -2703,6 +2897,7 @@ export default function App() {
       )}
 
       {/* Sidebar — CSS lo oculta en mobile cuando hay .in-panel */}
+      {(vistaConLista || isMobile) && (
       <div className="app-sidebar">
         <Sidebar contactos={contactos} activo={activo}
           onSelect={(c) => setActivo(c)}
@@ -2712,6 +2907,7 @@ export default function App() {
           vista={vista} setVista={setVista} alertas={alertas}
           isMobile={isMobile} rol={rol} />
       </div>
+      )}
 
       {/* Panel principal — CSS lo muestra en mobile sólo con .in-panel */}
       <div className="app-main">
