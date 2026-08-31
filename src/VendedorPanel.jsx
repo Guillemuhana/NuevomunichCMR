@@ -15,6 +15,7 @@ import { parseDet, imprimirPedido, EP } from "./Pedidos";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docReporteDiario, docFichaVisita } from "./documentos";
 import BotonMensajes from "./MensajeriaInterna";
+import { SelectorProducto, CatalogoModal } from "./SelectorProducto";
 
 
 
@@ -281,6 +282,26 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
   const addItem = () => setForm(f => ({ ...f, items: [...f.items, { qty: 1, desc: "" }] }));
   const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
 
+  // ── Alta desde el catálogo ──
+  // El formulario arranca con tres líneas vacías: si el vendedor elige seis
+  // productos del catálogo, los tres primeros van a esas líneas y el resto se
+  // agrega. Si no, quedaban tres renglones en blanco arriba del pedido.
+  const [catalogo, setCatalogo] = useState(false);
+  const agregarDelCatalogo = (nuevos) => setForm(f => {
+    const items = f.items.filter(i => i.desc?.trim());
+    nuevos.forEach(n => {
+      // Si el producto ya está en el pedido se suma la cantidad en vez de
+      // repetir el renglón.
+      const ya = items.findIndex(i => i.desc === n.desc && (i.unidad || "un") === n.unidad);
+      if (ya >= 0) items[ya] = { ...items[ya], qty: (Number(items[ya].qty) || 0) + Number(n.qty) };
+      else items.push(n);
+    });
+    // Un renglón vacío al final, para seguir cargando a mano lo que no esté
+    // en el catálogo.
+    items.push({ qty: 1, desc: "" });
+    return { ...f, items };
+  });
+
   // ── Adjuntar el pedido como archivo ──
   // Muchos vendedores anotan el pedido en papel: que puedan sacarle una foto
   // en vez de tipearlo de nuevo. Va al mismo bucket que los archivos del chat.
@@ -415,14 +436,20 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
           {/* Pedido / Productos — no aplica para Visita */}
           {form.tipo !== "visita" && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 9, flexWrap: "wrap" }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: L.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Productos / Pedido</label>
-              <button onClick={addItem} style={{ background: "none", border: "none", cursor: "pointer", color: C.red, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                <Plus size={13} /> Agregar línea
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => setCatalogo(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: `1px solid ${C.red}`, background: C.redSoft, color: C.red, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  <ShoppingBag size={13} /> Catálogo
+                </button>
+                <button onClick={addItem} style={{ background: "none", border: "none", cursor: "pointer", color: L.muted, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, padding: "6px 4px" }}>
+                  <Plus size={13} /> Línea
+                </button>
+              </div>
             </div>
             {form.items.map((it, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 7, alignItems: "center" }}>
+              <div key={i} className="linea-pedido">
                 <input value={it.qty} onChange={e => setItem(i, "qty", e.target.value)}
                   style={{ ...inp, width: 56, textAlign: "center", padding: "9px 8px" }} placeholder="Cant"
                   type="number" min="0" step={it.unidad === "kg" ? "0.1" : "1"} />
@@ -431,10 +458,10 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
                   style={{ ...inp, width: 62, padding: "9px 4px", textAlign: "center", cursor: "pointer" }}>
                   {UNIDADES.map(u => <option key={u.key} value={u.key}>{u.label}</option>)}
                 </select>
-                <input value={it.desc} onChange={e => setItem(i, "desc", e.target.value)}
-                  style={{ ...inp, flex: 1 }} placeholder="Descripción del producto" />
+                <SelectorProducto className="prod-selector" value={it.desc} onChange={v => setItem(i, "desc", v)} />
                 {form.items.length > 1 && (
-                  <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 4, flexShrink: 0 }}>
+                  <button onClick={() => removeItem(i)} className="prod-borrar" title="Quitar producto"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 4, flexShrink: 0 }}>
                     <X size={14} />
                   </button>
                 )}
@@ -562,6 +589,8 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
           </button>
         </div>
       </div>
+
+      {catalogo && <CatalogoModal onAgregar={agregarDelCatalogo} onClose={() => setCatalogo(false)} />}
     </>
   );
 }

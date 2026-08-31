@@ -79,6 +79,16 @@
         .titulo-panel  { display: none !important; }
       }
 
+      /* Línea de producto del pedido. En escritorio entra todo en un renglón;
+         en celular el nombre del producto se lleva el ancho entero y la
+         cantidad queda debajo, que si no el nombre se corta a la mitad. */
+      .linea-pedido { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; }
+      @media (max-width: 640px) {
+        .linea-pedido { flex-wrap: wrap; gap: 7px; padding-bottom: 9px; border-bottom: 1px solid #F0F2F5; }
+        .linea-pedido .prod-selector { order: -1; flex: 0 0 100%; width: 100%; }
+        .linea-pedido .prod-borrar { margin-left: auto; }
+      }
+
       @media (max-width: 767px) {
         /* Etiqueta de botón que se esconde en celular: queda solo el ícono */
         .solo-desktop { display: none !important; }
