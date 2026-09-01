@@ -9,9 +9,10 @@
 // ============================================================
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  StickyNote, Plus, X, Check, Trash2, Pin, Search, Calendar, Clock,
+  StickyNote, Plus, X, Check, Trash2, Pin, Search, Calendar, Clock, Bell,
 } from "lucide-react";
 import { supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, hoyLocalISO } from "./lib";
+import { esNotaNueva, marcarNotasVistas } from "./notasNuevas";
 
 // Los colores son un ACENTO, no el relleno. Antes la nota era un papelito
 // pastel completo, y cinco de esos juntos parecían un cuaderno de escuela.
@@ -55,6 +56,11 @@ export default function Notas({ userName, userEmail, isMobile }) {
   const [busqueda, setBusqueda] = useState("");
   const [verHechas, setVerHechas] = useState(false);
   const [editando, setEditando] = useState(null);   // {} = nueva | fila = editar
+  // Qué notas eran nuevas cuando entré. Se congela a propósito: apenas abro el
+  // pizarrón quedan marcadas como vistas, pero el cartel "Nueva" tiene que
+  // seguir ahí mientras las estoy mirando. Si no, el aviso desaparece justo
+  // cuando uno llega y no se sabe cuál era la novedad.
+  const [nuevasAlEntrar, setNuevasAlEntrar] = useState(() => new Set());
 
   const cargar = useCallback(async () => {
     const { data, error } = await supabase
@@ -63,9 +69,24 @@ export default function Notas({ userName, userEmail, isMobile }) {
       .order("updated_at", { ascending: false })
       .limit(300);
     if (error?.message?.includes("does not exist")) { setFalta(true); setCargando(false); return; }
-    setNotas(data || []);
+    const lista = data || [];
+    setNotas(lista);
     setCargando(false);
-  }, []);
+
+    // La primera vez que se abre el pizarrón: anoto cuáles eran nuevas para
+    // pintarlas, y le aviso a la base que ya las vi. De las siguientes cargas
+    // (las que llegan por realtime) no me ocupo: si entra una nota mientras
+    // estoy mirando, se suma al cartel y se marca igual.
+    const nuevas = lista.filter((n) => esNotaNueva(n, userEmail));
+    if (nuevas.length) {
+      setNuevasAlEntrar((prev) => {
+        const s = new Set(prev);
+        nuevas.forEach((n) => s.add(n.id));
+        return s;
+      });
+      marcarNotasVistas(nuevas, userEmail);
+    }
+  }, [userEmail]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -96,6 +117,11 @@ export default function Notas({ userName, userEmail, isMobile }) {
       return (n.titulo || "").toLowerCase().includes(b) || (n.texto || "").toLowerCase().includes(b);
     });
   }, [notas, busqueda, verHechas]);
+
+  // Lo que dejó otro y todavía no vi. Cuenta las de esta visita, para que el
+  // cartel no se apague solo mientras uno lo está leyendo.
+  const esNueva = (n) => nuevasAlEntrar.has(n.id) || esNotaNueva(n, userEmail);
+  const nuevas = notas.filter((n) => !n.hecha && esNueva(n)).length;
 
   const pendientes = notas.filter((n) => !n.hecha).length;
   const hechas     = notas.filter((n) => n.hecha).length;
@@ -134,6 +160,7 @@ export default function Notas({ userName, userEmail, isMobile }) {
                 : <>
                     {pendientes} pendiente{pendientes === 1 ? "" : "s"}
                     {vencidas > 0 && <span style={{ color: "#B42318", fontWeight: 600 }}> · {vencidas} vencida{vencidas === 1 ? "" : "s"}</span>}
+                    {nuevas > 0 && <span style={{ color: C.red, fontWeight: 700 }}> · {nuevas} nueva{nuevas === 1 ? "" : "s"}</span>}
                   </>}
             </div>
           </div>
@@ -184,7 +211,7 @@ export default function Notas({ userName, userEmail, isMobile }) {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? 240 : 270}px, 1fr))`, gap: 12, alignItems: "start" }}>
             {visibles.map((n) => (
-              <TarjetaNota key={n.id} nota={n}
+              <TarjetaNota key={n.id} nota={n} esNueva={esNueva(n)}
                 onEditar={() => setEditando(n)}
                 onFijar={() => alternar(n, "fijada")}
                 onHecha={() => alternar(n, "hecha")}
@@ -204,7 +231,7 @@ export default function Notas({ userName, userEmail, isMobile }) {
 }
 
 // ── Un papelito ─────────────────────────────────────────────
-function TarjetaNota({ nota, onEditar, onFijar, onHecha, onBorrar }) {
+function TarjetaNota({ nota, esNueva, onEditar, onFijar, onHecha, onBorrar }) {
   const col = colorDe(nota.color);
   const rec = cuandoRecordatorio(nota.recordatorio);
   const tono = rec ? TONO[rec.tono] : null;
@@ -212,12 +239,22 @@ function TarjetaNota({ nota, onEditar, onFijar, onHecha, onBorrar }) {
   return (
     <div style={{
       background: L.white,
-      border: `1px solid ${L.border}`,
+      // Una nota sin leer no se puede confundir con el resto del pizarrón:
+      // borde rojo y un halo suave. El color de la nota sigue en la barra
+      // de la izquierda, así no se pierde para qué era.
+      border: `1px solid ${esNueva && !nota.hecha ? C.red : L.border}`,
       borderLeft: `3px solid ${nota.hecha ? L.border : col.acento}`,
       borderRadius: R.sm, padding: "13px 15px", fontFamily: FONT_BODY,
       display: "flex", flexDirection: "column", gap: 8,
-      opacity: nota.hecha ? 0.55 : 1, boxShadow: SH.xs,
+      opacity: nota.hecha ? 0.55 : 1,
+      boxShadow: esNueva && !nota.hecha ? `0 0 0 3px ${C.redSoft}, ${SH.xs}` : SH.xs,
     }}>
+      {esNueva && !nota.hecha && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, alignSelf: "flex-start", background: C.red, color: "#fff", borderRadius: R.pill, padding: "3px 9px", fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" }}>
+          <Bell size={10} /> Nueva{nota.autor ? ` · ${nota.autor}` : ""}
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <button onClick={onHecha} title={nota.hecha ? "Marcar como pendiente" : "Marcar como hecha"}
           style={{ flexShrink: 0, marginTop: 1, width: 19, height: 19, borderRadius: 6, cursor: "pointer",

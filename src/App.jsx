@@ -27,6 +27,7 @@ import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docFichaContacto } from "./documentos";
 import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asistente";
 import { avisar, prepararAudio, sonidoActivado, setSonidoActivado, probarSonido } from "./aviso";
+import { useNotasNuevas } from "./notasNuevas";
 const Calendario = lazy(() => import("./Calendario"));
 const Marketing = lazy(() => import("./Marketing"));
 const Notas = lazy(() => import("./Notas"));
@@ -2915,6 +2916,10 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Notas que escribió otro y todavía no vi. Se calcula acá arriba, junto al
+  // resto de los hooks, porque abajo del componente hay returns tempranos.
+  const notasNuevas = useNotasNuevas(session?.user?.email || "");
+
   // Registrar el celular para notificaciones push (solo dentro del APK)
   useEffect(() => {
     if (session && esNativo()) initPush(session);
@@ -3025,6 +3030,9 @@ export default function App() {
     chat: contactos.filter((c) =>
       c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))
     ).length,
+    // El pizarrón avisa: si administración deja una nota, se ve desde el rail
+    // sin tener que entrar a Notas a buscarla.
+    notas: notasNuevas,
   };
 
   // Vendedores externos ven su propio panel
@@ -3115,7 +3123,11 @@ export default function App() {
           <>
             {isMobile && <MobileBack title="Reportes" onBack={() => setVista("chat")} />}
             {puedeVerReportes ? (
-              <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><Reportes /></div>
+              <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>
+                {/* Un vendedor ve su propio reporte y nada más. Cristian y
+                    administración siguen viendo el del CRM entero. */}
+                <Reportes soloVendedor={rol === "vendedor" ? userName : null} />
+              </div>
             ) : (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: L.muted, fontWeight: 600 }}>
                 No tenés acceso a reportes.
@@ -3127,7 +3139,7 @@ export default function App() {
             {isMobile && <MobileBack title="Pedidos" onBack={() => setVista("chat")} />}
             {rol === "administracion"
               ? <div style={{ flex: 1, minHeight: 0 }}><AdministracionPanel userName={userName} userEmail={userEmail} rol={rol} /></div>
-              : <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} /></div>}
+              : <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}><PedidosPanel rol={rol} soloVendedor={rol === "vendedor" ? userName : null} /></div>}
           </>
         ) : vista === "vendedores" ? (
           <>

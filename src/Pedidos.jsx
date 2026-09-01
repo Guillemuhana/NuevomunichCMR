@@ -422,7 +422,12 @@ export function NuevoPedidoModal({ contacto, vendedorActual, mensajeInicial, onC
 // ═══════════════════════════════════════════════
 // PANEL — Vista completa de pedidos
 // ═══════════════════════════════════════════════
-export default function PedidosPanel({ rol = "vendedor" }) {
+/**
+ * @param {string} rol
+ * @param {string|null} soloVendedor  Alias del vendedor cuando el panel es
+ *        suyo: ve sus pedidos y sus reportes de visita, no los del resto.
+ */
+export default function PedidosPanel({ rol = "vendedor", soloVendedor = null }) {
   const [pedidos, setPedidos]       = useState([]);
   const [contactos, setContactos]   = useState({});
   const [filtro, setFiltro]         = useState("todos");
@@ -440,8 +445,10 @@ export default function PedidosPanel({ rol = "vendedor" }) {
 
   const cargar = useCallback(async () => {
     setLoading(true);
+    let qPed = supabase.from("pedidos").select("*").order("created_at", { ascending: false });
+    if (soloVendedor) qPed = qPed.eq("vendedor", soloVendedor);
     const [pedRes, contRes] = await Promise.all([
-      supabase.from("pedidos").select("*").order("created_at", { ascending: false }),
+      qPed,
       supabase.from("contactos").select("id,nombre,telefono,foto_url,empresa,direccion"),
     ]);
     setPedidos(pedRes.data || []);
@@ -449,7 +456,7 @@ export default function PedidosPanel({ rol = "vendedor" }) {
     for (const c of contRes.data || []) map[c.id] = c;
     setContactos(map);
     setLoading(false);
-  }, []);
+  }, [soloVendedor]);
 
   useEffect(() => {
     cargar();

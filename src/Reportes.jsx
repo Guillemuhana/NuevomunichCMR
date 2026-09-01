@@ -165,7 +165,15 @@ function parseDet(det) {
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
-export default function Reportes() {
+/**
+ * Reportes del CRM.
+ *
+ * @param {string|null} soloVendedor  Si viene un alias, el reporte es de esa
+ *        persona y nada más: sus contactos, sus pedidos, los mensajes de sus
+ *        clientes. Un vendedor no tiene por qué ver los números del de al
+ *        lado, y hasta ahora la pestaña se los mostraba a todos.
+ */
+export default function Reportes({ soloVendedor = null }) {
   const [vista, setVista]     = useState("stats");
   const [periodo, setPeriodo] = useState("semana");
   const [loading, setLoading] = useState(true);
@@ -181,14 +189,28 @@ export default function Reportes() {
   const [msgResult, setMsgResult]   = useState(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
 
+  // Los ids de los contactos que me corresponden. Devuelve null cuando el
+  // reporte es de todo el CRM, para no filtrar nada de más.
+  const idsDeMisContactos = useCallback(async () => {
+    if (!soloVendedor) return null;
+    const { data } = await supabase.from("contactos").select("id").eq("vendedor", soloVendedor);
+    return (data || []).map((c) => c.id);
+  }, [soloVendedor]);
+
   // ── Buscar mensajes ──────────────────────────────────────────────────────
   const buscarMensajes = async () => {
     setLoadingMsg(true);
-    const { data: mensajes, error } = await supabase
+    // Los mensajes no tienen vendedor: cuelgan del contacto. Así que primero
+    // hay que saber cuáles son mis clientes.
+    const mios = await idsDeMisContactos();
+    if (mios && mios.length === 0) { setLoadingMsg(false); setMsgResult([]); return; }
+    let q = supabase
       .from("mensajes").select("*")
       .gte("created_at", mDesde + "T00:00:00")
       .lte("created_at", mHasta + "T23:59:59")
       .order("created_at", { ascending: true });
+    if (mios) q = q.in("contacto_id", mios);
+    const { data: mensajes, error } = await q;
     if (error || !mensajes) { setLoadingMsg(false); setMsgResult([]); return; }
     const ids = [...new Set(mensajes.map((m) => m.contacto_id).filter(Boolean))];
     let contactosMap = {};
@@ -244,11 +266,13 @@ export default function Reportes() {
   // ── Buscar pedidos ───────────────────────────────────────────────────────
   const buscarPedidos = async () => {
     setLoadingPed(true);
-    const { data: pedidos, error } = await supabase
+    let q = supabase
       .from("pedidos").select("*")
       .gte("created_at", pDesde + "T00:00:00")
       .lte("created_at", pHasta + "T23:59:59")
       .order("created_at", { ascending: false });
+    if (soloVendedor) q = q.eq("vendedor", soloVendedor);
+    const { data: pedidos, error } = await q;
     if (error || !pedidos) { setLoadingPed(false); setPedResult([]); return; }
     const ids = [...new Set(pedidos.map((p) => p.contacto_id).filter(Boolean))];
     let contactosMap = {};
@@ -318,14 +342,25 @@ export default function Reportes() {
     setLoading(true);
     const { inicio, fin } = rangoFechas(periodo);
     const iso = inicio.toISOString();
-    const [msgsRes, contRes, pedRes] = await Promise.all([
-      supabase.from("mensajes").select("id,direccion,origen,agente,created_at,contacto_id").gte("created_at", iso),
-      supabase.from("contactos").select("id,vendedor,estado,created_at,bot_activo,seguimiento_at,ultimo_in_at,ultimo_out_at,leido_at"),
-      supabase.from("pedidos").select("vendedor,total,estado,created_at").gte("created_at", iso),
-    ]);
-    const msgs      = msgsRes.data || [];
+
+    let qCont = supabase.from("contactos").select("id,vendedor,estado,created_at,bot_activo,seguimiento_at,ultimo_in_at,ultimo_out_at,leido_at");
+    let qPed  = supabase.from("pedidos").select("vendedor,total,estado,created_at").gte("created_at", iso);
+    if (soloVendedor) {
+      qCont = qCont.eq("vendedor", soloVendedor);
+      qPed  = qPed.eq("vendedor", soloVendedor);
+    }
+    const [contRes, pedRes] = await Promise.all([qCont, qPed]);
     const contactos = contRes.data || [];
     const pedidos   = pedRes.data  || [];
+
+    // Los mensajes se recortan a los clientes propios: van después, porque
+    // hasta acá no se sabía cuáles eran.
+    let msgs = [];
+    if (!soloVendedor || contactos.length > 0) {
+      let qMsg = supabase.from("mensajes").select("id,direccion,origen,agente,created_at,contacto_id").gte("created_at", iso);
+      if (soloVendedor) qMsg = qMsg.in("contacto_id", contactos.map((c) => c.id));
+      msgs = (await qMsg).data || [];
+    }
     const nuevos    = contactos.filter((c) => new Date(c.created_at) >= inicio);
     const activosSet = new Set(msgs.filter((m) => m.direccion === "in").map((m) => m.contacto_id));
     const contactosActivos = activosSet.size;
@@ -353,7 +388,7 @@ export default function Reportes() {
     const botCount    = msgs.filter((m) => m.origen === "bot").length;
     const agenteCount = msgs.filter((m) => m.origen === "agente").length;
     const botPct      = botCount + agenteCount > 0 ? Math.round(botCount / (botCount + agenteCount) * 100) : 0;
-    const porVendedor = VENDEDORES.map((v) => {
+    const porVendedor = (soloVendedor ? [soloVendedor] : VENDEDORES).map((v) => {
       const cont     = contactos.filter((c) => c.vendedor === v);
       const ped      = pedidos.filter((p) => p.vendedor === v);
       const msgsV    = msgs.filter((m) => m.agente === v).length;
@@ -384,7 +419,7 @@ export default function Reportes() {
     const totalPedidos = pedidos.length;
     setData({ serie, horarios, porVendedor, vendedoresActivos, porEstado, kpis: { msgsIn: msgs.filter((m) => m.direccion === "in").length, msgsTotal: msgs.length, contactosActivos, nuevos: nuevos.length, totalContactos: contactos.length, cerradosTot, tasaConversion, totalPedidos, botCount, agenteCount, botPct, botAutonomo, agenteManual, segVencidos, tiempoPromMin, tiempoAperturaMin, tiempoAperturaMax, tiempoAperturaCount: tiemposApertura.length }, periodo, inicio, fin });
     setLoading(false);
-  }, [periodo]);
+  }, [periodo, soloVendedor]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -461,6 +496,12 @@ export default function Reportes() {
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: T.text, textTransform: "uppercase", letterSpacing: 0.4, lineHeight: 1.2 }}>
               {vista === "stats" ? "Reportes y Estadísticas" : "Reporte de Pedidos"}
             </div>
+            {/* Que quede claro de quién son los números que está mirando. */}
+            {soloVendedor && (
+              <div style={{ fontSize: 11.5, color: T.muted, marginTop: 3, fontWeight: 600 }}>
+                Tus números — {soloVendedor}
+              </div>
+            )}
             {vista === "stats" && data && !loading && (
               <div style={{ fontSize: 11.5, color: T.light, marginTop: 2 }}>
                 {etiqueta(periodo)} · {fmtFechaLarga(data.inicio)} — {fmtFechaLarga(data.fin)}
@@ -717,7 +758,12 @@ export default function Reportes() {
               </Panel>
             </div>
 
-            {/* ── RENDIMIENTO POR VENDEDOR (GRÁFICO) ── */}
+            {/* ── RENDIMIENTO POR VENDEDOR (GRÁFICO) ──
+                Comparar un vendedor contra otro es justamente lo que no
+                tiene que ver un vendedor: cuando el reporte es suyo, las
+                dos tablas de comparación no se arman. Los números de
+                arriba ya son los propios. */}
+            {!soloVendedor && (<>
             <Panel titulo="Rendimiento por vendedor" style={{ marginBottom: 16 }}>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={data.vendedoresActivos.length > 0 ? data.vendedoresActivos : data.porVendedor}
@@ -788,6 +834,7 @@ export default function Reportes() {
                 </table>
               </div>
             </Panel>
+            </>)}
 
             {/* ── PIE DISTRIBUCIÓN ── */}
             <Panel titulo="Distribución del pipeline">
