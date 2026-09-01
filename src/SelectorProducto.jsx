@@ -3,9 +3,30 @@ import { createPortal } from "react-dom";
 import { Search, X, Check, Plus, Minus, ChevronDown, ShoppingBag } from "lucide-react";
 import { C, L, FONT_BODY, FONT_DISPLAY, UNIDADES, useEsMovil } from "./lib";
 import {
-  CATALOGO, buscarProductos, normalizar,
+  CATALOGO, buscarProductos, normalizar, codigoDe,
   productosRecientes, recordarProducto, esDelCatalogo,
 } from "./catalogo";
+
+/**
+ * El código de la lista de precios, al costado del nombre.
+ * Los clientes de siempre piden "diez del 05" y la fábrica arma por código,
+ * así que el vendedor tiene que verlo sin ir a buscar la lista impresa.
+ * Ancho fijo para que los nombres queden alineados uno debajo del otro.
+ */
+function Codigo({ nombre }) {
+  const cod = codigoDe(nombre);
+  if (!cod) return null;
+  return (
+    <span style={{
+      flexShrink: 0, minWidth: 30, textAlign: "center", padding: "2px 5px",
+      borderRadius: 5, background: L.soft, color: L.light,
+      fontSize: 10.5, fontWeight: 800, letterSpacing: 0.3,
+      fontVariantNumeric: "tabular-nums",
+    }}>
+      {cod}
+    </span>
+  );
+}
 
 // ── Elegir productos del catálogo ────────────────────────────
 // Antes cada línea del pedido era un campo de texto vacío y el vendedor
@@ -60,7 +81,7 @@ function useGrupos(q) {
       return [{ cat: null, icono: null, items: buscarProductos(q, 60).map(r => r.nombre) }];
     }
     const rec = productosRecientes();
-    const base = CATALOGO.map(g => ({ cat: g.cat, icono: g.icono, items: g.items }));
+    const base = CATALOGO.map(g => ({ cat: g.cat, icono: g.icono, nota: g.nota, items: g.items }));
     return rec.length
       ? [{ cat: "Usados últimamente", icono: "🕘", items: rec }, ...base]
       : base;
@@ -242,6 +263,11 @@ function ListaProductosResaltada({ grupos, q, activo, onElegir, onHover, refList
               textTransform: "uppercase", letterSpacing: 0.6, fontFamily: FONT_BODY,
             }}>
               {g.icono} {g.cat}
+              {g.nota && (
+                <span style={{ textTransform: "none", fontWeight: 600, letterSpacing: 0 }}>
+                  {" · "}{g.nota}
+                </span>
+              )}
             </div>
           )}
           {g.items.map(nombre => {
@@ -260,6 +286,7 @@ function ListaProductosResaltada({ grupos, q, activo, onElegir, onHover, refList
                   color: L.text, fontFamily: FONT_BODY, fontSize: 13.5, fontWeight: 600,
                   textAlign: "left", lineHeight: 1.3,
                 }}>
+                <Codigo nombre={nombre} />
                 <span style={{ flex: 1, minWidth: 0 }}><Resaltado texto={nombre} q={q} /></span>
               </button>
             );
@@ -337,7 +364,7 @@ export function CatalogoModal({ onAgregar, onClose }) {
   const grupos = useMemo(() => {
     if (q.trim()) return [{ cat: null, icono: null, items: buscarProductos(q, 80).map(r => r.nombre) }];
     const base = CATALOGO.filter(g => !cat || g.cat === cat)
-      .map(g => ({ cat: g.cat, icono: g.icono, items: g.items }));
+      .map(g => ({ cat: g.cat, icono: g.icono, nota: g.nota, items: g.items }));
     if (cat) return base;
     const rec = productosRecientes();
     return rec.length ? [{ cat: "Usados últimamente", icono: "🕘", items: rec }, ...base] : base;
@@ -442,6 +469,11 @@ export function CatalogoModal({ onAgregar, onClose }) {
                   padding: "9px 14px 5px", fontSize: 10.5, fontWeight: 800, color: L.light,
                   textTransform: "uppercase", letterSpacing: 0.6 }}>
                   {g.icono} {g.cat}
+                  {g.nota && (
+                    <span style={{ textTransform: "none", fontWeight: 600, letterSpacing: 0 }}>
+                      {" · "}{g.nota}
+                    </span>
+                  )}
                 </div>
               )}
               {g.items.map(nombre => {
@@ -465,6 +497,7 @@ export function CatalogoModal({ onAgregar, onClose }) {
                     }}>
                       {s && <Check size={13} color="#fff" strokeWidth={3} />}
                     </span>
+                    <Codigo nombre={nombre} />
                     <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: L.text, lineHeight: 1.3 }}>
                       <Resaltado texto={nombre} q={q} />
                     </span>
