@@ -291,6 +291,16 @@ function ModalDia({ dia, pedidos, contactos, onCerrar, onVerEnLista }) {
                       <MapPin size={10} /> {det.direccion.slice(0, 40)}
                     </span>
                   )}
+                  {det.adjunto_url && (
+                    <a href={det.adjunto_url} target="_blank" rel="noreferrer"
+                      title={det.adjunto_nombre || "Adjunto del vendedor"}
+                      style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1D4ED8", borderRadius: 6, padding: "3px 9px", fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4, maxWidth: 170 }}>
+                      <Paperclip size={10} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {det.adjunto_nombre || "Ver adjunto"}
+                      </span>
+                    </a>
+                  )}
                   <button onClick={() => imprimirPedido(p, cont, { imprimir: true })}
                     style={{ marginLeft: "auto", background: L.white, border: `1px solid ${L.border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: L.muted, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_BODY }}>
                     <Printer size={11} /> Imprimir

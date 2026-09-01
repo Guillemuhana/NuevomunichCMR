@@ -315,7 +315,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
     if (file.size > 10 * 1024 * 1024) { setErrorAdj("El archivo supera los 10 MB."); return; }
     setSubiendoAdj(true); setErrorAdj("");
     try {
-      const limpio = file.name.replace(/[^w.-]+/g, "_").slice(-60);
+      const limpio = file.name.replace(/[^\w.-]+/g, "_").slice(-60);
       const ruta = `pedidos/${Date.now()}-${limpio || "adjunto"}`;
       const { error } = await supabase.storage
         .from("chat-media").upload(ruta, file, { contentType: file.type || undefined, upsert: false });
@@ -361,6 +361,10 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         direccion: form.clienteDireccion,
         pago: form.pago,
         notas: form.observacion,
+        // Sin estas dos lineas el archivo se subia al bucket pero el pedido
+        // se guardaba sin la direccion: en Administracion no aparecia nada.
+        adjunto_url: form.adjunto_url || "",
+        adjunto_nombre: form.adjunto_nombre || "",
       };
 
       if (editando) {
