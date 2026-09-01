@@ -5,15 +5,15 @@ import {
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
   FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer, Paperclip,
-  MoreVertical,
+  MoreVertical, ChevronDown, Eye, Share2,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
   useEsMovil,
-  hoyLocalISO,
+  hoyLocalISO, fechaLocalISO,
 } from "./lib";
 import { parseDet, imprimirPedido, EP } from "./Pedidos";
-import { imprimirDoc, descargarDoc } from "./imprimir";
+import { imprimirDoc, descargarDoc, verDoc, enviarDoc } from "./imprimir";
 import { docReporteDiario, docFichaVisita } from "./documentos";
 import BotonMensajes from "./MensajeriaInterna";
 import { SelectorProducto, CatalogoModal } from "./SelectorProducto";
@@ -72,20 +72,27 @@ function parseDetEx(raw) {
 // La barra tenía siete botones sueltos y en un celular ocupaba dos filas
 // enteras. Quedan a la vista sólo los de uso diario (avisos, mensajes y
 // cargar); el resto vive acá adentro.
-function MenuItem({ icon, label, hint, onClick, activo, tono }) {
+function MenuItem({ icon, label, hint, onClick, onMouseEnter, activo, tono, abierto, sub }) {
   const [hover, setHover] = useState(false);
   const danger = tono === "danger";
+  // `sub` es una opción hija, de las que cuelgan de un desplegable: va más
+  // chica y corrida, para que se lea como parte del grupo de arriba.
+  const caja = sub ? 25 : 30;
   return (
     <button onClick={onClick}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 10, border: "none", cursor: "pointer", background: activo ? "#FEF2F2" : hover ? L.soft : "transparent", color: danger || activo ? C.red : L.text, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13.5, textAlign: "left", transition: "background .12s" }}>
-      <span style={{ width: 30, height: 30, borderRadius: 9, background: activo ? "#FEE2E2" : danger ? "#FEF2F2" : L.soft, display: "flex", alignItems: "center", justifyContent: "center", color: danger || activo ? C.red : L.muted, flexShrink: 0 }}>
+      onMouseEnter={() => { setHover(true); onMouseEnter?.(); }} onMouseLeave={() => setHover(false)}
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: sub ? 9 : 11, padding: sub ? "7px 10px" : "9px 10px", borderRadius: 10, border: "none", cursor: "pointer", background: activo ? "#FEF2F2" : hover ? L.soft : "transparent", color: danger || activo ? C.red : L.text, fontFamily: FONT_BODY, fontWeight: 600, fontSize: sub ? 13 : 13.5, textAlign: "left", transition: "background .12s" }}>
+      <span style={{ width: caja, height: caja, borderRadius: sub ? 8 : 9, background: activo ? "#FEE2E2" : danger ? "#FEF2F2" : L.soft, display: "flex", alignItems: "center", justifyContent: "center", color: danger || activo ? C.red : L.muted, flexShrink: 0 }}>
         {icon}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", lineHeight: 1.25 }}>{label}</span>
         {hint && <span style={{ display: "block", fontSize: 11, color: L.light, fontWeight: 500, marginTop: 1 }}>{hint}</span>}
       </span>
+      {abierto !== undefined && (
+        <ChevronDown size={14} color={L.light}
+          style={{ flexShrink: 0, transform: abierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      )}
       {activo && <Check size={14} color={C.red} />}
     </button>
   );
@@ -616,6 +623,8 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [editando, setEditando]     = useState(null);
   const [notifs, setNotifs]         = useState([]);
   const [showNotifs, setShowNotifs] = useState(true);
+  const [verTodosAvisos, setVerTodosAvisos] = useState(false);
+  const [subReportes, setSubReportes] = useState(false);
   const [confirmElim, setConfirmElim] = useState(null);
   const [showPerfil, setShowPerfil] = useState(false);
   const [agenda, setAgenda] = useState(false);
@@ -626,7 +635,9 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   // El menú se cierra al tocar afuera o con Escape: en el celular no hay
   // ningún otro lugar obvio para salir de él.
   useEffect(() => {
-    if (!menu) return;
+    // Si se cerró el menú, el grupo de reportes vuelve plegado: la próxima
+    // vez que se abra tiene que verse igual que la primera.
+    if (!menu) { setSubReportes(false); return; }
     const fuera = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenu(false); };
     const esc = (e) => { if (e.key === "Escape") setMenu(false); };
     document.addEventListener("mousedown", fuera);
@@ -673,20 +684,32 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     [pedidos]
   );
 
+  // Cada aviso guarda sus datos por separado en vez de una frase ya armada:
+  // así la lista se puede ordenar, agrupar y mostrar en una línea sola.
+  //
+  // Lo primero que se ve arriba son las vencidas: es lo único que hay que
+  // salir a resolver hoy mismo.
+  const ORDEN_AVISO = { vencido: 0, hoy: 1, maniana: 2 };
+
   useEffect(() => {
     const alerts = [];
     soloPedidos.forEach(p => {
       const det = parseDetEx(p.detalle);
       if (!det.fecha_entrega || p.estado === "entregado" || p.estado === "cancelado") return;
       const cont = contactos[p.contacto_id] || {};
-      const nombre = cont.nombre || "Cliente";
+      // Un pedido cargado sin teléfono no tiene contacto y el nombre vive
+      // dentro del detalle. Mirando sólo el contacto, TODOS los avisos
+      // decían "Cliente" y no se sabía de quién era cada uno.
+      const nombre = cont.nombre || det.clienteNombre || cont.telefono || det.clienteTel || "Cliente";
+      const que = det.tipo === "reunion" ? "reunión" : "entrega";
       if (isHoy(det.fecha_entrega))
-        alerts.push({ id: p.id, tipo: "hoy", texto: `Entrega / reunión HOY: ${nombre}` });
+        alerts.push({ id: p.id, tipo: "hoy", nombre, que, fecha: det.fecha_entrega });
       else if (isManiana(det.fecha_entrega))
-        alerts.push({ id: p.id, tipo: "maniana", texto: `Mañana: ${nombre} — ${det.tipo === "reunion" ? "reunión" : "entrega"}` });
+        alerts.push({ id: p.id, tipo: "maniana", nombre, que, fecha: det.fecha_entrega });
       else if (isVencido(det.fecha_entrega))
-        alerts.push({ id: p.id, tipo: "vencido", texto: `Vencida: ${nombre} (${fmtDate(det.fecha_entrega)})` });
+        alerts.push({ id: p.id, tipo: "vencido", nombre, que, fecha: det.fecha_entrega });
     });
+    alerts.sort((a, b) => ORDEN_AVISO[a.tipo] - ORDEN_AVISO[b.tipo] || a.fecha.localeCompare(b.fecha));
     setNotifs(alerts);
   }, [soloPedidos, contactos]);
 
@@ -722,6 +745,35 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     return `reporte-diario-${(vendorInfo.alias || "vendedor").toLowerCase()}-${d}.pdf`;
   };
 
+  // El texto que acompaña al PDF cuando se manda por WhatsApp. En una compu
+  // el archivo se adjunta a mano, así que este resumen es lo único que llega
+  // solo: tiene que decir de qué día es y cómo vino.
+  const textoReporteDia = () => {
+    const d = typeof diaReporte === "string" ? diaReporte : hoyLocalISO();
+    const delDia = pedidos.filter(p => fechaLocalISO(p.created_at) === d);
+    const cuenta = (t) => delDia.filter(p => (parseDetEx(p.detalle).tipo || "pedido") === t).length;
+    const fechaLarga = new Date(d + "T12:00").toLocaleDateString("es-AR", {
+      weekday: "long", day: "2-digit", month: "long",
+    });
+    return [
+      `*Reporte diario · ${vendorInfo.alias || vendorInfo.nombre}*`,
+      fechaLarga,
+      "",
+      `Cargadas: ${delDia.length}`,
+      `Pedidos: ${cuenta("pedido")} · Visitas: ${cuenta("visita")} · Reuniones: ${cuenta("reunion")}`,
+      `Entregados: ${delDia.filter(p => p.estado === "entregado").length}`,
+      "",
+      "_Nuevo Munich_",
+    ].join("\n");
+  };
+
+  // La fecha que dice el grupo de reportes, para saber de qué día es lo que
+  // uno está por imprimir sin tener que abrir el PDF.
+  const diaReporteTexto = () => {
+    const d = typeof diaReporte === "string" ? diaReporte : hoyLocalISO();
+    return d === hoyLocalISO() ? "Hoy" : new Date(d + "T12:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+  };
+
   // Una visita o una reunión no son un pedido: cada una lleva su propia ficha.
   const documentoDe = (ped, cont) => {
     const det = parseDetEx(ped.detalle);
@@ -754,10 +806,17 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   };
 
   const alertColor = {
-    hoy:     { bg: "#FFFBEB", border: "#FDE68A", text: "#92400E", icon: "#D97706" },
-    maniana: { bg: "#EFF6FF", border: "#BFDBFE", text: "#1E40AF", icon: "#1D4ED8" },
-    vencido: { bg: "#FEF2F2", border: "#FECACA", text: "#991B1B", icon: C.red },
+    hoy:     { bg: "#FFFBEB", border: "#FDE68A", text: "#92400E", icon: "#D97706", label: "Hoy" },
+    maniana: { bg: "#EFF6FF", border: "#BFDBFE", text: "#1E40AF", icon: "#1D4ED8", label: "Mañana" },
+    vencido: { bg: "#FEF2F2", border: "#FECACA", text: "#991B1B", icon: C.red,     label: "Vencida" },
   };
+
+  // El resumen de arriba: "2 vencidas · 1 hoy · 5 mañana". Antes cada aviso
+  // era una franja de ancho completo y cinco entregas del mismo día tapaban
+  // media pantalla con la misma frase repetida.
+  const resumenAvisos = ["vencido", "hoy", "maniana"]
+    .map(t => ({ t, n: notifs.filter(a => a.tipo === t).length }))
+    .filter(x => x.n > 0);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", background: L.bg, fontFamily: FONT_BODY }}>
@@ -807,14 +866,33 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             </button>
 
             {menu && (
-              <div style={{ position: "absolute", top: "calc(100% + 9px)", right: 0, width: 250, maxWidth: "calc(100vw - 28px)", background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, boxShadow: "0 20px 55px rgba(16,24,40,.18)", padding: 6, zIndex: 300 }}>
+              <div className="scroll-y" style={{ position: "absolute", top: "calc(100% + 9px)", right: 0, width: 250, maxWidth: "calc(100vw - 28px)", maxHeight: "min(70vh, 460px)", overflowY: "auto", background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, boxShadow: "0 20px 55px rgba(16,24,40,.18)", padding: 6, zIndex: 300 }}>
                 <MenuItem icon={<CalendarDays size={16} />} label="Agenda" hint="Calendario completo" activo={agenda}
                   onClick={() => { setAgenda(v => !v); setMenu(false); }} />
                 <MenuSep />
-                <MenuItem icon={<Printer size={16} />} label="Imprimir reporte del día"
-                  onClick={() => { setMenu(false); imprimirDoc(reporteDelDia(), nombreReporteDia()); }} />
-                <MenuItem icon={<Download size={16} />} label="Descargar reporte" hint="PDF del día seleccionado"
-                  onClick={() => { setMenu(false); descargarDoc(reporteDelDia(), nombreReporteDia()); }} />
+
+                {/* Reportes: una sola entrada que se despliega. Antes eran dos
+                    opciones sueltas ("Imprimir reporte del día", "Descargar
+                    reporte") que ocupaban el menú y no dejaban lugar para
+                    verlo ni mandarlo. */}
+                <MenuItem icon={<FileText size={16} />} label="Reportes" hint={`Del día · ${diaReporteTexto()}`}
+                  abierto={subReportes}
+                  onMouseEnter={() => setSubReportes(true)}
+                  onClick={() => setSubReportes(v => !v)} />
+
+                {subReportes && (
+                  <div style={{ marginLeft: 19, paddingLeft: 6, borderLeft: `2px solid ${L.border}` }}>
+                    <MenuItem sub icon={<Eye size={15} />} label="Ver reporte"
+                      onClick={() => { setMenu(false); verDoc(reporteDelDia(), nombreReporteDia()); }} />
+                    <MenuItem sub icon={<Printer size={15} />} label="Imprimir reporte"
+                      onClick={() => { setMenu(false); imprimirDoc(reporteDelDia(), nombreReporteDia()); }} />
+                    <MenuItem sub icon={<Download size={15} />} label="Descargar reporte"
+                      onClick={() => { setMenu(false); descargarDoc(reporteDelDia(), nombreReporteDia()); }} />
+                    <MenuItem sub icon={<Share2 size={15} />} label="Enviar reporte" hint="WhatsApp, mail…"
+                      onClick={() => { setMenu(false); enviarDoc(reporteDelDia(), nombreReporteDia(), textoReporteDia()); }} />
+                  </div>
+                )}
+
                 <MenuSep />
                 <MenuItem icon={<UserCircle size={16} />} label="Mis datos" hint={vendorInfo.nombre}
                   onClick={() => { setMenu(false); setShowPerfil(true); }} />
@@ -838,16 +916,58 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
         {/* Alertas */}
         {showNotifs && notifs.length > 0 && (
-          <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 6 }}>
-            {notifs.map((n, i) => {
-              const col = alertColor[n.tipo];
-              return (
-                <div key={`${n.id}-${i}`} style={{ background: col.bg, border: `1px solid ${col.border}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <Bell size={15} color={col.icon} />
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: col.text, flex: 1 }}>{n.texto}</span>
-                </div>
-              );
-            })}
+          <div style={{ marginBottom: 16, background: L.white, border: `1px solid ${L.border}`, borderRadius: 12, overflow: "hidden", boxShadow: SH.xs }}>
+
+            {/* Cabecera: el resumen de un vistazo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "9px 13px", borderBottom: `1px solid ${L.soft}` }}>
+              <Bell size={14} color={L.muted} />
+              <span style={{ fontSize: 11, fontWeight: 800, color: L.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                Avisos
+              </span>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginLeft: "auto" }}>
+                {resumenAvisos.map(({ t, n }) => {
+                  const col = alertColor[t];
+                  return (
+                    <span key={t} style={{ background: col.bg, border: `1px solid ${col.border}`, color: col.text, borderRadius: 99, padding: "2px 9px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>
+                      {n} {col.label.toLowerCase()}{t === "vencido" && n > 1 ? "s" : ""}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Una línea por aviso: quién, qué y cuándo. Las que no entran
+                quedan detrás del "ver todos", para que cinco entregas del
+                mismo día no empujen los pedidos abajo de la pantalla. */}
+            <div>
+              {(verTodosAvisos ? notifs : notifs.slice(0, 3)).map((n, i) => {
+                const col = alertColor[n.tipo];
+                return (
+                  <div key={`${n.id}-${i}`}
+                    style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 13px", borderTop: i === 0 ? "none" : `1px solid ${L.soft}` }}>
+                    <span style={{ width: 7, height: 7, borderRadius: 99, background: col.icon, flexShrink: 0 }} />
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: col.text, textTransform: "uppercase", letterSpacing: 0.4, width: 58, flexShrink: 0 }}>
+                      {col.label}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: L.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {n.nombre}
+                    </span>
+                    <span className="solo-desktop" style={{ fontSize: 11.5, color: L.light, flexShrink: 0 }}>{n.que}</span>
+                    <span style={{ fontSize: 11.5, color: L.muted, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                      {fmtDate(n.fecha)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {notifs.length > 3 && (
+              <button onClick={() => setVerTodosAvisos(v => !v)}
+                style={{ width: "100%", background: L.soft, border: "none", borderTop: `1px solid ${L.soft}`, padding: "7px 13px", cursor: "pointer", fontFamily: FONT_BODY, fontSize: 12, fontWeight: 700, color: L.muted, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                {verTodosAvisos ? "Ver menos" : `Ver los ${notifs.length}`}
+                <ChevronDown size={13} style={{ transform: verTodosAvisos ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+              </button>
+            )}
           </div>
         )}
 

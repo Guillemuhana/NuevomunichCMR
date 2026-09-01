@@ -112,6 +112,62 @@ export function descargarDoc(doc, nombreArchivo) {
   doc.save(nombreArchivo.endsWith(".pdf") ? nombreArchivo : `${nombreArchivo}.pdf`);
 }
 
+/**
+ * Abre el PDF para mirarlo, sin bajarlo ni mandarlo a la impresora.
+ * Es lo que uno quiere el 90% de las veces: chusmear cómo quedó.
+ *
+ * En el APK la webview no abre pestañas nuevas, así que ahí se descarga.
+ */
+export function verDoc(doc, nombreArchivo) {
+  if (esNativo()) return descargarDoc(doc, nombreArchivo);
+  try {
+    const url = doc.output("bloburl");
+    const ventana = window.open(url, "_blank", "noopener,noreferrer");
+    // Bloqueador de pop-ups: mejor bajarlo que dejar a la persona sin nada.
+    if (!ventana) return descargarDoc(doc, nombreArchivo);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    descargarDoc(doc, nombreArchivo);
+  }
+}
+
+/**
+ * Manda el PDF por donde la persona quiera: WhatsApp, mail, Drive.
+ *
+ * En el celular sale el menú de compartir de siempre con el archivo
+ * adjunto. En una compu de escritorio eso no existe, así que se baja el
+ * PDF y se abre WhatsApp con el resumen escrito, para adjuntarlo a mano.
+ *
+ * @param {import("jspdf").jsPDF} doc
+ * @param {string} nombreArchivo
+ * @param {string} texto  resumen que acompaña al archivo
+ * @returns {Promise<"nativo"|"cancelado"|"descargado">}
+ */
+export async function enviarDoc(doc, nombreArchivo, texto = "") {
+  const nombre = nombreArchivo.endsWith(".pdf") ? nombreArchivo : `${nombreArchivo}.pdf`;
+
+  try {
+    const archivo = new File([doc.output("blob")], nombre, { type: "application/pdf" });
+    if (navigator.canShare?.({ files: [archivo] })) {
+      try {
+        await navigator.share({ files: [archivo], title: nombre, text: texto });
+        return "nativo";
+      } catch (e) {
+        // Si cerró el menú a propósito no le bajamos el archivo de prepo.
+        if (e?.name === "AbortError") return "cancelado";
+      }
+    }
+  } catch {
+    // Navegador viejo sin File/canShare: seguimos con el plan B.
+  }
+
+  descargarDoc(doc, nombre);
+  if (texto) {
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer");
+  }
+  return "descargado";
+}
+
 // ── Piezas visuales compartidas por todos los documentos ────────
 
 /**
