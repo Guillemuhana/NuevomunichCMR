@@ -103,7 +103,9 @@ function MenuSep() {
 }
 
 // ── Mini Calendario ──────────────────────────────────────────
-function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
+// `fechaDe` dice de qué fecha cuelga cada entrada: el pedido se marca el día
+// que hay que entregarlo y el reporte, el día de la visita.
+function MiniCalendar({ pedidos, onSelectDate, selectedDate, fechaDe = (p) => parseDetEx(p.detalle).fecha_entrega }) {
   const [mes, setMes] = useState(new Date());
   const year = mes.getFullYear(), month = mes.getMonth();
   const firstDayRaw = new Date(year, month, 1).getDay();
@@ -112,7 +114,7 @@ function MiniCalendar({ pedidos, onSelectDate, selectedDate }) {
 
   const byDate = {};
   pedidos.forEach(p => {
-    const fe = parseDetEx(p.detalle).fecha_entrega;
+    const fe = fechaDe(p);
     if (!fe) return;
     const d = new Date(fe + "T12:00");
     if (d.getFullYear() === year && d.getMonth() === month) {
@@ -618,6 +620,11 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [loading, setLoading]       = useState(true);
   const [busqueda, setBusqueda]     = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+  // La lista muestra una cosa por vez: los pedidos o los reportes de visita.
+  // Mezclados no se entendían (el reporte no tiene estado ni fecha de entrega)
+  // y por eso habían quedado afuera; el problema es que, afuera, el vendedor
+  // tampoco podía volver a abrir un reporte suyo para corregirlo.
+  const [tab, setTab] = useState("pedidos");   // "pedidos" | "reportes"
   const [selectedDate, setSelectedDate] = useState(null);
   const [showForm, setShowForm]     = useState(false);
   const [editando, setEditando]     = useState(null);
@@ -677,10 +684,15 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     return () => supabase.removeChannel(ch);
   }, [vendorInfo.alias, cargar]);
 
-  // Los reportes de visita y las reuniones se siguen cargando desde el
-  // formulario, pero no se listan acá: esa lectura es de Cristian.
+  // Los reportes de visita y las reuniones se cargan desde el mismo
+  // formulario que los pedidos, pero viven en su propia solapa: los números
+  // de arriba, los avisos y el calendario siguen siendo sólo de pedidos.
   const soloPedidos = useMemo(
     () => pedidos.filter(p => parseDetEx(p.detalle).tipo === "pedido"),
+    [pedidos]
+  );
+  const soloReportes = useMemo(
+    () => pedidos.filter(p => parseDetEx(p.detalle).tipo !== "pedido"),
     [pedidos]
   );
 
@@ -786,7 +798,16 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     cargar();
   };
 
-  const lista = soloPedidos.filter(p => {
+  const esTabReportes = tab === "reportes";
+
+  // El pedido se ubica por su fecha de entrega; el reporte, por el día en que
+  // se hizo la visita (o, si es viejo y no la tiene, por el día en que se cargó).
+  const fechaDeEntrada = (p) => {
+    const det = parseDetEx(p.detalle);
+    return det.tipo === "pedido" ? det.fecha_entrega : (det.fecha_visita || fechaLocalISO(p.created_at));
+  };
+
+  const lista = (esTabReportes ? soloReportes : soloPedidos).filter(p => {
     const cont = contactos[p.contacto_id] || {};
     const det = parseDetEx(p.detalle);
     const porBusq = !busqueda ||
@@ -794,8 +815,11 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
       (cont.telefono || "").includes(busqueda) ||
       det.observacion.toLowerCase().includes(busqueda.toLowerCase()) ||
       (det.items || []).some(i => (i.desc || "").toLowerCase().includes(busqueda.toLowerCase()));
-    const porEstado = filtroEstado === "todos" || p.estado === filtroEstado;
-    const porFecha  = !selectedDate || (det.fecha_entrega && det.fecha_entrega.startsWith(selectedDate));
+    // El estado (preparando, entregado…) es cosa de los pedidos: el reporte
+    // no lo usa, así que en su solapa el filtro no recorta nada.
+    const porEstado = esTabReportes || filtroEstado === "todos" || p.estado === filtroEstado;
+    const fechaDeFiltro = fechaDeEntrada(p);
+    const porFecha  = !selectedDate || (fechaDeFiltro && fechaDeFiltro.startsWith(selectedDate));
     return porBusq && porEstado && porFecha;
   });
 
@@ -991,13 +1015,27 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
           {/* Lista principal */}
           <div style={{ flex: 1, minWidth: 300 }}>
 
-            {/* Encabezado de la lista */}
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10, padding: "0 2px" }}>
-              <span style={{ width: 30, height: 30, borderRadius: 9, background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Package size={16} />
-              </span>
-              <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: L.text, letterSpacing: 0.3 }}>Mis pedidos</span>
-              <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 8, background: L.soft, color: L.muted, fontFamily: FONT_DISPLAY }}>{lista.length}</span>
+            {/* Encabezado de la lista: las dos solapas. Entrar a "Mis reportes"
+                es la única forma que tiene el vendedor de volver a abrir una
+                visita que cargó y corregirla. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "0 2px", flexWrap: "wrap" }}>
+              {[
+                { k: "pedidos",  label: "Mis pedidos",  icon: <Package size={15} />,  count: soloPedidos.length,  color: "#1D4ED8", bg: "#EFF6FF" },
+                { k: "reportes", label: "Mis reportes", icon: <FileText size={15} />, count: soloReportes.length, color: "#15803D", bg: "#DCFCE7" },
+              ].map(t => {
+                const activo = tab === t.k;
+                return (
+                  <button key={t.k} onClick={() => { setTab(t.k); setSelectedDate(null); }} className="btn-compacto"
+                    title={t.k === "reportes" ? "Tus reportes de visita y reuniones" : "Los pedidos que cargaste"}
+                    style={{ display: "flex", alignItems: "center", gap: 7, background: activo ? L.white : "transparent", border: `1px solid ${activo ? t.color : L.border}`, borderRadius: 10, padding: "6px 11px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: activo ? t.color : L.muted, boxShadow: activo ? "0 1px 4px rgba(0,0,0,.05)" : "none" }}>
+                    <span style={{ width: 26, height: 26, borderRadius: 8, background: activo ? t.bg : L.soft, color: activo ? t.color : L.light, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {t.icon}
+                    </span>
+                    {t.label}
+                    <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: activo ? t.bg : L.soft, color: activo ? t.color : L.muted }}>{t.count}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Filtros */}
@@ -1008,11 +1046,13 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                   placeholder="Buscar cliente, producto…"
                   style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px 7px 26px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
+              {!esTabReportes && (
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
                 style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los estados</option>
                 {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
+              )}
               {selectedDate && (
                 <button onClick={() => setSelectedDate(null)}
                   style={{ display: "flex", alignItems: "center", gap: 5, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
@@ -1026,11 +1066,13 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
               <div style={{ textAlign: "center", padding: 50, color: L.muted }}>Cargando…</div>
             ) : lista.length === 0 ? (
               <div style={{ textAlign: "center", padding: 50, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>
-                <Package size={40} color={L.border} style={{ display: "block", margin: "0 auto 10px" }} />
-                <div style={{ color: L.muted, fontSize: 14, fontWeight: 600 }}>Sin entradas</div>
+                {esTabReportes
+                  ? <FileText size={40} color={L.border} style={{ display: "block", margin: "0 auto 10px" }} />
+                  : <Package size={40} color={L.border} style={{ display: "block", margin: "0 auto 10px" }} />}
+                <div style={{ color: L.muted, fontSize: 14, fontWeight: 600 }}>{esTabReportes ? "Sin reportes" : "Sin entradas"}</div>
                 <button onClick={() => { setEditando(null); setShowForm(true); }}
                   style={{ marginTop: 14, background: C.red, color: "#fff", border: "none", borderRadius: 9, padding: "9px 18px", cursor: "pointer", fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Plus size={14} /> Cargar primera entrada
+                  <Plus size={14} /> {esTabReportes ? "Cargar un reporte" : "Cargar primera entrada"}
                 </button>
               </div>
             ) : lista.map(ped => {
@@ -1055,7 +1097,11 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                         {cont.nombre || det.clienteNombre || "—"}
                       </span>
                       {cont.empresa && <span style={{ fontSize: 11.5, color: L.muted }}>· {cont.empresa}</span>}
-                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase" }}>{ep.label}</span>
+                      {/* El estado es del pedido: un reporte de visita no se
+                          prepara ni se entrega, así que ahí no se muestra. */}
+                      {det.tipo === "pedido" && (
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase" }}>{ep.label}</span>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       {fe && (
@@ -1073,7 +1119,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                   {/* Productos */}
                   {det.items.filter(i => i.desc?.trim()).length > 0 && (
                     <div style={{ fontSize: 13, color: L.muted, marginBottom: 6, lineHeight: 1.5 }}>
-                      <span style={{ color: L.light, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3, marginRight: 6 }}>Pedido:</span>
+                      <span style={{ color: L.light, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3, marginRight: 6 }}>{det.tipo === "pedido" ? "Pedido:" : "Productos:"}</span>
                       {det.items.filter(i => i.desc?.trim()).slice(0, 5).map((it, idx) => (
                         <span key={idx}>{idx > 0 ? " · " : ""}
                           <strong style={{ color: L.text }}>{cantidadItem(it)}</strong> {it.desc}
@@ -1086,7 +1132,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                   {/* Observación */}
                   {det.observacion && (
                     <div style={{ fontSize: 12.5, color: "#D97706", marginBottom: 6, fontStyle: "italic" }}>
-                      📝 {det.observacion.slice(0, 120)}{det.observacion.length > 120 ? "…" : ""}
+                      📝 {det.observacion.slice(0, esTabReportes ? 320 : 120)}{det.observacion.length > (esTabReportes ? 320 : 120) ? "…" : ""}
                     </div>
                   )}
 
@@ -1145,14 +1191,15 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
               <Calendar size={13} color={C.red} /> Calendario
             </div>
-            <MiniCalendar pedidos={soloPedidos} onSelectDate={setSelectedDate} selectedDate={selectedDate} />
+            <MiniCalendar pedidos={esTabReportes ? soloReportes : soloPedidos} fechaDe={fechaDeEntrada}
+              onSelectDate={setSelectedDate} selectedDate={selectedDate} />
 
             {selectedDate && (
               <div style={{ marginTop: 10, background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "12px 14px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "capitalize" }}>
                   {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
                 </div>
-                {soloPedidos.filter(p => parseDetEx(p.detalle).fecha_entrega?.startsWith(selectedDate)).map(p => {
+                {(esTabReportes ? soloReportes : soloPedidos).filter(p => fechaDeEntrada(p)?.startsWith(selectedDate)).map(p => {
                   const cont = contactos[p.contacto_id] || {};
                   const det = parseDetEx(p.detalle);
                   const ep = EP[p.estado] || EP.pendiente;
@@ -1161,7 +1208,9 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <TipoBadge tipo={det.tipo} />
                         <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || "—"}</span>
-                        <span style={{ padding: "1px 6px", borderRadius: 5, background: ep.bg, color: ep.color, fontSize: 10, fontWeight: 700 }}>{ep.label}</span>
+                        {det.tipo === "pedido" && (
+                          <span style={{ padding: "1px 6px", borderRadius: 5, background: ep.bg, color: ep.color, fontSize: 10, fontWeight: 700 }}>{ep.label}</span>
+                        )}
                       </div>
                       {det.observacion && <div style={{ fontSize: 11, color: L.muted, marginTop: 2, fontStyle: "italic" }}>{det.observacion.slice(0, 50)}</div>}
                     </div>
