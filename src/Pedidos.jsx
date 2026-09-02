@@ -43,6 +43,18 @@ export function parseDet(det) {
 
 const shortId = (id) => (id || "").slice(0, 6).toUpperCase();
 
+// El nombre del cliente para mostrar. Un pedido que el vendedor carga sin
+// teléfono no crea contacto, así que el nombre queda guardado dentro del
+// detalle: mirando sólo el contacto, esos pedídos salían con un guión.
+export function nombreCliente(cont, det) {
+  return cont?.nombre || det?.clienteNombre || cont?.telefono || det?.clienteTel || "Cliente sin nombre";
+}
+
+/** El teléfono del cliente, venga del contacto o del detalle del pedido. */
+export function telCliente(cont, det) {
+  return cont?.telefono || det?.clienteTel || "";
+}
+
 // ── PDF ──────────────────────────────────────────
 /**
  * Arma el comprobante del pedido.
@@ -124,13 +136,13 @@ export function imprimirPedido(pedido, contacto, opciones = {}) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
-  doc.text(cont.nombre || det.clienteNombre || cont.telefono || det.clienteTel || "Cliente sin nombre", 14, y);
+  doc.text(nombreCliente(cont, det), 14, y);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(100, 116, 139);
   y += 5;
-  if (cont.telefono)          doc.text(`Tel: ${cont.telefono}`, 14, y);
+  if (telCliente(cont, det))  doc.text(`Tel: ${telCliente(cont, det)}`, 14, y);
   if (cont.empresa)           doc.text(`Empresa: ${cont.empresa}`, 100, y);
   y += 5;
   if (det.entrega === "Delivery" && det.direccion) doc.text(`Dirección entrega: ${det.direccion}`, 14, y);
@@ -489,7 +501,8 @@ export default function PedidosPanel({ rol = "vendedor", soloVendedor = null }) 
   const lista = soloPedidos.filter((p) => {
     const porEstado = filtro === "todos" || p.estado === filtro;
     const cont = contactos[p.contacto_id];
-    const texto = `${cont?.nombre || ""} ${cont?.telefono || ""} ${p.vendedor || ""}`.toLowerCase();
+    const det  = parseDet(p.detalle);
+    const texto = `${nombreCliente(cont, det)} ${telCliente(cont, det)} ${p.vendedor || ""}`.toLowerCase();
     return porEstado && (!busqueda || texto.includes(busqueda.toLowerCase()));
   });
 
@@ -627,15 +640,15 @@ export default function PedidosPanel({ rol = "vendedor", soloVendedor = null }) 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 4 }}>
                       <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 16, color: L.text }}>
-                        {cont.nombre || cont.telefono || "—"}
+                        {nombreCliente(cont, det)}
                       </span>
                       <span style={{ fontSize: 10.5, padding: "2px 10px", borderRadius: 10, background: ep.bg, color: ep.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
                         {ep.label}
                       </span>
                     </div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-                      {cont.telefono && <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4 }}><Phone size={11} />{cont.telefono}</span>}
-                      {ped.vendedor  && <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4 }}><User size={11} />{ped.vendedor}</span>}
+                      {telCliente(cont, det) && <span style={{ fontSize: 12, color: L.muted, display: "flex", alignItems: "center", gap: 4 }}><Phone size={11} />{telCliente(cont, det)}</span>}
+                      <span style={{ fontSize: 12, color: C.red, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><User size={11} />{ped.vendedor || "sin vendedor"}</span>
                       <span style={{ fontSize: 12, color: L.light }}>#{shortId(ped.id)} · {fecha}</span>
                     </div>
                     {/* Preview de items */}
