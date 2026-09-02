@@ -5,10 +5,12 @@
 // administración anotaba "el martes no hay reparto", Cristian se
 // enteraba sólo si se le ocurría entrar a mirar.
 //
-// Cada nota lleva ahora la lista de quiénes ya la abrieron
+// Cada nota lleva la lista de quiénes ya la abrieron
 // (notas.leida_por). Lo que no está en esa lista, y no lo
-// escribiste vos, es una nota nueva: sale el globo rojo en el
-// rail y el cartel "Nueva" en la tarjeta.
+// escribiste vos, lleva el cartel "Nueva" en la tarjeta.
+//
+// El globo del rail es otra cosa y más simple: cuenta lo que falta
+// hacer, igual que el de Chats cuenta lo que falta contestar.
 // ============================================================
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./lib";
@@ -54,30 +56,37 @@ export async function marcarNotasVistas(notas, userEmail) {
 }
 
 /**
- * Cuántas notas nuevas tengo, en vivo. Lo usa el rail para el globo rojo.
+ * Cuántas notas quedan por hacer. Es el número del rail.
+ *
+ * Antes contaba sólo "las nuevas para mí": las de otro que todavía no había
+ * abierto. En la práctica no se veía nunca. Entrar al pizarrón las daba por
+ * vistas todas, así que el globo se apagaba con pisar la pantalla, y estando
+ * parado en Notas una nota que llegaba se marcaba leída en el mismo segundo:
+ * aparecía y desaparecía sin que nadie lo viera.
+ *
+ * Ahora es lo mismo que el globo de Chats: dice lo que falta atender. Se
+ * apaga cuando la nota se marca como hecha, no cuando uno la mira. El cartel
+ * "Nueva" de cada tarjeta sigue siendo personal (ver `esNotaNueva`).
  */
-export function useNotasNuevas(userEmail) {
-  const [nuevas, setNuevas] = useState(0);
+export function useNotasPendientes() {
+  const [pendientes, setPendientes] = useState(0);
 
   const contar = useCallback(async () => {
-    if (!userEmail) { setNuevas(0); return; }
-    const { data, error } = await supabase
-      .from("notas").select("id, autor_email, leida_por, hecha")
-      .eq("hecha", false).limit(300);
-    if (error || !data) { setNuevas(0); return; }
-    setNuevas(data.filter((n) => esNotaNueva(n, userEmail)).length);
-  }, [userEmail]);
+    const { count, error } = await supabase
+      .from("notas").select("id", { count: "exact", head: true })
+      .eq("hecha", false);
+    setPendientes(error ? 0 : (count || 0));
+  }, []);
 
   useEffect(() => { contar(); }, [contar]);
 
-  // Que el globo aparezca en el momento, sin recargar: es la mitad de la gracia.
+  // Que el número aparezca en el momento, sin recargar: es la mitad de la gracia.
   useEffect(() => {
-    if (!userEmail) return;
     const ch = supabase.channel("notas-aviso")
       .on("postgres_changes", { event: "*", schema: "public", table: "notas" }, contar)
       .subscribe();
     return () => supabase.removeChannel(ch);
-  }, [contar, userEmail]);
+  }, [contar]);
 
-  return nuevas;
+  return pendientes;
 }

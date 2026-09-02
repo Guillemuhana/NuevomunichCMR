@@ -27,7 +27,7 @@ import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docFichaContacto } from "./documentos";
 import { conversar, construirSistema, ejecutarHerramienta, claveIA } from "./asistente";
 import { avisar, prepararAudio, sonidoActivado, setSonidoActivado, probarSonido } from "./aviso";
-import { useNotasNuevas } from "./notasNuevas";
+import { useNotasPendientes } from "./notasNuevas";
 const Calendario = lazy(() => import("./Calendario"));
 const Marketing = lazy(() => import("./Marketing"));
 const Notas = lazy(() => import("./Notas"));
@@ -2918,7 +2918,7 @@ export default function App() {
 
   // Notas que escribió otro y todavía no vi. Se calcula acá arriba, junto al
   // resto de los hooks, porque abajo del componente hay returns tempranos.
-  const notasNuevas = useNotasNuevas(session?.user?.email || "");
+  const notasPendientes = useNotasPendientes();
 
   // Registrar el celular para notificaciones push (solo dentro del APK)
   useEffect(() => {
@@ -3030,9 +3030,9 @@ export default function App() {
     chat: contactos.filter((c) =>
       c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))
     ).length,
-    // El pizarrón avisa: si administración deja una nota, se ve desde el rail
-    // sin tener que entrar a Notas a buscarla.
-    notas: notasNuevas,
+    // El pizarrón avisa: el número es lo que queda por hacer, igual que el de
+    // Chats. Se apaga cuando la nota se marca hecha, no al abrir la pantalla.
+    notas: notasPendientes,
   };
 
   // Vendedores externos ven su propio panel
