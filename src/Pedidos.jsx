@@ -590,7 +590,8 @@ export default function PedidosPanel({ rol = "vendedor", soloVendedor = null }) 
       {tab === "reportes" ? (
         <div style={{ padding: "20px 26px" }}>
           <PanelReportes reportes={soloReportes} contactos={contactos}
-            parse={parseDet} loading={loading} />
+            parse={parseDet} loading={loading}
+            vendedorActual={soloVendedor} onActualizado={cargar} />
         </div>
       ) : loading ? (
         <div style={{ padding: 80, textAlign: "center", color: L.muted, fontSize: 15 }}>Cargando pedidos…</div>

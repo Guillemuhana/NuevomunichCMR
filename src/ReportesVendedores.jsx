@@ -2,10 +2,11 @@ import { useState, useMemo } from "react";
 import {
   FileText, Users, Calendar, ChevronLeft, ChevronRight,
   Search, X, Printer, Download, User, MapPin, CheckSquare, Square,
+  Edit2, Save, Plus,
 } from "lucide-react";
 import {
-  C, L, R, FONT_DISPLAY, FONT_BODY,
-  limpiarPrecios, cantidadItem, fechaLocalISO,
+  supabase, C, L, R, FONT_DISPLAY, FONT_BODY,
+  limpiarPrecios, cantidadItem, fechaLocalISO, UNIDADES,
 } from "./lib";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import { docFichaVisita, docReportesDia } from "./documentos";
@@ -36,10 +37,13 @@ function nombreDe(cont, det) {
   return cont?.nombre || cont?.telefono || det?.clienteNombre || det?.clienteTel || "Cliente sin nombre";
 }
 
-// El texto del reporte: lo único que de verdad se lee.
+// El texto del reporte: lo único que de verdad se lee. `observacion` y
+// `notas` guardan lo mismo desde que se carga la entrada, así que se escribe
+// una sola vez: antes el reporte salía repetido en pantalla y en el PDF.
 function textoDe(det) {
-  return [det?.observacion, det?.notas, det?.detalle_extra]
-    .map((t) => (t || "").trim()).filter(Boolean).join("\n\n");
+  const partes = [det?.observacion, det?.notas, det?.detalle_extra]
+    .map((t) => (t || "").trim()).filter(Boolean);
+  return [...new Set(partes)].join("\n\n");
 }
 
 function Chip({ children }) {
@@ -133,17 +137,89 @@ function CalendarioReportes({ reportes, dia, onElegirDia }) {
 }
 
 // ── Ficha completa de un reporte ────────────────────────────
-function ModalReporte({ entrada, contacto, parse, onCerrar }) {
-  const det = parse(entrada.detalle);
-  const t = tipoDe(det);
+// Se lee, y si el reporte es propio se corrige acá mismo: el vendedor se
+// acuerda de algo cuando ya lo mandó y no tiene que rehacer la carga entera.
+const inpRep = {
+  width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 9,
+  border: `1px solid ${L.border}`, fontSize: 13.5, fontFamily: FONT_BODY,
+  color: L.text, outline: "none", background: L.soft,
+};
+
+function Etiqueta({ children }) {
+  return (
+    <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>
+      {children}
+    </div>
+  );
+}
+
+// Lo que se puede tocar de un reporte ya cargado. El resto del detalle
+// (adjunto, teléfono, fechas) se conserva tal cual estaba.
+function formDe(det) {
+  return {
+    tipo: det?.tipo === "reunion" ? "reunion" : "visita",
+    observacion: det?.observacion || det?.notas || "",
+    detalle_extra: det?.detalle_extra || "",
+    direccion: det?.direccion || "",
+    items: (det?.items || []).filter((i) => i.desc?.trim())
+      .map((i) => ({ qty: i.qty ?? 1, unidad: i.unidad || "un", desc: i.desc })),
+  };
+}
+
+function ModalReporte({ entrada, contacto, parse, puedeEditar = false, abrirEditando = false, onGuardado, onCerrar }) {
+  // El detalle vive en el estado: después de guardar, la ficha muestra lo
+  // corregido sin esperar a que se recargue el listado de atrás.
+  const [det, setDet] = useState(() => parse(entrada.detalle));
+  const [form, setForm] = useState(() => (puedeEditar && abrirEditando ? formDe(parse(entrada.detalle)) : null));
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+
+  const editando = form !== null;
+  const t = tipoDe(editando ? form : det);
   const texto = textoDe(det);
   const items = (det.items || []).filter((i) => i.desc?.trim());
   const archivo = `reporte-${(entrada.id || "").slice(0, 6)}.pdf`;
-  const doc = () => docFichaVisita(entrada, contacto, parse);
+  // Para imprimir vale lo que se está viendo, no lo que trajo la fila.
+  const doc = () => docFichaVisita({ ...entrada, detalle: JSON.stringify(det) }, contacto, parse);
+
+  const set     = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setItem = (i, k, v) => setForm((f) => ({ ...f, items: f.items.map((it, idx) => (idx === i ? { ...it, [k]: v } : it)) }));
+  const addItem = () => setForm((f) => ({ ...f, items: [...f.items, { qty: 1, unidad: "un", desc: "" }] }));
+  const delItem = (i) => setForm((f) => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+
+  const guardar = async () => {
+    setGuardando(true);
+    setError("");
+    // Se parte del detalle original para no borrar lo que este formulario no
+    // muestra: el adjunto, el teléfono del cliente, la fecha de la visita.
+    let raw = {};
+    try { raw = JSON.parse(entrada.detalle || "{}") || {}; } catch { raw = {}; }
+    const obs = form.observacion.trim();
+    const nuevo = {
+      ...raw,
+      tipo: form.tipo,
+      observacion: obs,
+      // `notas` guarda lo mismo que la observación: así lo dejó siempre el
+      // formulario del vendedor y hay pantallas que leen ese campo.
+      notas: obs,
+      detalle_extra: form.detalle_extra.trim(),
+      direccion: form.direccion.trim(),
+      items: form.items.filter((i) => i.desc?.trim())
+        .map((i) => ({ qty: Number(i.qty) || 1, unidad: i.unidad || "un", desc: i.desc.trim(), precio: 0 })),
+    };
+    const { error: e } = await supabase.from("pedidos")
+      .update({ detalle: JSON.stringify(nuevo) }).eq("id", entrada.id);
+    setGuardando(false);
+    if (e) { setError("No se pudo guardar: " + (e.message || e)); return; }
+    setDet(parse(JSON.stringify(nuevo)));
+    setForm(null);
+    onGuardado?.();
+  };
 
   return (
     <>
-      <div onClick={onCerrar} style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,.5)", backdropFilter: "blur(3px)", zIndex: 430 }} />
+      {/* Con el formulario abierto el clic afuera no cierra: se perdía lo escrito. */}
+      <div onClick={editando ? undefined : onCerrar} style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,.5)", backdropFilter: "blur(3px)", zIndex: 430 }} />
       <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(94vw,600px)", maxHeight: "88vh", background: L.white, borderRadius: 16, boxShadow: "0 30px 90px rgba(0,0,0,.35)", zIndex: 431, display: "flex", flexDirection: "column", fontFamily: FONT_BODY, overflow: "hidden" }}>
         <div style={{ padding: "18px 22px", borderBottom: `1px solid ${L.border}`, borderTop: `3px solid ${t.color}`, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: t.bg, border: `1px solid ${t.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -152,7 +228,7 @@ function ModalReporte({ entrada, contacto, parse, onCerrar }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: L.text }}>{nombreDe(contacto, det)}</div>
             <div style={{ fontSize: 12.5, color: L.muted, marginTop: 1 }}>
-              {t.label} · {entrada.vendedor || "sin vendedor"} · {new Date(entrada.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              {editando ? "Editando · " : ""}{t.label} · {entrada.vendedor || "sin vendedor"} · {new Date(entrada.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
           <button onClick={onCerrar} title="Cerrar"
@@ -162,33 +238,122 @@ function ModalReporte({ entrada, contacto, parse, onCerrar }) {
         </div>
 
         <div className="scroll-y" style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
-            {contacto?.telefono && <Chip>{contacto.telefono}</Chip>}
-            {(det.direccion || contacto?.direccion) && <Chip><MapPin size={11} /> {det.direccion || contacto.direccion}</Chip>}
-            {det.entrega && <Chip>{det.entrega}</Chip>}
-          </div>
-          <div style={{ fontSize: 14.5, lineHeight: 1.65, color: L.text, whiteSpace: "pre-wrap" }}>
-            {texto ? limpiarPrecios(texto) : <span style={{ fontStyle: "italic", color: L.light }}>Este reporte no tiene observaciones escritas.</span>}
-          </div>
-          {items.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${L.border}` }}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}>Productos conversados</div>
-              <div style={{ fontSize: 13.5, color: L.muted, lineHeight: 1.6 }}>
-                {items.map((i, idx) => (
-                  <span key={idx}>{idx > 0 ? " · " : ""}<strong style={{ color: L.text }}>{cantidadItem(i)}</strong> {limpiarPrecios(i.desc)}</span>
+          {editando ? (
+            <>
+              <div style={{ marginBottom: 16 }}>
+                <Etiqueta>Tipo</Etiqueta>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {Object.entries(TIPO_REPORTE).map(([k, v]) => (
+                    <button key={k} onClick={() => set("tipo", k)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 9, border: `2px solid ${form.tipo === k ? v.color : L.border}`, background: form.tipo === k ? v.bg : L.soft, color: form.tipo === k ? v.color : L.muted, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: FONT_BODY }}>
+                      <FileText size={13} /> {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <Etiqueta>Qué pasó en la visita</Etiqueta>
+                <textarea value={form.observacion} onChange={(e) => set("observacion", e.target.value)}
+                  rows={6} placeholder="Ej: Pasé por el local, quedaron en confirmar el pedido el martes."
+                  style={{ ...inpRep, resize: "vertical", lineHeight: 1.6 }} />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <Etiqueta>Para agregar</Etiqueta>
+                <textarea value={form.detalle_extra} onChange={(e) => set("detalle_extra", e.target.value)}
+                  rows={3} placeholder="Lo que te acordaste después: condiciones, con quién hablaste, próximo paso."
+                  style={{ ...inpRep, resize: "vertical", lineHeight: 1.6 }} />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <Etiqueta>Dirección</Etiqueta>
+                <input value={form.direccion} onChange={(e) => set("direccion", e.target.value)}
+                  placeholder="Calle, número, barrio" style={inpRep} />
+              </div>
+
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <Etiqueta>Productos conversados</Etiqueta>
+                  <button onClick={addItem}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#15803D", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, padding: "0 0 6px", fontFamily: FONT_BODY }}>
+                    <Plus size={13} /> Agregar
+                  </button>
+                </div>
+                {form.items.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: L.light, fontStyle: "italic" }}>Sin productos anotados.</div>
+                )}
+                {form.items.map((it, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 7 }}>
+                    <input value={it.qty} onChange={(e) => setItem(i, "qty", e.target.value)}
+                      type="number" min="0" step={it.unidad === "kg" ? "0.1" : "1"} placeholder="Cant"
+                      style={{ ...inpRep, width: 62, flexShrink: 0, textAlign: "center", padding: "9px 6px" }} />
+                    <select value={it.unidad || "un"} onChange={(e) => setItem(i, "unidad", e.target.value)}
+                      title="Unidad de medida"
+                      style={{ ...inpRep, width: 66, flexShrink: 0, padding: "9px 4px", cursor: "pointer" }}>
+                      {UNIDADES.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
+                    </select>
+                    <input value={it.desc} onChange={(e) => setItem(i, "desc", e.target.value)}
+                      placeholder="Producto" style={{ ...inpRep, flex: 1, minWidth: 0 }} />
+                    <button onClick={() => delItem(i)} title="Quitar"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: L.light, padding: 4, flexShrink: 0, display: "flex" }}>
+                      <X size={15} />
+                    </button>
+                  </div>
                 ))}
               </div>
-            </div>
+
+              {error && <div style={{ marginTop: 14, fontSize: 12.5, color: C.red, fontWeight: 600 }}>{error}</div>}
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
+                {contacto?.telefono && <Chip>{contacto.telefono}</Chip>}
+                {(det.direccion || contacto?.direccion) && <Chip><MapPin size={11} /> {det.direccion || contacto.direccion}</Chip>}
+                {det.entrega && <Chip>{det.entrega}</Chip>}
+              </div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.65, color: L.text, whiteSpace: "pre-wrap" }}>
+                {texto ? limpiarPrecios(texto) : <span style={{ fontStyle: "italic", color: L.light }}>Este reporte no tiene observaciones escritas.</span>}
+              </div>
+              {items.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${L.border}` }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: L.light, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}>Productos conversados</div>
+                  <div style={{ fontSize: 13.5, color: L.muted, lineHeight: 1.6 }}>
+                    {items.map((i, idx) => (
+                      <span key={idx}>{idx > 0 ? " · " : ""}<strong style={{ color: L.text }}>{cantidadItem(i)}</strong> {limpiarPrecios(i.desc)}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <div style={{ borderTop: `1px solid ${L.border}`, padding: "13px 22px", display: "flex", gap: 9, flexWrap: "wrap" }}>
-          <button onClick={() => imprimirDoc(doc(), archivo)} style={btn("primario")}>
-            <Printer size={15} /> Imprimir
-          </button>
-          <button onClick={() => descargarDoc(doc(), archivo)} style={btn()}>
-            <Download size={15} /> Descargar PDF
-          </button>
+          {editando ? (
+            <>
+              <button onClick={() => { setForm(null); setError(""); }} disabled={guardando} style={btn("", !guardando)}>
+                Cancelar
+              </button>
+              <button onClick={guardar} disabled={guardando} style={{ ...btn("primario", !guardando), marginLeft: "auto" }}>
+                <Save size={15} /> {guardando ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </>
+          ) : (
+            <>
+              {puedeEditar && (
+                <button onClick={() => { setError(""); setForm(formDe(det)); }} style={btn("primario")}>
+                  <Edit2 size={15} /> Editar
+                </button>
+              )}
+              <button onClick={() => imprimirDoc(doc(), archivo)} style={btn(puedeEditar ? "" : "primario")}>
+                <Printer size={15} /> Imprimir
+              </button>
+              <button onClick={() => descargarDoc(doc(), archivo)} style={btn()}>
+                <Download size={15} /> <span className="solo-desktop">Descargar </span>PDF
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>
@@ -203,13 +368,20 @@ function ModalReporte({ entrada, contacto, parse, onCerrar }) {
  * @param {Record<string,object>} contactos  mapa id -> contacto
  * @param {(raw:any)=>object} parse  parser del campo detalle
  * @param {boolean} loading
+ * @param {string|null} vendedorActual  alias del vendedor logueado, cuando el
+ *        panel es el suyo: es el único que puede corregir sus reportes.
+ * @param {() => void} [onActualizado]  para releer la lista tras un cambio
  */
-export default function PanelReportes({ reportes = [], contactos = {}, parse, loading = false }) {
+export default function PanelReportes({ reportes = [], contactos = {}, parse, loading = false, vendedorActual = null, onActualizado }) {
   const [dia, setDia] = useState(null);          // día elegido en el calendario
   const [busqueda, setBusqueda] = useState("");
   const [vendedor, setVendedor] = useState("todos");
-  const [abierto, setAbierto] = useState(null);  // ficha en pantalla
+  const [abierto, setAbierto] = useState(null);  // { fila, editar } en pantalla
   const [elegidos, setElegidos] = useState([]);  // ids tildados para imprimir
+
+  // Cada uno corrige lo suyo: el reporte de un compañero se lee y se imprime,
+  // pero no se toca.
+  const puedeEditar = (r) => !!vendedorActual && !!r.vendedor && r.vendedor === vendedorActual;
 
   const vendedores = useMemo(
     () => [...new Set(reportes.map((r) => r.vendedor).filter(Boolean))].sort(),
@@ -379,10 +551,16 @@ export default function PanelReportes({ reportes = [], contactos = {}, parse, lo
                   </div>
 
                   <div className="barra-acciones" style={{ marginTop: 10 }}>
-                    <button onClick={() => setAbierto(r)}
+                    <button onClick={() => setAbierto({ fila: r })}
                       style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                       <FileText size={12} /> Ver reporte
                     </button>
+                    {puedeEditar(r) && (
+                      <button onClick={() => setAbierto({ fila: r, editar: true })} title="Agregar o corregir algo de este reporte"
+                        style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: "#15803D", fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Edit2 size={12} /> Editar
+                      </button>
+                    )}
                     <button onClick={() => imprimirDoc(docFichaVisita(r, cont, parse), archivoUno)} title="Imprimir este reporte"
                       style={{ background: L.soft, border: `1px solid ${L.border}`, borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: L.muted, fontFamily: FONT_BODY, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                       <Printer size={12} /> <span className="solo-desktop">Imprimir</span>
@@ -433,8 +611,9 @@ export default function PanelReportes({ reportes = [], contactos = {}, parse, lo
       </div>
 
       {abierto && (
-        <ModalReporte entrada={abierto} contacto={contactos[abierto.contacto_id] || {}}
-          parse={parse} onCerrar={() => setAbierto(null)} />
+        <ModalReporte entrada={abierto.fila} contacto={contactos[abierto.fila.contacto_id] || {}}
+          parse={parse} puedeEditar={puedeEditar(abierto.fila)} abrirEditando={!!abierto.editar}
+          onGuardado={onActualizado} onCerrar={() => setAbierto(null)} />
       )}
     </div>
   );
