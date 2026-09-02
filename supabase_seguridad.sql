@@ -38,8 +38,12 @@ alter function public.notas_touch() set search_path = public, pg_temp;
 
 
 -- ============================================================
--- PARA CORRER AHORA — cerrar las funciones de ingreso
+-- APLICADO — 2/9/2026 · cerrar las funciones de ingreso
 -- ------------------------------------------------------------
+-- Corrido y verificado: las cuatro quedaron en service_role = true,
+-- anon = false. n8n conserva el permiso, que era lo único que podía
+-- romperse.
+--
 -- ingest_mensaje, ingest_email y fn_push_enviar son SECURITY DEFINER
 -- y hoy las puede llamar cualquiera con la clave pública: se pueden
 -- inventar mensajes y contactos, o dispararle una notificación push
