@@ -1,15 +1,15 @@
 -- ============================================================
 -- SEGURIDAD — lo que ya se aplicó y lo que queda pendiente
 -- ------------------------------------------------------------
--- Este archivo no hay que "correrlo entero": la primera parte YA
--- está aplicada en la base (2/9/2026). Queda acá para saber qué se
--- tocó y por qué, y para poder repetirlo si alguna vez hay que
--- levantar el proyecto de cero.
+-- Este archivo no hay que "correrlo entero": la parte de APLICADO
+-- ya está en la base. Queda acá para saber qué se tocó y por qué,
+-- y para poder repetirlo si alguna vez hay que levantar el
+-- proyecto de cero.
 --
--- Estado del proyecto al momento de la revisión:
+-- Estado del proyecto al momento de la revisión (2/9/2026):
 --   · RLS prendido en las 18 tablas de `public`.
 --   · Ninguna clave en el repo: .env está ignorado desde siempre,
---     la service_role vive sólo en n8n y el google-services.json
+--     la clave secreta vive sólo en n8n y el google-services.json
 --     de Firebase está fuera del control de versiones.
 --   · Sin `dangerouslySetInnerHTML` en el front: no hay superficie
 --     de XSS por HTML inyectado.
@@ -38,28 +38,56 @@ alter function public.notas_touch() set search_path = public, pg_temp;
 
 
 -- ============================================================
--- PENDIENTE — no lo corras sin leer el comentario de arriba de cada
--- bloque: alguno puede romper la entrada de mensajes de WhatsApp.
--- ============================================================
-
--- ---------- 1) Las funciones de ingreso abiertas a `anon` ----------
+-- PARA CORRER AHORA — cerrar las funciones de ingreso
+-- ------------------------------------------------------------
 -- ingest_mensaje, ingest_email y fn_push_enviar son SECURITY DEFINER
 -- y hoy las puede llamar cualquiera con la clave pública: se pueden
--- inventar mensajes y contactos, o dispararles una notificación push
--- a los teléfonos de los vendedores.
+-- inventar mensajes y contactos, o dispararle una notificación push
+-- al teléfono de los vendedores.
 --
--- El README dice que n8n entra con la service_role key, que ignora
--- estos permisos — si es así, este revoke no rompe nada. ANTES de
--- correrlo hay que confirmarlo en n8n (credencial del nodo Supabase),
--- porque si algún workflow quedó con la clave anon se corta la
--- entrada de mensajes de WhatsApp.
+-- ¿Rompe la entrada de WhatsApp? No. Se verificó en n8n el 2/9: los
+-- nodos "Guardar Msj Cliente (Siempre)" y "Guardar Resp Bot" del
+-- workflow NuevoMunich-Chat mandan la clave SECRETA en el header,
+-- no la anon. Y hay prueba en vivo: la versión de 5 parámetros de
+-- ingest_mensaje ya tenía `anon` cerrado desde antes y el bot la
+-- viene llamando sin fallar (64 veces en las últimas 24 h).
 --
--- revoke execute on function public.ingest_mensaje(text,text,text,text,text,text,text,text) from public, anon;
--- revoke execute on function public.ingest_email(text,text,text,text,text,text) from public, anon;
--- revoke execute on function public.ingest_email(text,text,text,text,text,text,text,text,text) from public, anon;
--- revoke execute on function public.fn_push_enviar(jsonb) from public, anon, authenticated;
+-- El grant a service_role va primero y a propósito: si el permiso
+-- lo estuviera heredando de PUBLIC, el revoke de abajo se lo
+-- llevaría puesto y ahí sí se cortaría WhatsApp.
+--
+-- ingest_email lo llama sólo "NINIT CRM - Gmail Sync", que está
+-- apagado y es de otro proyecto.
 
--- ---------- 2) Un contacto expuesto sin login ----------
+grant execute on function public.ingest_mensaje(text,text,text,text,text,text,text,text) to service_role;
+grant execute on function public.ingest_email(text,text,text,text,text,text) to service_role;
+grant execute on function public.ingest_email(text,text,text,text,text,text,text,text,text) to service_role;
+grant execute on function public.fn_push_enviar(jsonb) to service_role;
+
+revoke execute on function public.ingest_mensaje(text,text,text,text,text,text,text,text) from public, anon;
+revoke execute on function public.ingest_email(text,text,text,text,text,text) from public, anon;
+revoke execute on function public.ingest_email(text,text,text,text,text,text,text,text,text) from public, anon;
+revoke execute on function public.fn_push_enviar(jsonb) from public, anon;
+
+-- Verificación: las cuatro tienen que quedar en service_role = true,
+-- anon = false.
+select p.proname, pg_get_function_identity_arguments(p.oid) as args,
+       has_function_privilege('service_role', p.oid, 'execute') as service_role_puede,
+       has_function_privilege('anon', p.oid, 'execute')         as anon_puede
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public'
+   and p.proname in ('ingest_mensaje','ingest_email','fn_push_enviar')
+ order by p.proname;
+
+-- Si algo se rompiera, esto lo deja como estaba:
+--   grant execute on function public.ingest_mensaje(text,text,text,text,text,text,text,text) to anon;
+
+
+-- ============================================================
+-- PENDIENTE
+-- ============================================================
+
+-- ---------- 1) Un contacto expuesto sin login ----------
 -- La política `anon_select_messenger_contactos` deja leer sin sesión
 -- cualquier contacto que tenga messenger_id. Hoy es 1 solo contacto
 -- de 323, pero es una fila de datos personales al aire. Si la
@@ -67,7 +95,7 @@ alter function public.notas_touch() set search_path = public, pg_temp;
 --
 -- drop policy if exists anon_select_messenger_contactos on public.contactos;
 
--- ---------- 3) Lo grande: los permisos por rol viven en la pantalla ----------
+-- ---------- 2) Lo grande: los permisos por rol viven en la pantalla ----------
 -- Hoy toda persona logueada puede hacer todo sobre todas las tablas
 -- (`usando = true` en cada política). Que un vendedor no vea los
 -- pedidos de otro es una decisión del front, no de la base: con la
@@ -88,12 +116,23 @@ alter function public.notas_touch() set search_path = public, pg_temp;
 -- create policy pedidos_lectura on public.pedidos for select to authenticated
 --   using (public.es_admin() or vendedor = split_part(auth.jwt() ->> 'email', '@', 1));
 
+-- ---------- 3) La clave secreta, escrita a mano en n8n ----------
+-- En el workflow NuevoMunich-Chat la clave secreta de Supabase está
+-- puesta como texto plano en los headers de los nodos HTTP, en vez
+-- de ir en una credencial de n8n. Esa clave abre la base entera y
+-- se saltea RLS: viaja en cualquier export del workflow y la ve
+-- cualquiera que entre a n8n. Conviene moverla a una credencial
+-- (Header Auth) y, si el JSON del workflow alguna vez se compartió,
+-- rotarla desde Settings → API del panel de Supabase.
+
 
 -- ============================================================
--- Y esto no es SQL: hay que tildarlo en el panel de Supabase
+-- DESCARTADO POR AHORA
 -- ------------------------------------------------------------
--- Authentication → Providers → Email:
---   · "Prevent use of leaked passwords" (lo compara contra
---     HaveIBeenPwned) — hoy está apagado.
---   · Mínimo de largo de contraseña y caracteres requeridos.
+-- "Prevent use of leaked passwords" en Authentication → Providers.
+-- Decisión de Cristian (2/9): las cuentas del equipo usan mails que
+-- no son reales, así que se deja para más adelante. Aclaración por
+-- si se retoma: la opción no mira el mail, compara la CONTRASEÑA
+-- contra la lista de HaveIBeenPwned; funciona igual con mails
+-- inventados.
 -- ============================================================
