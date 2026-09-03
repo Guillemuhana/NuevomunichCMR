@@ -19,6 +19,7 @@ import {
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
 import Reportes from "./Reportes";
+import Prospectos from "./Prospectos";
 import AdminPanel from "./AdminPanel";
 import VendedorDashboard from "./VendedorPanel";
 import AdministracionPanel from "./AdministracionPanel";
@@ -3049,7 +3050,7 @@ export default function App() {
   // con el panel de gestión de pedidos en la pestaña Pedidos.
 
   // En mobile: mostramos sidebar O panel, no ambos a la vez
-  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario" || vista === "notas");
+  const mobileInPanel = isMobile && (activo !== null || vista === "pedidos" || vista === "vendedores" || vista === "reportes" || vista === "admin" || vista === "ajustes" || vista === "calendario" || vista === "notas" || vista === "prospectos");
 
   // La lista de la izquierda tiene contenido en Chats, Contactos y Pedidos
   // (ahí muestra la agenda por día y hora). En Reportes o el Calendario
@@ -3118,6 +3119,13 @@ export default function App() {
             <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
+          </>
+        ) : vista === "prospectos" ? (
+          <>
+            {isMobile && <MobileBack title="Prospectos" onBack={() => setVista("chat")} />}
+            <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>
+              <Prospectos />
+            </div>
           </>
         ) : vista === "reportes" ? (
           <>

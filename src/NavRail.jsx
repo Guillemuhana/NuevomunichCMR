@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
-  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone, Lock, StickyNote,
+  BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone, Lock, StickyNote, Search,
 } from "lucide-react";
 import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
@@ -123,6 +123,7 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "notas",      icon: StickyNote,     label: "Notas" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
+    { key: "prospectos", icon: Search,         label: "Prospectos" },
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
     ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
     ...(puedeVerReportes(rol) ? [{ key: "reportes", icon: BarChart2, label: "Reportes" }] : []),
