@@ -4,7 +4,7 @@ import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
   BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone, Lock, StickyNote, Search,
 } from "lucide-react";
-import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado, prospectosHabilitado } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
 
 // ============================================================
@@ -124,7 +124,7 @@ function getSecciones(rol) {
     { key: "notas",      icon: StickyNote,     label: "Notas" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
     // Cada búsqueda dispara llamadas pagas a Google Maps: la pestaña es solo de Cristian.
-    ...(rol === "admin" ? [{ key: "prospectos", icon: Search, label: "Clientes potenciales" }] : []),
+    ...(rol === "admin" ? [{ key: "prospectos", icon: Search, label: "Clientes potenciales", bloqueado: !prospectosHabilitado() }] : []),
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
     ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
     ...(puedeVerReportes(rol) ? [{ key: "reportes", icon: BarChart2, label: "Reportes" }] : []),

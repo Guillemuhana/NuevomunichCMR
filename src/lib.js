@@ -38,6 +38,25 @@ export function marketingHabilitado() {
   }
 }
 
+// ── Clientes potenciales, todavía sin habilitar ──────────────────
+// Mismo criterio que marketing: la pestaña se ve con candado hasta que
+// esté probada. Cada búsqueda gasta créditos de Google Maps y de la IA,
+// así que no conviene dejarla suelta antes de tiempo. Se destraba
+// entrando una vez con ?prospectos=on y se vuelve a trabar con
+// ?prospectos=off.
+const LLAVE_PROSPECTOS = "munich-prospectos-on";
+
+export function prospectosHabilitado() {
+  try {
+    const p = new URLSearchParams(window.location.search).get("prospectos");
+    if (p === "on")  localStorage.setItem(LLAVE_PROSPECTOS, "1");
+    if (p === "off") localStorage.removeItem(LLAVE_PROSPECTOS);
+    return localStorage.getItem(LLAVE_PROSPECTOS) === "1";
+  } catch {
+    return false;
+  }
+}
+
 // ── Armado del mensaje para la API de Meta ──────────────────
 /**
  * Devuelve el cuerpo exacto que espera WhatsApp Cloud API.

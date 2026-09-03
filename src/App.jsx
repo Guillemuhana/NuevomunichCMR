@@ -14,7 +14,7 @@ import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas,
   getRol, limpiarPrecios, getIdentidadInterna, getNombreVisiblePorEmail,
-  construirMensajeMeta, marketingHabilitado, cantidadItem, fechaLocalISO,
+  construirMensajeMeta, marketingHabilitado, prospectosHabilitado, cantidadItem, fechaLocalISO,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -3120,7 +3120,7 @@ export default function App() {
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
-        ) : vista === "prospectos" && rol === "admin" ? (
+        ) : vista === "prospectos" && rol === "admin" && prospectosHabilitado() ? (
           <>
             {isMobile && <MobileBack title="Clientes potenciales" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>
