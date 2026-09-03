@@ -3120,7 +3120,7 @@ export default function App() {
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
-        ) : vista === "prospectos" ? (
+        ) : vista === "prospectos" && rol === "admin" ? (
           <>
             {isMobile && <MobileBack title="Clientes potenciales" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>

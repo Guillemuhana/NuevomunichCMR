@@ -123,7 +123,8 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "notas",      icon: StickyNote,     label: "Notas" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
-    { key: "prospectos", icon: Search,         label: "Clientes potenciales" },
+    // Cada búsqueda dispara llamadas pagas a Google Maps: la pestaña es solo de Cristian.
+    ...(rol === "admin" ? [{ key: "prospectos", icon: Search, label: "Clientes potenciales" }] : []),
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
     ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
     ...(puedeVerReportes(rol) ? [{ key: "reportes", icon: BarChart2, label: "Reportes" }] : []),
