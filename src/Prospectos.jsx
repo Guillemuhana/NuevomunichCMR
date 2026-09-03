@@ -45,6 +45,8 @@ export default function Prospectos() {
   const [busquedaHecha, setBusquedaHecha] = useState(false);
   const [filtro, setFiltro] = useState("TODOS");
   const [vendedorAsignado, setVendedorAsignado] = useState({});
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [mensajeAccion, setMensajeAccion] = useState("");
 
   const RUBROS = ["Fiambrería","Almacén","Restaurante","Sandwichería","Vinoteca","Dietética","Rotisería","Bar","Café","Mercado gourmet","Panadería","Supermercado"];
   const VENDEDORES = ["Sin asignar","Cristian","Vendedor 1","Vendedor 2","Vendedor 3"];
@@ -61,7 +63,7 @@ export default function Prospectos() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       const lista = Array.isArray(data) ? data : data.resultados || data.leads || [];
-      setResultados(lista); setBusquedaHecha(true);
+      setResultados(lista); setSeleccionados([]); setMensajeAccion(""); setBusquedaHecha(true);
     } catch {
       setError("No se pudo conectar con n8n. Verificá que el workflow esté activo.");
     } finally { setCargando(false); }
@@ -69,6 +71,22 @@ export default function Prospectos() {
 
   const filtrados = resultados.filter(r => filtro === "TODOS" || r.prioridad === filtro);
   const conteo = { TODOS: resultados.length, ALTA: resultados.filter(r=>r.prioridad==="ALTA").length, MEDIA: resultados.filter(r=>r.prioridad==="MEDIA").length, BAJA: resultados.filter(r=>r.prioridad==="BAJA").length };
+  const clavesFiltradas = filtrados.map((r, indice) => r.place_id || `resultado-${indice}`);
+
+  const alternarSeleccion = (clave) => setSeleccionados(prev => prev.includes(clave) ? prev.filter(item => item !== clave) : [...prev, clave]);
+  const seleccionarTodos = () => setSeleccionados(prev => prev.length === clavesFiltradas.length ? [] : clavesFiltradas);
+
+  const enviarAVendedor = async () => {
+    const elegidos = filtrados.filter((r, indice) => seleccionados.includes(r.place_id || `resultado-${indice}`));
+    if (!elegidos.length) return;
+    const texto = `Clientes potenciales - ${zona}\n\n${elegidos.map((r, indice) => `${indice + 1}. ${r.nombre || "Sin nombre"}\n${r.direccion || "Sin dirección"}\nTel: ${r.telefono || "Sin teléfono"}\nVendedor: ${vendedorAsignado[r.place_id] || "Sin asignar"}`).join("\n\n")}`;
+    try {
+      if (navigator.share) await navigator.share({ title: "Clientes potenciales", text: texto });
+      else { await navigator.clipboard.writeText(texto); setMensajeAccion("Información copiada para enviarla al vendedor"); }
+    } catch (error) {
+      if (error?.name !== "AbortError") setMensajeAccion("No se pudo compartir. Probá nuevamente.");
+    }
+  };
 
   const exportarCSV = () => {
     if (!filtrados.length) return;
@@ -136,7 +154,7 @@ export default function Prospectos() {
         </div>
       </div>
 
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,flexWrap:"wrap",padding:"16px 18px",marginBottom:24,background:"linear-gradient(135deg,#fff7ed,#fff)",border:"1px solid #fed7aa",borderRadius:14,boxShadow:"0 2px 8px rgba(154,52,18,.06)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,flexWrap:"wrap",padding:"16px 18px",marginBottom:24,background:"linear-gradient(135deg,#fff7ed,#fff)",border:"1px solid #fed7aa",borderRadius:14,boxShadow:"0 2px 8px rgba(154,52,18,.06)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:40,height:40,borderRadius:10,display:"grid",placeItems:"center",background:"#9b1c1c",color:"#fff"}}><Map size={20}/></div>
           <div><div style={{fontWeight:800,color:"#1e293b",fontSize:14}}>Acciones de la hoja de ruta</div><div style={{fontSize:12,color:"#64748b",marginTop:3}}>{filtrados.length ? `${filtrados.length} clientes listos para organizar` : "Realizá una búsqueda para habilitar estas acciones"}</div></div>
@@ -144,10 +162,12 @@ export default function Prospectos() {
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={crearHojaRuta} disabled={!filtrados.length} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:8,border:"none",background:filtrados.length?"#9b1c1c":"#cbd5e1",color:"#fff",fontWeight:800,fontSize:13,cursor:filtrados.length?"pointer":"not-allowed",boxShadow:filtrados.length?"0 3px 8px rgba(155,28,28,.2)":"none"}}><Map size={16}/> Crear hoja de ruta</button>
           <button onClick={exportarCSV} disabled={!filtrados.length} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #cbd5e1",background:filtrados.length?"#fff":"#f8fafc",color:filtrados.length?"#334155":"#94a3b8",fontWeight:700,fontSize:13,cursor:filtrados.length?"pointer":"not-allowed"}}><Download size={16}/> Descargar CSV</button>
+          <button onClick={enviarAVendedor} disabled={!seleccionados.length} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #cbd5e1",background:seleccionados.length?"#fff":"#f8fafc",color:seleccionados.length?"#334155":"#94a3b8",fontWeight:700,fontSize:13,cursor:seleccionados.length?"pointer":"not-allowed"}}><Share2 size={16}/> Enviar a vendedor</button>
           <button disabled style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#94a3b8",fontWeight:700,fontSize:13,cursor:"not-allowed"}} title="Disponible al abrir la hoja de ruta"><Share2 size={16}/> Compartir</button>
           <button disabled style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#94a3b8",fontWeight:700,fontSize:13,cursor:"not-allowed"}} title="Disponible al abrir la hoja de ruta"><Printer size={16}/> Imprimir</button>
         </div>
       </div>
+      {mensajeAccion && <div style={{padding:"10px 14px",marginTop:-12,marginBottom:20,borderRadius:8,background:"#ecfdf5",border:"1px solid #a7f3d0",color:"#047857",fontSize:13,fontWeight:600}}>{mensajeAccion}</div>}
 
       {cargando && (
         <div style={{textAlign:"center",padding:"60px 0"}}>
@@ -161,8 +181,12 @@ export default function Prospectos() {
 
       {busquedaHecha && !cargando && (
         <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:16}}>
+            {[['Total',conteo.TODOS,'#1e293b'],['Alta',conteo.ALTA,'#dc2626'],['Media',conteo.MEDIA,'#ca8a04'],['Baja',conteo.BAJA,'#16a34a']].map(([titulo,valor,color])=><div key={titulo} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"12px 14px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700,textTransform:"uppercase"}}>{titulo}</div><div style={{fontSize:22,fontWeight:800,color,marginTop:3}}>{valor}</div></div>)}
+          </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:20}}>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <button onClick={seleccionarTodos} style={{padding:"7px 12px",borderRadius:20,border:"1px solid #cbd5e1",background:"#fff",color:"#334155",fontWeight:600,fontSize:13,cursor:"pointer"}}>{seleccionados.length === clavesFiltradas.length ? "Quitar selección" : "Seleccionar todos"}</button>
               {["TODOS","ALTA","MEDIA","BAJA"].map(f=>(
                 <button key={f} onClick={()=>setFiltro(f)} style={{padding:"7px 16px",borderRadius:20,border:"1px solid",borderColor:filtro===f?"#c8001a":"#e2e8f0",background:filtro===f?"#c8001a":"#fff",color:filtro===f?"#fff":"#475569",fontWeight:600,fontSize:13,cursor:"pointer"}}>
                   {f} ({conteo[f]})
@@ -179,13 +203,14 @@ export default function Prospectos() {
               const web = r.sitio_web||r.website;
               const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r.nombre||"")+" "+(r.direccion||""))}`;
               return (
-                <div key={r.place_id||i} style={{background:"#fff",borderRadius:14,border:"1px solid #e2e8f0",overflow:"hidden",boxShadow:"0 1px 2px rgba(0,0,0,0.05)"}}>
+                <div key={r.place_id||i} style={{background:"#fff",borderRadius:14,border:seleccionados.includes(r.place_id || `resultado-${i}`)?"2px solid #9b1c1c":"1px solid #e2e8f0",overflow:"hidden",boxShadow:"0 1px 2px rgba(0,0,0,0.05)"}}>
                   <div style={{display:"flex"}}>
                     <div style={{width:5,background:pColor.text,flexShrink:0}}/>
                     <div style={{flex:1,padding:"18px 20px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,marginBottom:12}}>
                         <div>
                           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                            <input type="checkbox" checked={seleccionados.includes(r.place_id || `resultado-${i}`)} onChange={() => alternarSeleccion(r.place_id || `resultado-${i}`)} aria-label={`Seleccionar ${r.nombre || "cliente"}`} style={{width:17,height:17,accentColor:"#9b1c1c"}} />
                             <span style={{fontSize:17,fontWeight:800,color:"#1e293b"}}>{r.nombre}</span>
                             <span style={{padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,background:pColor.bg,color:pColor.text,border:`1px solid ${pColor.border}`}}>{r.prioridad} · Score {r.lead_score}/10</span>
                             {r.calificacion>0&&<span style={{fontSize:13,color:"#64748b"}}>⭐ {r.calificacion} ({r.num_resenas} reseñas)</span>}
