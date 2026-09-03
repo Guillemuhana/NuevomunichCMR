@@ -8,6 +8,33 @@ const PRIORIDAD_COLOR = {
   BAJA: { bg: "#f0fdf4", text: "#16a34a", border: "#86efac" },
 };
 
+const LOCALIDADES_POR_PROVINCIA = {
+  "Buenos Aires": ["La Plata", "Mar del Plata", "Bahía Blanca", "Tandil", "Quilmes", "San Isidro", "Pilar", "Luján", "Olavarría"],
+  "Catamarca": ["San Fernando del Valle de Catamarca", "Andalgalá", "Belén", "Tinogasta"],
+  "Chaco": ["Resistencia", "Presidencia Roque Sáenz Peña", "Villa Ángela", "Charata"],
+  "Chubut": ["Rawson", "Comodoro Rivadavia", "Puerto Madryn", "Trelew", "Esquel"],
+  "CABA": ["Ciudad Autónoma de Buenos Aires"],
+  "Córdoba": ["Córdoba Centro", "Nueva Córdoba", "Alta Córdoba", "Villa Allende", "Río Ceballos", "Villa Carlos Paz", "La Calera", "Jesús María", "Bell Ville", "Río Cuarto"],
+  "Corrientes": ["Corrientes", "Goya", "Paso de los Libres", "Curuzú Cuatiá"],
+  "Entre Ríos": ["Paraná", "Concordia", "Gualeguaychú", "Concepción del Uruguay", "La Paz"],
+  "Formosa": ["Formosa", "Clorinda", "Pirané", "El Colorado"],
+  "Jujuy": ["San Salvador de Jujuy", "Palpalá", "San Pedro", "Libertador General San Martín"],
+  "La Pampa": ["Santa Rosa", "General Pico", "Toay", "Realicó"],
+  "La Rioja": ["La Rioja", "Chilecito", "Aimogasta", "Chamical"],
+  "Mendoza": ["Mendoza", "Godoy Cruz", "Guaymallén", "Las Heras", "San Rafael", "Luján de Cuyo", "Maipú"],
+  "Misiones": ["Posadas", "Puerto Iguazú", "Oberá", "Eldorado", "Apóstoles"],
+  "Neuquén": ["Neuquén", "Centenario", "Plottier", "San Martín de los Andes", "Villa La Angostura", "Zapala"],
+  "Río Negro": ["Viedma", "San Carlos de Bariloche", "General Roca", "Cipolletti", "Villa Regina", "El Bolsón"],
+  "Salta": ["Salta", "San Ramón de la Nueva Orán", "Tartagal", "Cafayate", "Metán"],
+  "San Juan": ["San Juan", "Rawson", "Rivadavia", "Pocito", "Caucete"],
+  "San Luis": ["San Luis", "Villa Mercedes", "Merlo", "La Punta"],
+  "Santa Cruz": ["Río Gallegos", "Caleta Olivia", "El Calafate", "Puerto Deseado", "Pico Truncado"],
+  "Santa Fe": ["Santa Fe", "Rosario", "Rafaela", "Venado Tuerto", "Reconquista", "Villa Gobernador Gálvez"],
+  "Santiago del Estero": ["Santiago del Estero", "La Banda", "Termas de Río Hondo", "Añatuya"],
+  "Tierra del Fuego": ["Ushuaia", "Río Grande", "Tolhuin"],
+  "Tucumán": ["San Miguel de Tucumán", "Yerba Buena", "Tafí Viejo", "Concepción", "Aguilares"],
+};
+
 export default function Prospectos() {
   const [busqueda, setBusqueda] = useState("");
   const [zona, setZona] = useState("Córdoba Centro");
@@ -18,7 +45,6 @@ export default function Prospectos() {
   const [filtro, setFiltro] = useState("TODOS");
   const [vendedorAsignado, setVendedorAsignado] = useState({});
 
-  const ZONAS = ["Córdoba Centro","Nueva Córdoba","Güemes","Palermo","Alta Córdoba","Villa Cabrera","Cerro de las Rosas","Villa Allende","Río Ceballos","Villa Carlos Paz","La Calera","Jesús María","Bell Ville","Río Cuarto"];
   const RUBROS = ["Fiambrería","Almacén","Restaurante","Sandwichería","Vinoteca","Dietética","Rotisería","Bar","Café","Mercado gourmet","Panadería","Supermercado"];
   const VENDEDORES = ["Sin asignar","Cristian","Vendedor 1","Vendedor 2","Vendedor 3"];
 
@@ -53,6 +79,23 @@ export default function Prospectos() {
     a.download = `clientes-potenciales_${busqueda}_${new Date().toLocaleDateString("es-AR").replace(/\//g,"-")}.csv`; a.click();
   };
 
+  const crearHojaRuta = () => {
+    if (!filtrados.length) return;
+    const escapar = (valor) => String(valor || "").replace(/[&<>"']/g, caracter => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[caracter]);
+    const filas = filtrados.map((r, indice) => `
+      <tr><td>${indice + 1}</td><td><strong>${escapar(r.nombre || "Sin nombre")}</strong><br>${escapar(r.direccion || "Sin dirección")}</td>
+      <td>${escapar(r.telefono || "Sin teléfono")}</td><td>${escapar(vendedorAsignado[r.place_id] || "Sin asignar")}</td><td></td></tr>`).join("");
+    const ventana = window.open("", "_blank", "noopener,noreferrer");
+    if (!ventana) return;
+    ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Hoja de ruta - ${escapar(zona)}</title>
+      <style>body{font-family:Arial,sans-serif;color:#1e293b;padding:32px}h1{margin:0 0 6px;color:#9b1c1c}p{color:#64748b}.acciones{display:flex;gap:8px}.acciones button{border:0;border-radius:6px;padding:9px 14px;background:#9b1c1c;color:#fff;cursor:pointer}.acciones button.secundario{background:#334155}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:left;vertical-align:top}th{background:#f1f5f9}td:first-child{width:38px;text-align:center}td:last-child{width:100px;height:34px}@media print{body{padding:0}.acciones{display:none}}</style></head>
+      <body><h1>Hoja de ruta</h1><p>Clientes potenciales · ${escapar(zona)} · ${new Date().toLocaleDateString("es-AR")}</p>
+      <div class="acciones"><button onclick="compartir()">Compartir</button><button class="secundario" onclick="descargar()">Descargar</button><button class="secundario" onclick="window.print()">Imprimir</button></div>
+      <table><thead><tr><th>#</th><th>Negocio y dirección</th><th>Teléfono</th><th>Vendedor</th><th>Visitado</th></tr></thead><tbody>${filas}</tbody></table>
+      <script>function contenido(){return document.body.innerText}function compartir(){if(navigator.share){navigator.share({title:"Hoja de ruta",text:contenido()})}else{navigator.clipboard.writeText(contenido()).then(function(){alert("Hoja de ruta copiada para compartir")})}}function descargar(){var archivo=new Blob(["<!doctype html>"+document.documentElement.outerHTML],{type:"text/html;charset=utf-8"});var enlace=document.createElement("a");enlace.href=URL.createObjectURL(archivo);enlace.download="hoja-de-ruta.html";enlace.click();URL.revokeObjectURL(enlace.href)}</script></body></html>`);
+    ventana.document.close();
+  };
+
   return (
     <div style={{padding:"24px",maxWidth:1100,margin:"0 auto",fontFamily:"Inter,sans-serif"}}>
       <div style={{marginBottom:24}}>
@@ -69,7 +112,13 @@ export default function Prospectos() {
           <div style={{flex:1,minWidth:180}}>
             <label style={{fontSize:12,fontWeight:600,color:"#64748b",display:"block",marginBottom:6}}>ZONA</label>
             <select value={zona} onChange={e=>setZona(e.target.value)} style={{width:"100%",padding:"11px 14px",borderRadius:10,border:"1px solid #e2e8f0",fontSize:15,outline:"none",background:"#fff",boxSizing:"border-box"}}>
-              {ZONAS.map(z=><option key={z}>{z}</option>)}
+              <option>Toda Argentina</option>
+              {Object.entries(LOCALIDADES_POR_PROVINCIA).map(([provincia, localidades])=>(
+                <optgroup key={provincia} label={provincia}>
+                  <option value={`Toda ${provincia}`}>Toda la provincia</option>
+                  {localidades.map(localidad=><option key={`${provincia}-${localidad}`}>{localidad}</option>)}
+                </optgroup>
+              ))}
             </select>
           </div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
@@ -108,6 +157,7 @@ export default function Prospectos() {
             </div>
             <div style={{display:"flex",gap:10,alignItems:"center"}}>
               <span style={{fontSize:13,color:"#64748b"}}>{filtrados.length} negocios</span>
+              {filtrados.length>0&&<button onClick={crearHojaRuta} style={{padding:"7px 16px",borderRadius:20,border:"none",background:"#1e293b",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer"}}>🗺️ Crear hoja de ruta</button>}
               {filtrados.length>0&&<button onClick={exportarCSV} style={{padding:"7px 16px",borderRadius:20,border:"1px solid #e2e8f0",background:"#fff",color:"#475569",fontWeight:600,fontSize:13,cursor:"pointer"}}>📥 Exportar CSV</button>}
             </div>
           </div>
