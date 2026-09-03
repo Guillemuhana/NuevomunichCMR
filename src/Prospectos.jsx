@@ -50,13 +50,13 @@ export default function Prospectos() {
     const csv = [headers.join(","),...rows.map(r=>r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = `prospectos_${busqueda}_${new Date().toLocaleDateString("es-AR").replace(/\//g,"-")}.csv`; a.click();
+    a.download = `clientes-potenciales_${busqueda}_${new Date().toLocaleDateString("es-AR").replace(/\//g,"-")}.csv`; a.click();
   };
 
   return (
     <div style={{padding:"24px",maxWidth:1100,margin:"0 auto",fontFamily:"Inter,sans-serif"}}>
       <div style={{marginBottom:24}}>
-        <h1 style={{fontSize:26,fontWeight:800,color:"#1e293b",marginBottom:4}}>🔍 Búsqueda de Prospectos</h1>
+        <h1 style={{fontSize:26,fontWeight:800,color:"#1e293b",marginBottom:4}}>🔍 Búsqueda de Clientes potenciales</h1>
         <p style={{color:"#64748b",fontSize:14}}>Buscá negocios en cualquier zona. La IA los analiza y los organiza como hoja de ruta para los vendedores.</p>
       </div>
 
@@ -89,7 +89,7 @@ export default function Prospectos() {
       {cargando && (
         <div style={{textAlign:"center",padding:"60px 0"}}>
           <div style={{fontSize:48,marginBottom:16}}>🤖</div>
-          <div style={{fontSize:18,fontWeight:700,color:"#1e293b",marginBottom:8}}>Buscando prospectos...</div>
+          <div style={{fontSize:18,fontWeight:700,color:"#1e293b",marginBottom:8}}>Buscando clientes potenciales...</div>
           <div style={{fontSize:14,color:"#64748b"}}>La IA está analizando negocios en {zona}. Puede tardar 1-2 minutos.</div>
         </div>
       )}
@@ -161,7 +161,7 @@ export default function Prospectos() {
         <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8"}}>
           <div style={{fontSize:56,marginBottom:16}}>🗺️</div>
           <div style={{fontSize:18,fontWeight:700,color:"#cbd5e1",marginBottom:8}}>Listo para buscar</div>
-          <div style={{fontSize:14}}>Escribí un rubro arriba y elegí la zona para encontrar prospectos</div>
+          <div style={{fontSize:14}}>Escribí un rubro arriba y elegí la zona para encontrar clientes potenciales</div>
         </div>
       )}
     </div>

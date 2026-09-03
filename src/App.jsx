@@ -3122,7 +3122,7 @@ export default function App() {
           </>
         ) : vista === "prospectos" ? (
           <>
-            {isMobile && <MobileBack title="Prospectos" onBack={() => setVista("chat")} />}
+            {isMobile && <MobileBack title="Clientes potenciales" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>
               <Prospectos />
             </div>
