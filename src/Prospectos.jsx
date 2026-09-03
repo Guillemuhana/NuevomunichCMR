@@ -136,6 +136,19 @@ export default function Prospectos() {
         </div>
       </div>
 
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,flexWrap:"wrap",padding:"16px 18px",marginBottom:24,background:"linear-gradient(135deg,#fff7ed,#fff)",border:"1px solid #fed7aa",borderRadius:14,boxShadow:"0 2px 8px rgba(154,52,18,.06)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:40,height:40,borderRadius:10,display:"grid",placeItems:"center",background:"#9b1c1c",color:"#fff"}}><Map size={20}/></div>
+          <div><div style={{fontWeight:800,color:"#1e293b",fontSize:14}}>Acciones de la hoja de ruta</div><div style={{fontSize:12,color:"#64748b",marginTop:3}}>{filtrados.length ? `${filtrados.length} clientes listos para organizar` : "Realizá una búsqueda para habilitar estas acciones"}</div></div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={crearHojaRuta} disabled={!filtrados.length} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:8,border:"none",background:filtrados.length?"#9b1c1c":"#cbd5e1",color:"#fff",fontWeight:800,fontSize:13,cursor:filtrados.length?"pointer":"not-allowed",boxShadow:filtrados.length?"0 3px 8px rgba(155,28,28,.2)":"none"}}><Map size={16}/> Crear hoja de ruta</button>
+          <button onClick={exportarCSV} disabled={!filtrados.length} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #cbd5e1",background:filtrados.length?"#fff":"#f8fafc",color:filtrados.length?"#334155":"#94a3b8",fontWeight:700,fontSize:13,cursor:filtrados.length?"pointer":"not-allowed"}}><Download size={16}/> Descargar CSV</button>
+          <button disabled style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#94a3b8",fontWeight:700,fontSize:13,cursor:"not-allowed"}} title="Disponible al abrir la hoja de ruta"><Share2 size={16}/> Compartir</button>
+          <button disabled style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#94a3b8",fontWeight:700,fontSize:13,cursor:"not-allowed"}} title="Disponible al abrir la hoja de ruta"><Printer size={16}/> Imprimir</button>
+        </div>
+      </div>
+
       {cargando && (
         <div style={{textAlign:"center",padding:"60px 0"}}>
           <div style={{fontSize:48,marginBottom:16}}>🤖</div>
@@ -157,17 +170,6 @@ export default function Prospectos() {
               ))}
             </div>
             <span style={{fontSize:13,color:"#64748b"}}>{filtrados.length} negocios encontrados</span>
-          </div>
-
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,flexWrap:"wrap",padding:"16px 18px",marginBottom:20,background:"linear-gradient(135deg,#fff7ed,#fff)",border:"1px solid #fed7aa",borderRadius:14,boxShadow:"0 2px 8px rgba(154,52,18,.06)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:40,height:40,borderRadius:10,display:"grid",placeItems:"center",background:"#9b1c1c",color:"#fff"}}><Map size={20}/></div>
-              <div><div style={{fontWeight:800,color:"#1e293b",fontSize:14}}>Organizá la visita comercial</div><div style={{fontSize:12,color:"#64748b",marginTop:3}}>Prepará una hoja de ruta con los resultados seleccionados</div></div>
-            </div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <button onClick={crearHojaRuta} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:8,border:"none",background:"#9b1c1c",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",boxShadow:"0 3px 8px rgba(155,28,28,.2)"}}><Map size={16}/> Crear hoja de ruta</button>
-              <button onClick={exportarCSV} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"1px solid #cbd5e1",background:"#fff",color:"#334155",fontWeight:700,fontSize:13,cursor:"pointer"}}><Download size={16}/> Exportar CSV</button>
-            </div>
           </div>
 
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
