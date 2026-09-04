@@ -38,22 +38,22 @@ export function marketingHabilitado() {
   }
 }
 
-// ── Clientes potenciales, ya habilitada ─────────────────────────
-// Estuvo con candado hasta probar la hoja de ruta; ahora viene abierta
-// para el admin. Como cada búsqueda gasta créditos de Google Maps y de
-// la IA, queda la salida de emergencia: entrando una vez con
-// ?prospectos=off se vuelve a trabar en ese dispositivo, y con
-// ?prospectos=on se destraba de nuevo.
-const LLAVE_PROSPECTOS = "munich-prospectos-off";
+// ── Clientes potenciales, otra vez con candado ──────────────────
+// Se abrió un rato para probar la hoja de ruta y se volvió a trabar:
+// cada búsqueda gasta créditos de Google Maps y de la IA, así que la
+// pestaña se ve con candado y no entra. Para probarla se destraba
+// entrando una vez con ?prospectos=on y se vuelve a trabar con
+// ?prospectos=off.
+const LLAVE_PROSPECTOS = "munich-prospectos-on";
 
 export function prospectosHabilitado() {
   try {
     const p = new URLSearchParams(window.location.search).get("prospectos");
-    if (p === "off") localStorage.setItem(LLAVE_PROSPECTOS, "1");
-    if (p === "on")  localStorage.removeItem(LLAVE_PROSPECTOS);
-    return localStorage.getItem(LLAVE_PROSPECTOS) !== "1";
+    if (p === "on")  localStorage.setItem(LLAVE_PROSPECTOS, "1");
+    if (p === "off") localStorage.removeItem(LLAVE_PROSPECTOS);
+    return localStorage.getItem(LLAVE_PROSPECTOS) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
