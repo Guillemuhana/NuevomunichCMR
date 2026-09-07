@@ -5,7 +5,7 @@ import {
   CheckCircle, AlertCircle, Phone, Download,
   MapPin, Plus, Edit2, Trash2, ShoppingBag,
   FileText, Truck, Coffee, PhoneCall, Users, UserCircle, Save, CalendarDays, Printer, Paperclip,
-  MoreVertical, ChevronDown, Eye, Share2,
+  MoreVertical, ChevronDown, Eye, Share2, StickyNote,
 } from "lucide-react";
 import {
   supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_INFO, LOGO_URL, getIdentidadInterna, UNIDADES, cantidadItem,
@@ -17,10 +17,14 @@ import { imprimirDoc, descargarDoc, verDoc, enviarDoc } from "./imprimir";
 import { docReporteDiario, docFichaVisita } from "./documentos";
 import BotonMensajes from "./MensajeriaInterna";
 import { SelectorProducto, CatalogoModal } from "./SelectorProducto";
+import { useNotasPendientes } from "./notasNuevas";
 
 
 
 const Calendario = lazy(() => import("./Calendario"));
+// El pizarrón es el mismo para todos: lo que anota administración lo lee el
+// vendedor desde la calle, sin tener que llamar para preguntar.
+const Notas = lazy(() => import("./Notas"));
 
 const TIPOS = [
   { k: "pedido",   label: "Pedido",   icon: <Package size={14} />,   color: "#1D4ED8", bg: "#DBEAFE" },
@@ -635,9 +639,15 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [confirmElim, setConfirmElim] = useState(null);
   const [showPerfil, setShowPerfil] = useState(false);
   const [agenda, setAgenda] = useState(false);
+  const [verNotas, setVerNotas] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef(null);
   const esMovil = useEsMovil();
+
+  // Notas del pizarrón que todavía no vio ESTA persona. Que otro vendedor ya
+  // las haya leído no le apaga el aviso a nadie más: cada uno tiene el suyo.
+  // Con el panel abierto desde Admin (que no es una sesión real) no va.
+  const notasPendientes = useNotasPendientes(vendorAliasOverride ? null : userEmail);
 
   // El menú se cierra al tocar afuera o con Escape: en el celular no hay
   // ningún otro lugar obvio para salir de él.
@@ -860,8 +870,8 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
 
           {/* Salir de la agenda. El botón para entrar vive en el menú, así que
               sin esto no se ve cómo volver a los pedidos. */}
-          {agenda && (
-            <button onClick={() => setAgenda(false)} title="Volver a los pedidos" className="btn-compacto"
+          {(agenda || verNotas) && (
+            <button onClick={() => { setAgenda(false); setVerNotas(false); }} title="Volver a los pedidos" className="btn-compacto"
               style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: C.red, borderRadius: 10, padding: "0 12px", height: 38, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_BODY }}>
               <ChevronLeft size={15} /> <span className="solo-desktop">Pedidos</span>
             </button>
@@ -889,10 +899,26 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
               <MoreVertical size={18} />
             </button>
 
+            {/* El aviso de notas nuevas vive acá afuera: adentro del menú no
+                lo vería nadie, que es justo lo que hay que evitar. */}
+            {notasPendientes > 0 && !menu && (
+              <span style={{ position: "absolute", top: -5, right: -5, minWidth: 17, height: 17, borderRadius: 99, background: C.red, color: "#fff", fontSize: 10, fontWeight: 800, fontFamily: FONT_DISPLAY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: "2px solid #fff", lineHeight: 1, pointerEvents: "none" }}>
+                {notasPendientes > 99 ? "99+" : notasPendientes}
+              </span>
+            )}
+
             {menu && (
               <div className="scroll-y" style={{ position: "absolute", top: "calc(100% + 9px)", right: 0, width: 250, maxWidth: "calc(100vw - 28px)", maxHeight: "min(70vh, 460px)", overflowY: "auto", background: L.white, border: `1px solid ${L.border}`, borderRadius: 14, boxShadow: "0 20px 55px rgba(16,24,40,.18)", padding: 6, zIndex: 300 }}>
                 <MenuItem icon={<CalendarDays size={16} />} label="Agenda" hint="Calendario completo" activo={agenda}
-                  onClick={() => { setAgenda(v => !v); setMenu(false); }} />
+                  onClick={() => { setAgenda(v => !v); setVerNotas(false); setMenu(false); }} />
+
+                {userEmail && !vendorAliasOverride && (
+                  <MenuItem icon={<StickyNote size={16} />} label="Notas" activo={verNotas}
+                    hint={notasPendientes > 0
+                      ? `${notasPendientes} nueva${notasPendientes === 1 ? "" : "s"} sin leer`
+                      : "El pizarrón del equipo"}
+                    onClick={() => { setVerNotas(v => !v); setAgenda(false); setMenu(false); }} />
+                )}
                 <MenuSep />
 
                 {/* Reportes: una sola entrada que se despliega. Antes eran dos
@@ -930,7 +956,11 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
         </div>
       </div>
 
-      {agenda ? (
+      {verNotas ? (
+        <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
+          <Notas userName={vendorInfo.nombre} userEmail={userEmail} isMobile={esMovil} />
+        </Suspense>
+      ) : agenda ? (
         <Suspense fallback={<div style={{ flex: 1, background: L.bg }} />}>
           <Calendario userEmail={userEmail} isMobile={esMovil}
             vendedorFijo={vendorInfo.alias || vendorInfo.nombre} pedidos={pedidosAgenda} />

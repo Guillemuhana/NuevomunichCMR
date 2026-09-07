@@ -413,6 +413,7 @@ export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {
   const principales = todos.slice(0, 4);
   const resto = todos.slice(4);
   const enResto = resto.some(i => i.key === vista);
+  const badgeResto = resto.reduce((t, i) => t + (badges[i.key] || 0), 0);
 
   return (
     <>
@@ -456,7 +457,12 @@ export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               gap: 4, color: enResto ? "#fff" : RAIL.idle,
             }}>
-            <MoreHorizontal size={19} strokeWidth={enResto ? 2.4 : 1.9} />
+            {/* En el celular sólo entran cuatro ítems: Notas casi siempre queda
+                acá adentro. Sin este globo, el aviso no se veía nunca. */}
+            <span style={{ position: "relative", display: "flex" }}>
+              <MoreHorizontal size={19} strokeWidth={enResto ? 2.4 : 1.9} />
+              <Badge n={badgeResto} tono="rojo" />
+            </span>
             <span style={{ fontSize: 9.5, fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase" }}>Más</span>
           </motion.button>
         )}
@@ -497,7 +503,10 @@ export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {
                         background: activo ? "linear-gradient(140deg,rgba(190,38,38,.9),rgba(127,20,20,.7))" : "rgba(255,255,255,.04)",
                         color: activo ? "#fff" : RAIL.text,
                       }}>
-                      <Icon size={20} strokeWidth={1.9} />
+                      <span style={{ position: "relative", display: "flex" }}>
+                        <Icon size={20} strokeWidth={1.9} />
+                        <Badge n={badges[item.key]} tono="rojo" />
+                      </span>
                       <span style={{ fontSize: 11, fontFamily: FONT_DISPLAY, fontWeight: 700, letterSpacing: 0.3 }}>
                         {item.label}{item.bloqueado && <Lock size={10} style={{ marginLeft: 4, verticalAlign: "-1px" }} />}
                       </span>

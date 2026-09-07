@@ -2919,7 +2919,7 @@ export default function App() {
 
   // Notas que escribió otro y todavía no vi. Se calcula acá arriba, junto al
   // resto de los hooks, porque abajo del componente hay returns tempranos.
-  const notasPendientes = useNotasPendientes();
+  const notasPendientes = useNotasPendientes(session?.user?.email);
 
   // Registrar el celular para notificaciones push (solo dentro del APK)
   useEffect(() => {
@@ -3031,8 +3031,9 @@ export default function App() {
     chat: contactos.filter((c) =>
       c.ultimo_in_at && (!c.ultimo_out_at || new Date(c.ultimo_in_at) > new Date(c.ultimo_out_at))
     ).length,
-    // El pizarrón avisa: el número es lo que queda por hacer, igual que el de
-    // Chats. Se apaga cuando la nota se marca hecha, no al abrir la pantalla.
+    // El pizarrón avisa: el número es lo que ESTA persona no leyó todavía.
+    // Se apaga al entrar a Notas, y sólo para quien entró: el resto del
+    // equipo lo sigue viendo hasta que abra el pizarrón.
     notas: notasPendientes,
   };
 
