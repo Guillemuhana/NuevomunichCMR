@@ -2904,18 +2904,41 @@ export default function App() {
   const [showImportarApp, setShowImportarApp] = useState(false);
   // Ref para evitar mostrar login si hubo sesión previa y solo es un refresh
   const tuvoSesion = useRef(false);
+  // Se cayó la sesión y no volvió: hay que mostrar el login igual.
+  const [sesionCaida, setSesionCaida] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
+    // El .catch importa: si esta llamada falla (el celular sin señal al abrir
+    // la app en la calle), sin él `ready` no se prende nunca y la pantalla
+    // queda en blanco para siempre, sin login ni error.
+    supabase.auth.getSession()
+      .then(({ data }) => setSession(data?.session || null))
+      .catch(() => setSession(null))
+      .finally(() => setReady(true));
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       // Solo actualizar sesión en eventos explícitos, evitar flashes durante refresh
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         setSession(s);
+        // Si el evento llega sin sesión, es que se salió de verdad (tocó
+        // "Salir", o el token de refresco venció). Hay que volver a habilitar
+        // el login: dejar el candado puesto deja la pantalla en blanco y sin
+        // manera de entrar, que es como los vendedores se quedaban afuera.
+        if (!s) tuvoSesion.current = false;
       }
     });
     initNativo();
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Red de seguridad para el caso raro: la sesión desapareció sin que llegara
+  // ningún evento. Se le dan unos segundos por si es un refresh en curso y,
+  // si no vuelve, se muestra el login en vez de quedarse en blanco.
+  useEffect(() => {
+    if (session) { setSesionCaida(false); return; }
+    if (!ready) return;
+    const t = setTimeout(() => setSesionCaida(true), 2500);
+    return () => clearTimeout(t);
+  }, [session, ready]);
 
   // Notas que escribió otro y todavía no vi. Se calcula acá arriba, junto al
   // resto de los hooks, porque abajo del componente hay returns tempranos.
@@ -3013,9 +3036,11 @@ export default function App() {
 
   if (session) tuvoSesion.current = true;
   if (!ready) return null;
-  // No mostrar login si tuvo sesión previa y solo está refrescando token
-  if (!session && !tuvoSesion.current) return (<><FontLoader /><Login /></>);
-  if (!session) return null; // espera silenciosa si tuvo sesión (evita flash de login)
+  // No mostrar login si tuvo sesión previa y solo está refrescando token.
+  // `sesionCaida` corta la espera: pasados unos segundos sin sesión se muestra
+  // el login sí o sí.
+  if (!session && (!tuvoSesion.current || sesionCaida)) return (<><FontLoader /><Login /></>);
+  if (!session) return null; // espera corta mientras se refresca (evita flash de login)
 
   const userEmail = session.user.email;
   const userName  = getNombreVisiblePorEmail(userEmail, userEmail.split("@")[0].replace(/^\w/, (m) => m.toUpperCase()));
