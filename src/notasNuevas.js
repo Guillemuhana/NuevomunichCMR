@@ -13,7 +13,7 @@
 // Es de cada uno, no del equipo. Si Boris entra y las lee, el suyo se
 // apaga; el de Cristian sigue prendido hasta que entre él.
 // ============================================================
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 import { supabase } from "./lib";
 
 const mismo = (a, b) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
@@ -71,6 +71,15 @@ export async function marcarNotasVistas(notas, userEmail) {
  */
 export function useNotasPendientes(userEmail) {
   const [pendientes, setPendientes] = useState(0);
+  // Un nombre de canal propio para cada lugar que use el hook. Es la parte
+  // importante: `supabase.channel(nombre)` NO crea uno nuevo si ya existe uno
+  // con ese nombre, devuelve el que está. Como el panel del vendedor llama al
+  // hook y App también, los dos pedían "notas-aviso-<mail>" y el segundo se
+  // encontraba con un canal ya suscripto: ahí `.on()` tira
+  // "cannot add postgres_changes callbacks after subscribe()", el error
+  // explota dentro del efecto y React desmonta todo. Pantalla en blanco al
+  // entrar, y sólo a los vendedores, que son los únicos con las dos llamadas.
+  const idHook = useId().replace(/[^a-zA-Z0-9]/g, "");
 
   const contar = useCallback(async () => {
     if (!userEmail) { setPendientes(0); return; }
@@ -85,11 +94,14 @@ export function useNotasPendientes(userEmail) {
 
   // Que el número aparezca en el momento, sin recargar: es la mitad de la gracia.
   useEffect(() => {
-    const ch = supabase.channel(`notas-aviso-${userEmail}`)
+    // Sin mail no hay a quién contarle nada (el panel abierto desde Admin):
+    // no vale la pena abrir un canal.
+    if (!userEmail) return;
+    const ch = supabase.channel(`notas-aviso-${idHook}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notas" }, contar)
       .subscribe();
     return () => supabase.removeChannel(ch);
-  }, [contar, userEmail]);
+  }, [contar, userEmail, idHook]);
 
   return pendientes;
 }
