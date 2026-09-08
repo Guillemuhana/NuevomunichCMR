@@ -5,9 +5,17 @@ import {
   Send, Share2, ShoppingBag, Sparkles, Star, Target, TrendingUp, X,
 } from "lucide-react";
 import { docHojaRutaProspectos } from "./documentos";
+import { PROSPECTOS_PRUEBAS } from "./lib";
 import { descargarDoc, enviarDoc, imprimirDoc } from "./imprimir";
 
 const N8N_WEBHOOK = "https://ntg-group.app.n8n.cloud/webhook/munich-prospectos-buscar";
+
+// Lo que se le dice a Cristian cuando gastó las tres pruebas. Al salir de
+// la pestaña le vuelve el candado: la idea es que nos escriba para comprar
+// el servicio, no que se quede pensando que se rompió algo.
+const TEXTO_AGOTADO =
+  "Se terminaron las 3 búsquedas de prueba de clientes potenciales. " +
+  "Escribinos para activar el servicio completo y la pestaña se destraba.";
 
 // Google Maps acepta origen + 9 puntos más en un link de indicaciones.
 // Si la búsqueda trae más clientes, la ruta se parte en tramos encadenados.
@@ -211,7 +219,7 @@ function AnilloScore({ valor = 0, color }) {
   );
 }
 
-export default function Prospectos() {
+export default function Prospectos({ prueba = { restantes: Infinity, sinLimite: true, consumir: async () => ({ permitido: true }) } }) {
   const [busqueda, setBusqueda] = useState("");
   const [zona, setZona] = useState("Córdoba Centro");
   const [cargando, setCargando] = useState(false);
@@ -228,7 +236,9 @@ export default function Prospectos() {
   const VENDEDORES = ["Sin asignar","Cristian","Vendedor 1","Vendedor 2","Vendedor 3"];
 
   const buscar = async () => {
-    if (!busqueda.trim()) return;
+    if (!busqueda.trim() || cargando) return;
+    // Sin pruebas no se llama a Google Maps ni a la IA: se corta antes de gastar.
+    if (!prueba.sinLimite && prueba.restantes === 0) { setError(TEXTO_AGOTADO); return; }
     setCargando(true); setError(null); setResultados([]); setBusquedaHecha(false); setRutaAbierta(false);
     try {
       const res = await fetch(N8N_WEBHOOK, {
@@ -239,6 +249,13 @@ export default function Prospectos() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       const lista = Array.isArray(data) ? data : data.resultados || data.leads || [];
+      // La prueba se descuenta recién con la búsqueda ya hecha, y en la base:
+      // si n8n falla no se pierde una, y borrar la caché no regala otras tres.
+      const permiso = await prueba.consumir();
+      if (!permiso.permitido) {
+        setError(permiso.fallo ? "No se pudo verificar la prueba. Probá de nuevo en un momento." : TEXTO_AGOTADO);
+        return;
+      }
       setResultados(lista); setSeleccionados([]); setMensajeAccion(""); setBusquedaHecha(true);
     } catch {
       setError("No se pudo conectar con n8n. Verificá que el workflow esté activo.");
@@ -387,6 +404,12 @@ export default function Prospectos() {
                       box-shadow: 0 10px 24px -10px rgba(239,68,68,.9); transition: transform .16s, box-shadow .16s, filter .16s; }
         .btn-buscar:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 14px 28px -10px rgba(239,68,68,1); }
         .btn-buscar:disabled { background: rgba(255,255,255,.14); color: #94a3b8; box-shadow: none; cursor: not-allowed; }
+
+        .prueba { display: flex; align-items: center; gap: 9px; margin-top: 14px; padding: 10px 14px; border-radius: 12px;
+                  font-size: 13px; font-weight: 600; color: #fde68a; line-height: 1.45;
+                  background: rgba(253,224,71,.10); border: 1px solid rgba(253,224,71,.28); }
+        .prueba[data-agotada="1"] { color: #fecaca; background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.35); }
+        .prueba svg { flex-shrink: 0; }
 
         .rubros { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 16px; }
         .rubros > span { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #94a3b8; text-transform: uppercase; margin-right: 4px; }
@@ -576,10 +599,22 @@ export default function Prospectos() {
             </select>
             <ChevronDown size={15} className="campo-flecha" />
           </label>
-          <button className="btn-buscar" onClick={buscar} disabled={cargando || !busqueda.trim()}>
+          <button className="btn-buscar" onClick={buscar}
+            disabled={cargando || !busqueda.trim() || (!prueba.sinLimite && prueba.restantes === 0)}>
             {cargando ? <><Loader2 size={17} className="gira" /> Buscando…</> : <><Sparkles size={17} /> Buscar</>}
           </button>
         </div>
+
+        {!prueba.sinLimite && prueba.restantes !== null && (
+          <div className="prueba" data-agotada={prueba.restantes === 0 ? 1 : 0}>
+            <Sparkles size={15} />
+            <span>
+              {prueba.restantes > 0
+                ? `Versión de prueba: ${prueba.restantes === 1 ? "te queda 1 búsqueda" : `te quedan ${prueba.restantes} búsquedas`} de ${PROSPECTOS_PRUEBAS}.`
+                : TEXTO_AGOTADO}
+            </span>
+          </div>
+        )}
 
         <div className="rubros">
           <span>Acceso rápido</span>

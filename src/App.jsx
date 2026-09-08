@@ -14,7 +14,7 @@ import {
   supabase, N8N_SEND_WEBHOOK, LOGO_URL, C, L, R, SH, FONT_DISPLAY, FONT_BODY,
   VENDEDORES, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_INFO, ADMINISTRACION_INFO, calcularAlertas,
   getRol, limpiarPrecios, getIdentidadInterna, getNombreVisiblePorEmail,
-  construirMensajeMeta, marketingHabilitado, prospectosHabilitado, cantidadItem, fechaLocalISO,
+  construirMensajeMeta, marketingHabilitado, useProspectosPrueba, cantidadItem, fechaLocalISO,
 } from "./lib";
 import BotonMensajes from "./MensajeriaInterna";
 import NavRail, { NavMobile } from "./NavRail";
@@ -2921,6 +2921,10 @@ export default function App() {
   // resto de los hooks, porque abajo del componente hay returns tempranos.
   const notasPendientes = useNotasPendientes(session?.user?.email);
 
+  // Clientes potenciales: le quedan 3 búsquedas de prueba y después vuelve
+  // el candado en la pestaña. Va acá arriba por lo mismo que las notas.
+  const pruebaProspectos = useProspectosPrueba(session?.user?.email);
+
   // Registrar el celular para notificaciones push (solo dentro del APK)
   useEffect(() => {
     if (session && esNativo()) initPush(session);
@@ -3072,7 +3076,8 @@ export default function App() {
       {!isMobile && (
         <NavRail vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
           rol={rol} userName={userName} userEmail={userEmail}
-          onLogout={() => cerrarSesion()} badges={navBadges} />
+          onLogout={() => cerrarSesion()} badges={navBadges}
+          prospectosAgotados={pruebaProspectos.agotado} />
       )}
 
       {/* Sidebar — CSS lo oculta en mobile cuando hay .in-panel */}
@@ -3121,11 +3126,11 @@ export default function App() {
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
-        ) : vista === "prospectos" && rol === "admin" && prospectosHabilitado() ? (
+        ) : vista === "prospectos" && rol === "admin" && !pruebaProspectos.agotado ? (
           <>
             {isMobile && <MobileBack title="Clientes potenciales" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>
-              <Prospectos />
+              <Prospectos prueba={pruebaProspectos} />
             </div>
           </>
         ) : vista === "reportes" ? (
@@ -3185,7 +3190,8 @@ export default function App() {
       {isMobile && !mobileInPanel && (
         <NavMobile vista={vista} setVista={(v) => { setVista(v); if (v !== "chat") setActivo(null); }}
           rol={rol} userName={userName}
-          onLogout={() => cerrarSesion()} badges={navBadges} />
+          onLogout={() => cerrarSesion()} badges={navBadges}
+          prospectosAgotados={pruebaProspectos.agotado} />
       )}
 
       <AvisosEnVivo userEmail={userEmail} rol={rol} contactos={contactos}

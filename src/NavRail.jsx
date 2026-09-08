@@ -4,7 +4,7 @@ import {
   MessageSquare, UserCheck, Package, CalendarCheck, Users,
   BarChart2, Settings, Shield, LogOut, PanelLeftClose, PanelLeftOpen, MoreHorizontal, X, MessageCircle, Megaphone, Lock, StickyNote, Search,
 } from "lucide-react";
-import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado, prospectosHabilitado } from "./lib";
+import { C, LOGO_URL, LOGO_VIDEO_URL, FONT_DISPLAY, FONT_BODY, getIdentidadInterna, marketingHabilitado } from "./lib";
 import { PanelMensajeria, useUnreadInternos } from "./MensajeriaInterna";
 
 // ============================================================
@@ -112,7 +112,7 @@ function puedeVerReportes(rol) {
 }
 
 // Ítems de navegación agrupados en secciones
-function getSecciones(rol) {
+function getSecciones(rol, prospectosAgotados) {
   const principal = [
     { key: "chat",       icon: MessageSquare,  label: "Chats" },
     { key: "vendedores", icon: UserCheck,      label: "Vendedores" },
@@ -123,8 +123,13 @@ function getSecciones(rol) {
     { key: "calendario", icon: CalendarCheck,  label: "Calendario" },
     { key: "notas",      icon: StickyNote,     label: "Notas" },
     { key: "contactos",  icon: Users,          label: "Contactos" },
-    // Cada búsqueda dispara llamadas pagas a Google Maps: la pestaña es solo de Cristian.
-    ...(rol === "admin" ? [{ key: "prospectos", icon: Search, label: "Clientes potenciales", bloqueado: !prospectosHabilitado() }] : []),
+    // Cada búsqueda dispara llamadas pagas a Google Maps: la pestaña es solo de
+    // Cristian y, hasta que compre el servicio, se traba al gastar sus 3 pruebas.
+    ...(rol === "admin" ? [{
+      key: "prospectos", icon: Search, label: "Clientes potenciales",
+      bloqueado: prospectosAgotados,
+      tituloBloqueado: "Se terminaron las 3 búsquedas de prueba",
+    }] : []),
     // Mandar a toda la base es irreversible: la pestaña es solo de Cristian.
     ...(rol === "admin" ? [{ key: "marketing", icon: Megaphone, label: "Marketing", bloqueado: !marketingHabilitado() }] : []),
     ...(puedeVerReportes(rol) ? [{ key: "reportes", icon: BarChart2, label: "Reportes" }] : []),
@@ -184,7 +189,7 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <motion.button onClick={item.bloqueado ? undefined : onClick}
         disabled={item.bloqueado}
-        title={item.bloqueado ? "Todavía no está habilitado" : undefined}
+        title={item.bloqueado ? (item.tituloBloqueado || "Todavía no está habilitado") : undefined}
         whileTap={item.bloqueado ? undefined : { scale: 0.965 }}
         style={{
           position: "relative", width: "100%", height: 46, display: "flex",
@@ -261,7 +266,7 @@ function RailItem({ item, activo, expandido, badge, onClick }) {
 // ============================================================
 // RAIL (desktop)
 // ============================================================
-export default function NavRail({ vista, setVista, rol, userName, userEmail, onLogout, badges = {} }) {
+export default function NavRail({ vista, setVista, rol, userName, userEmail, onLogout, badges = {}, prospectosAgotados = false }) {
   const [pin, setPin]     = useState(() => localStorage.getItem("munich-rail-pin") === "1");
   const [hover, setHover] = useState(false);
   const [videoOk, setVideoOk] = useState(true);
@@ -274,7 +279,7 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
 
   useEffect(() => { localStorage.setItem("munich-rail-pin", pin ? "1" : "0"); }, [pin]);
 
-  const secciones = getSecciones(rol);
+  const secciones = getSecciones(rol, prospectosAgotados);
 
   return (
     <>
@@ -405,9 +410,9 @@ export default function NavRail({ vista, setVista, rol, userName, userEmail, onL
 // ============================================================
 // NAV MOBILE — barra inferior + hoja "Más"
 // ============================================================
-export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {} }) {
+export function NavMobile({ vista, setVista, rol, userName, onLogout, badges = {}, prospectosAgotados = false }) {
   const [sheet, setSheet] = useState(false);
-  const secciones = getSecciones(rol);
+  const secciones = getSecciones(rol, prospectosAgotados);
   // En mobile el chat interno sigue en el botón de la cabecera
   const todos = secciones.flatMap(s => s.items).filter(i => !i.panel);
   const principales = todos.slice(0, 4);

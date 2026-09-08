@@ -38,15 +38,26 @@ export function marketingHabilitado() {
   }
 }
 
-// ── Clientes potenciales, otra vez con candado ──────────────────
-// Se abrió un rato para probar la hoja de ruta y se volvió a trabar:
-// cada búsqueda gasta créditos de Google Maps y de la IA, así que la
-// pestaña se ve con candado y no entra. Para probarla se destraba
-// entrando una vez con ?prospectos=on y se vuelve a trabar con
-// ?prospectos=off.
-const LLAVE_PROSPECTOS = "munich-prospectos-on";
+// ── Clientes potenciales: 3 búsquedas de prueba ─────────────
+// La pestaña se abre para que Cristian la pruebe, pero cada búsqueda
+// gasta créditos de Google Maps y de la IA: le tocan tres y después
+// vuelve el candado, para que hable con nosotros antes de seguir.
+//
+// El contador vive en Supabase (tabla `prospectos_prueba`, funciones
+// `prospectos_estado` / `prospectos_consumir`) y no en el navegador:
+// borrar la caché o entrar desde el celular no regala tres más. Para
+// vender el servicio alcanza con subirle el `limite` a su fila.
+export const PROSPECTOS_PRUEBAS = 3;
 
-export function prospectosHabilitado() {
+// Llave nuestra, no de Cristian: se entra una vez con ?prospectos=on y
+// la pestaña queda sin límite en ese equipo (?prospectos=off la vuelve
+// a dejar en modo prueba). El nombre de la llave cambió a propósito: la
+// vieja ("munich-prospectos-on") quedó guardada en los navegadores que
+// destrabaron la pestaña cuando era candado puro, y les habría dado
+// búsquedas ilimitadas sin que nadie se enterara.
+const LLAVE_PROSPECTOS = "munich-prospectos-libre";
+
+export function prospectosSinLimite() {
   try {
     const p = new URLSearchParams(window.location.search).get("prospectos");
     if (p === "on")  localStorage.setItem(LLAVE_PROSPECTOS, "1");
@@ -55,6 +66,49 @@ export function prospectosHabilitado() {
   } catch {
     return false;
   }
+}
+
+/** Primera fila de un rpc, que Supabase devuelve como array. */
+function primeraFila(data) {
+  return Array.isArray(data) ? data[0] : data;
+}
+
+/**
+ * Cuántas búsquedas de prueba quedan y cómo gastar una.
+ *
+ * `restantes` arranca en null (todavía no se sabe) para no mostrar el
+ * candado por un parpadeo mientras carga. Si la consulta falla se
+ * asumen las tres: el corte de verdad lo hace `consumir`, que es el
+ * que toca la base, así que un error de red no regala búsquedas.
+ */
+export function useProspectosPrueba(userEmail) {
+  const sinLimite = prospectosSinLimite();
+  const [restantes, setRestantes] = useState(sinLimite ? Infinity : null);
+
+  useEffect(() => {
+    if (sinLimite) { setRestantes(Infinity); return; }
+    if (!userEmail) return;
+    let vivo = true;
+    supabase.rpc("prospectos_estado", { p_email: userEmail }).then(({ data, error }) => {
+      if (!vivo) return;
+      const fila = primeraFila(data);
+      if (error || !fila) { setRestantes(PROSPECTOS_PRUEBAS); return; }
+      setRestantes(Math.max(0, fila.limite - fila.usadas));
+    });
+    return () => { vivo = false; };
+  }, [userEmail, sinLimite]);
+
+  const consumir = async () => {
+    if (sinLimite) return { permitido: true, restantes: Infinity };
+    const { data, error } = await supabase.rpc("prospectos_consumir", { p_email: userEmail });
+    const fila = primeraFila(data);
+    if (error || !fila) return { permitido: false, restantes, fallo: true };
+    const quedan = Math.max(0, fila.limite - fila.usadas);
+    setRestantes(quedan);
+    return { permitido: fila.permitido, restantes: quedan };
+  };
+
+  return { restantes, sinLimite, consumir, agotado: restantes === 0 };
 }
 
 // ── Armado del mensaje para la API de Meta ──────────────────
