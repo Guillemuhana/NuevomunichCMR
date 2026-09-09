@@ -245,6 +245,18 @@ function PerfilModal({ vendorInfo, userEmail, onClose }) {
   );
 }
 
+// El aviso que ve el vendedor cuando el pedido no se pudo guardar. La sesión
+// vencida es el caso común — se abre la app a la mañana con el token del día
+// anterior — y ahí lo único que sirve es volver a entrar.
+function mensajeDeError(e) {
+  const txt = `${e?.message || ""} ${e?.code || ""} ${e?.status || ""}`.toLowerCase();
+  if (/jwt|token|401|row-level|42501|not authorized|unauthorized/.test(txt))
+    return "Se cerró tu sesión, el pedido NO se guardó. Volvé a entrar y tocá Guardar de nuevo: lo que escribiste queda acá.";
+  if (/fetch|network|failed to fetch|timeout/.test(txt))
+    return "No hay conexión, el pedido NO se guardó. Buscá señal y tocá Guardar de nuevo: lo que escribiste queda acá.";
+  return "El pedido NO se guardó: " + (e?.message || "error desconocido") + ". Tocá Guardar de nuevo.";
+}
+
 // ── Formulario de nueva entrada ──────────────────────────────
 const FORM_VACIO = {
   tipo: "pedido",
@@ -322,6 +334,9 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
   const adjuntoRef = useRef(null);
   const [subiendoAdj, setSubiendoAdj] = useState(false);
   const [errorAdj, setErrorAdj] = useState("");
+  // El error del guardado del pedido. Ver `guardar()`: sin esto, un pedido
+  // que la base rechaza se pierde sin que el vendedor se entere.
+  const [errorGuardar, setErrorGuardar] = useState("");
 
   const subirAdjunto = async (file) => {
     if (!file) return;
@@ -343,6 +358,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
 
   const guardar = async () => {
     setGuardando(true);
+    setErrorGuardar("");
     try {
       let contactoId = editando?.contacto_id || null;
 
@@ -380,13 +396,23 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         adjunto_nombre: form.adjunto_nombre || "",
       };
 
-      if (editando) {
-        await supabase.from("pedidos").update({ detalle: JSON.stringify(det), estado: form.estado }).eq("id", editando.id);
-      } else {
-        await supabase.from("pedidos").insert({ contacto_id: contactoId, vendedor: vendorAlias, detalle: JSON.stringify(det), total: 0, estado: form.estado });
-      }
+      // El resultado del guardado se mira: antes se cerraba el formulario
+      // pasara lo que pasara. Si la sesión estaba vencida o el celular se
+      // quedó sin señal, la fila nunca llegaba a la base y el vendedor se
+      // iba convencido de haber cargado el pedido; se notaba al otro día,
+      // cuando en Administración no había nada. Pasó el 8/9: ese día no se
+      // guardó ni un pedido.
+      const { error } = editando
+        ? await supabase.from("pedidos").update({ detalle: JSON.stringify(det), estado: form.estado }).eq("id", editando.id)
+        : await supabase.from("pedidos").insert({ contacto_id: contactoId, vendedor: vendorAlias, detalle: JSON.stringify(det), total: 0, estado: form.estado });
+
+      if (error) { setErrorGuardar(mensajeDeError(error)); return; }
+
       await onGuardado();
       onClose();
+    } catch (e) {
+      // Sin red, supabase-js tira en vez de devolver `error`.
+      setErrorGuardar(mensajeDeError(e));
     } finally {
       setGuardando(false);
     }
@@ -599,6 +625,11 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
         </div>
 
         {/* Footer */}
+        {errorGuardar && (
+          <div style={{ margin: "0 20px", padding: "10px 12px", borderRadius: 10, background: "#FEF2F2", border: `1px solid #FECACA`, color: C.red, fontSize: 12.5, fontWeight: 700, lineHeight: 1.4 }}>
+            {errorGuardar}
+          </div>
+        )}
         <div style={{ padding: "14px 20px", borderTop: `1px solid ${L.border}`, display: "flex", gap: 10 }}>
           <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1px solid ${L.border}`, borderRadius: 10, padding: 12, fontSize: 14, cursor: "pointer", color: L.muted, fontFamily: FONT_BODY, fontWeight: 600 }}>Cancelar</button>
           <button onClick={guardar} disabled={guardando}
