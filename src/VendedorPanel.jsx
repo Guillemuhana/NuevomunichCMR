@@ -12,11 +12,12 @@ import {
   useEsMovil,
   hoyLocalISO, fechaLocalISO,
 } from "./lib";
-import { parseDet, imprimirPedido, EP } from "./Pedidos";
+import { parseDet, imprimirPedido, EP, nombreCliente, telCliente } from "./Pedidos";
 import { imprimirDoc, descargarDoc, verDoc, enviarDoc } from "./imprimir";
 import { docReporteDiario, docFichaVisita } from "./documentos";
 import BotonMensajes from "./MensajeriaInterna";
 import { SelectorProducto, CatalogoModal } from "./SelectorProducto";
+import { normalizar } from "./catalogo";
 import { useNotasPendientes } from "./notasNuevas";
 
 
@@ -70,6 +71,40 @@ function parseDetEx(raw) {
     const p = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
     return { ...base, tipo: p.tipo || "pedido", clienteNombre: p.clienteNombre || "", clienteTel: p.clienteTel || "", observacion: p.observacion || base.notas || "", detalle_extra: p.detalle_extra || "", fecha_visita: p.fecha_visita || null };
   } catch { return { ...base, tipo: "pedido", clienteNombre: "", clienteTel: "", observacion: "", detalle_extra: "", fecha_visita: null }; }
+}
+
+// ── Buscar un cliente entre todo lo cargado ──────────────────
+// El nombre del cliente no siempre está en el contacto: un pedido cargado
+// sin teléfono no crea contacto y el nombre queda guardado adentro del
+// detalle. La búsqueda miraba sólo el contacto, así que esos pedidos no
+// aparecían nunca y había que ir abriéndolos de a uno. Acá se mira todo.
+function textoBuscable(cont, det) {
+  return normalizar([
+    cont.nombre, cont.empresa, cont.telefono, cont.direccion,
+    det.clienteNombre, det.clienteTel, det.direccion,
+    det.observacion, det.detalle_extra,
+    ...(det.items || []).map(i => i.desc),
+  ].filter(Boolean).join(" "));
+}
+
+const soloDigitos = (s) => String(s || "").replace(/\D/g, "");
+
+// "juan perez" tiene que encontrar a "Pérez, Juan": alcanza con que estén
+// todas las palabras, en cualquier orden. El teléfono se compara sin
+// guiones ni espacios, que cada uno lo escribe como quiere.
+function coincide(texto, telefono, palabras, digitos) {
+  if (digitos.length >= 4 && telefono.includes(digitos)) return true;
+  return palabras.length > 0 && palabras.every(w => texto.includes(w));
+}
+
+// Dos entradas son del mismo cliente si comparten el contacto; si no hay
+// contacto, alcanza con el nombre (o el teléfono) escrito a mano.
+function claveCliente(p, cont, det) {
+  if (p.contacto_id) return `c:${p.contacto_id}`;
+  const nom = normalizar(cont.nombre || det.clienteNombre);
+  if (nom) return `n:${nom}`;
+  const tel = soloDigitos(cont.telefono || det.clienteTel);
+  return tel ? `t:${tel}` : `x:${p.id}`;
 }
 
 // ── Menú desplegable de la cabecera ──────────────────────────
@@ -655,6 +690,9 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
   const [loading, setLoading]       = useState(true);
   const [busqueda, setBusqueda]     = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+  // Cuando una búsqueda trae varios clientes parecidos, éste es el que se
+  // eligió para ver solo, tocando su ficha.
+  const [clienteFoco, setClienteFoco] = useState(null);
   // La lista muestra una cosa por vez: los pedidos o los reportes de visita.
   // Mezclados no se entendían (el reporte no tiene estado ni fecha de entrega)
   // y por eso habían quedado afuera; el problema es que, afuera, el vendedor
@@ -848,21 +886,57 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
     return det.tipo === "pedido" ? det.fecha_entrega : (det.fecha_visita || fechaLocalISO(p.created_at));
   };
 
-  const lista = (esTabReportes ? soloReportes : soloPedidos).filter(p => {
-    const cont = contactos[p.contacto_id] || {};
-    const det = parseDetEx(p.detalle);
-    const porBusq = !busqueda ||
-      (cont.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) ||
-      (cont.telefono || "").includes(busqueda) ||
-      det.observacion.toLowerCase().includes(busqueda.toLowerCase()) ||
-      (det.items || []).some(i => (i.desc || "").toLowerCase().includes(busqueda.toLowerCase()));
-    // El estado (preparando, entregado…) es cosa de los pedidos: el reporte
-    // no lo usa, así que en su solapa el filtro no recorta nada.
-    const porEstado = esTabReportes || filtroEstado === "todos" || p.estado === filtroEstado;
-    const fechaDeFiltro = fechaDeEntrada(p);
-    const porFecha  = !selectedDate || (fechaDeFiltro && fechaDeFiltro.startsWith(selectedDate));
-    return porBusq && porEstado && porFecha;
-  });
+  // Buscar es otra cosa que mirar la lista del día. Cuando el vendedor
+  // escribe un nombre quiere TODO lo de ese cliente: los pedidos y los
+  // reportes, de cualquier fecha. Antes la búsqueda recortaba adentro de la
+  // solapa y del día abiertos, así que para dar con un pedido viejo había
+  // que ir día por día. Mientras hay texto escrito, se busca en todo.
+  const q = normalizar(busqueda);
+  const buscando = q.length > 0;
+  const palabrasBusq = useMemo(() => q.split(" ").filter(Boolean), [q]);
+  const digitosBusq  = useMemo(() => soloDigitos(busqueda), [busqueda]);
+
+  const resultados = useMemo(() => {
+    if (!buscando) return [];
+    return pedidos.filter(p => {
+      const cont = contactos[p.contacto_id] || {};
+      const det  = parseDetEx(p.detalle);
+      return coincide(textoBuscable(cont, det), soloDigitos(telCliente(cont, det)), palabrasBusq, digitosBusq);
+    });
+  }, [buscando, pedidos, contactos, palabrasBusq, digitosBusq]);
+
+  // Un mismo nombre puede dar varios clientes ("Juan Pérez" y "Juanita").
+  // Estas fichas dejan quedarse con uno solo de un toque.
+  const clientesHallados = useMemo(() => {
+    const m = new Map();
+    resultados.forEach(p => {
+      const cont = contactos[p.contacto_id] || {};
+      const det  = parseDetEx(p.detalle);
+      const clave = claveCliente(p, cont, det);
+      const c = m.get(clave) || { clave, nombre: nombreCliente(cont, det), pedidos: 0, reportes: 0 };
+      if ((det.tipo || "pedido") === "pedido") c.pedidos++; else c.reportes++;
+      m.set(clave, c);
+    });
+    return [...m.values()].sort((a, b) => (b.pedidos + b.reportes) - (a.pedidos + a.reportes));
+  }, [resultados, contactos]);
+
+  // Si cambia lo que se escribió, el cliente que se había elegido ya no vale.
+  useEffect(() => { setClienteFoco(null); }, [q]);
+
+  const lista = buscando
+    ? resultados.filter(p => {
+        if (!clienteFoco) return true;
+        const cont = contactos[p.contacto_id] || {};
+        return claveCliente(p, cont, parseDetEx(p.detalle)) === clienteFoco;
+      })
+    : (esTabReportes ? soloReportes : soloPedidos).filter(p => {
+        // El estado (preparando, entregado…) es cosa de los pedidos: el
+        // reporte no lo usa, así que en su solapa no recorta nada.
+        const porEstado = esTabReportes || filtroEstado === "todos" || p.estado === filtroEstado;
+        const fechaDeFiltro = fechaDeEntrada(p);
+        const porFecha  = !selectedDate || (fechaDeFiltro && fechaDeFiltro.startsWith(selectedDate));
+        return porEstado && porFecha;
+      });
 
   const stats = {
     total: soloPedidos.length,
@@ -1079,6 +1153,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             {/* Encabezado de la lista: las dos solapas. Entrar a "Mis reportes"
                 es la única forma que tiene el vendedor de volver a abrir una
                 visita que cargó y corregirla. */}
+            {!buscando && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "0 2px", flexWrap: "wrap" }}>
               {[
                 { k: "pedidos",  label: "Mis pedidos",  icon: <Package size={15} />,  count: soloPedidos.length,  color: "#1D4ED8", bg: "#EFF6FF" },
@@ -1098,23 +1173,24 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                 );
               })}
             </div>
+            )}
 
             {/* Filtros */}
             <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "10px 14px", marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
                 <Search size={12} color={L.light} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                  placeholder="Buscar cliente, producto…"
+                  placeholder="Buscar cliente, teléfono, producto…"
                   style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px 7px 26px", borderRadius: 8, border: `1px solid ${L.border}`, fontSize: 13, fontFamily: FONT_BODY, background: L.soft, color: L.text, outline: "none" }} />
               </div>
-              {!esTabReportes && (
+              {!esTabReportes && !buscando && (
               <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
                 style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${filtroEstado !== "todos" ? C.red : L.border}`, fontSize: 12.5, fontFamily: FONT_BODY, background: L.white, color: filtroEstado !== "todos" ? C.red : L.text, cursor: "pointer", outline: "none", fontWeight: 600 }}>
                 <option value="todos">Todos los estados</option>
                 {Object.entries(EP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               )}
-              {selectedDate && (
+              {selectedDate && !buscando && (
                 <button onClick={() => setSelectedDate(null)}
                   style={{ display: "flex", alignItems: "center", gap: 5, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   <Calendar size={11} /> {fmtDate(selectedDate)} <X size={10} />
@@ -1122,9 +1198,60 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
               )}
             </div>
 
+            {/* Resultados de la búsqueda. Reemplaza a las solapas: mientras
+                se busca, pedidos y reportes van juntos y sin filtro de fecha,
+                que es lo que uno quiere cuando escribe el nombre de alguien. */}
+            {buscando && (
+              <div style={{ background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "10px 14px", marginBottom: 10, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <Search size={13} color={C.red} />
+                  <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 13.5, color: L.text }}>
+                    {lista.length === 0 ? "Sin resultados" : `${lista.length} resultado${lista.length === 1 ? "" : "s"}`}
+                  </span>
+                  <span style={{ fontSize: 11.5, color: L.muted }}>pedidos y reportes, todas las fechas</span>
+                  <button onClick={() => { setBusqueda(""); setClienteFoco(null); }}
+                    style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: L.soft, border: `1px solid ${L.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, color: L.muted, cursor: "pointer", fontFamily: FONT_BODY }}>
+                    <X size={11} /> Limpiar
+                  </button>
+                </div>
+
+                {clientesHallados.length > 1 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+                    {clientesHallados.map(c => {
+                      const activo = clienteFoco === c.clave;
+                      return (
+                        <button key={c.clave} onClick={() => setClienteFoco(activo ? null : c.clave)}
+                          style={{ display: "flex", alignItems: "center", gap: 6, maxWidth: "100%", background: activo ? "#EFF6FF" : L.soft, border: `1px solid ${activo ? "#BFDBFE" : L.border}`, color: activo ? "#1D4ED8" : L.text, borderRadius: 99, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.nombre}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: activo ? "#DBEAFE" : L.white, color: activo ? "#1D4ED8" : L.muted }}>
+                            {c.pedidos + c.reportes}
+                          </span>
+                          {activo && <X size={11} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Tabla */}
             {loading ? (
               <div style={{ textAlign: "center", padding: 50, color: L.muted }}>Cargando…</div>
+            ) : lista.length === 0 && buscando ? (
+              <div style={{ textAlign: "center", padding: 40, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>
+                <Search size={36} color={L.border} style={{ display: "block", margin: "0 auto 10px" }} />
+                <div style={{ color: L.muted, fontSize: 14, fontWeight: 600 }}>
+                  Nada con “{busqueda}” entre tus pedidos ni tus reportes
+                </div>
+                <div style={{ color: L.light, fontSize: 12, marginTop: 5 }}>
+                  Probá con parte del nombre, el teléfono o un producto.
+                </div>
+                <button onClick={() => { setBusqueda(""); setClienteFoco(null); }}
+                  style={{ marginTop: 14, background: L.soft, color: L.muted, border: `1px solid ${L.border}`, borderRadius: 9, padding: "8px 16px", cursor: "pointer", fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>
+                  Limpiar la búsqueda
+                </button>
+              </div>
             ) : lista.length === 0 ? (
               <div style={{ textAlign: "center", padding: 50, background: L.white, borderRadius: 12, border: `1px solid ${L.border}` }}>
                 {esTabReportes
@@ -1193,7 +1320,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                   {/* Observación */}
                   {det.observacion && (
                     <div style={{ fontSize: 12.5, color: "#D97706", marginBottom: 6, fontStyle: "italic" }}>
-                      📝 {det.observacion.slice(0, esTabReportes ? 320 : 120)}{det.observacion.length > (esTabReportes ? 320 : 120) ? "…" : ""}
+                      📝 {det.observacion.slice(0, det.tipo === "pedido" ? 120 : 320)}{det.observacion.length > (det.tipo === "pedido" ? 120 : 320) ? "…" : ""}
                     </div>
                   )}
 
@@ -1252,10 +1379,12 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 12, color: L.text, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
               <Calendar size={13} color={C.red} /> Calendario
             </div>
+            {/* Elegir un día es lo contrario de buscar un cliente, así que
+                el día cierra la búsqueda: si no, el toque no hacía nada. */}
             <MiniCalendar pedidos={esTabReportes ? soloReportes : soloPedidos} fechaDe={fechaDeEntrada}
-              onSelectDate={setSelectedDate} selectedDate={selectedDate} />
+              onSelectDate={(d) => { setBusqueda(""); setSelectedDate(d); }} selectedDate={buscando ? null : selectedDate} />
 
-            {selectedDate && (
+            {selectedDate && !buscando && (
               <div style={{ marginTop: 10, background: L.white, border: `1px solid ${L.border}`, borderRadius: 11, padding: "12px 14px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: L.muted, marginBottom: 8, textTransform: "capitalize" }}>
                   {new Date(selectedDate + "T12:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
@@ -1268,7 +1397,7 @@ export default function VendedorDashboard({ userEmail, onLogout, vendorAliasOver
                     <div key={p.id} style={{ padding: "7px 0", borderTop: `1px solid ${L.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <TipoBadge tipo={det.tipo} />
-                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{cont.nombre || "—"}</span>
+                        <span style={{ fontWeight: 700, color: L.text, fontSize: 12, flex: 1 }}>{nombreCliente(cont, det)}</span>
                         {det.tipo === "pedido" && (
                           <span style={{ padding: "1px 6px", borderRadius: 5, background: ep.bg, color: ep.color, fontSize: 10, fontWeight: 700 }}>{ep.label}</span>
                         )}
