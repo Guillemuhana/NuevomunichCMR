@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { imprimirDoc, descargarDoc } from "./imprimir";
 import {
-  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES, ESTADOS,
+  supabase, C, L, R, SH, FONT_DISPLAY, FONT_BODY, VENDEDORES_CON_HISTORIAL, ESTADOS,
   rangoFechas, fmtFecha, fmtFechaLarga, limpiarPrecios, exportarCSV, cantidadItem,
   fechaLocalISO, hoyLocalISO,
 } from "./lib";
@@ -388,7 +388,7 @@ export default function Reportes({ soloVendedor = null }) {
     const botCount    = msgs.filter((m) => m.origen === "bot").length;
     const agenteCount = msgs.filter((m) => m.origen === "agente").length;
     const botPct      = botCount + agenteCount > 0 ? Math.round(botCount / (botCount + agenteCount) * 100) : 0;
-    const porVendedor = (soloVendedor ? [soloVendedor] : VENDEDORES).map((v) => {
+    const porVendedor = (soloVendedor ? [soloVendedor] : VENDEDORES_CON_HISTORIAL).map((v) => {
       const cont     = contactos.filter((c) => c.vendedor === v);
       const ped      = pedidos.filter((p) => p.vendedor === v);
       const msgsV    = msgs.filter((m) => m.agente === v).length;

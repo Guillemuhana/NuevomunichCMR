@@ -193,13 +193,19 @@ export function limpiarPrecios(txt) {
     .trim();
 }
 
-export const VENDEDORES = ["Boris", "Cristian", "Luis", "Marcelino", "Mario", "Pablo", "Sandra", "Oficina"];
+export const VENDEDORES = ["Boris", "Cristian", "Luis", "Mario", "Pablo", "Sandra", "Oficina"];
+
+// Vendedores que ya no trabajan en la empresa. No se pueden asignar ni tienen
+// acceso al sistema, pero sus pedidos viejos siguen contando en los reportes.
+export const VENDEDORES_HISTORICOS = ["Marcelino"];
+
+// Lista para reportes/estadísticas: activos + los que ya no están.
+export const VENDEDORES_CON_HISTORIAL = [...VENDEDORES, ...VENDEDORES_HISTORICOS];
 
 // Vendedores externos con panel propio
 export const VENDEDORES_INFO = [
   { nombre: "Boris Arredondo",   alias: "Boris",     emailPrefix: "boris",     telefono: "5493512168835" },
   { nombre: "Pablo Castillo",    alias: "Pablo",     emailPrefix: "pablo" },
-  { nombre: "Marcelino Allende", alias: "Marcelino", emailPrefix: "marcelino" },
   { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },
   { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
   { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario",     telefono: "5493516177741" },

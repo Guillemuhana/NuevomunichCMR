@@ -9,7 +9,7 @@ create table if not exists contactos (
   id            uuid primary key default gen_random_uuid(),
   telefono      text unique not null,
   nombre        text,
-  vendedor      text,                            -- Boris, Cristian, Luis, Marcelino, Pablo, Sandra
+  vendedor      text,                            -- Boris, Cristian, Luis, Pablo, Sandra
   estado        text not null default 'nuevo',   -- nuevo | en_conversacion | pedido | cerrado | perdido
   bot_activo    boolean not null default true,   -- TOGGLE: false = el bot deja de responder
   ultimo_msg    text,

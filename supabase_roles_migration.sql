@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.vendedores (
 
 -- Insertar los vendedores existentes
 INSERT INTO public.vendedores (nombre) VALUES
-  ('Boris'), ('Cristian'), ('Luis'), ('Marcelino'), ('Pablo'), ('Sandra')
+  ('Boris'), ('Cristian'), ('Luis'), ('Pablo'), ('Sandra')
 ON CONFLICT (nombre) DO NOTHING;
 
 -- ── 2. Tabla de historial de acciones por cliente ──

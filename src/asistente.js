@@ -9,7 +9,7 @@
 // El modelo decide qué herramienta usar; nosotros la ejecutamos
 // contra Supabase y le devolvemos el resultado para que siga.
 // ============================================================
-import { supabase, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES, limpiarPrecios, cantidadItem } from "./lib";
+import { supabase, ESTADOS, ESTADOS_ACTIVOS, VENDEDORES_CON_HISTORIAL, limpiarPrecios, cantidadItem } from "./lib";
 
 export const MODELO = "openai/gpt-oss-120b";
 // Suplente para cuando el principal está al tope: su cuota es aparte.
@@ -513,7 +513,7 @@ export async function ejecutarHerramienta(nombre, args, ctx = {}) {
         const k = ESTADOS[c.estado]?.label || c.estado;
         pipeline[k] = (pipeline[k] || 0) + 1;
       }
-      const ranking = VENDEDORES
+      const ranking = VENDEDORES_CON_HISTORIAL
         .map((v) => {
           const suyos = pedidos.filter((p) => p.vendedor === v);
           return { vendedor: v, pedidos: suyos.length, facturado: suyos.reduce((s, p) => s + (Number(p.total) || 0), 0) };

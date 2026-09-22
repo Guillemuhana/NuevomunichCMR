@@ -19,7 +19,6 @@ INSERT INTO public.vendedores (nombre, email) VALUES
   ('Cristian', 'cristian@nuevomunich.com.ar'),
   ('Boris',    'boris@nuevomunich.com.ar'),
   ('Luis',     'luis@nuevomunich.com.ar'),
-  ('Marcelino','marcelino@nuevomunich.com.ar'),
   ('Pablo',    'pablo@nuevomunich.com.ar'),
   ('Sandra',   'sandra@nuevomunich.com.ar')
 ON CONFLICT (nombre) DO NOTHING;
