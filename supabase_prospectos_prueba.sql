@@ -1,28 +1,34 @@
 -- ============================================================
--- CLIENTES POTENCIALES — 3 búsquedas de prueba
--- Ya aplicado en Supabase el 7/9/2026 (migración
--- `prospectos_prueba_tres_busquedas`). Queda acá para saber qué
--- se tocó y poder repetirlo si hay que levantar todo de cero.
+-- CLIENTES POTENCIALES — 5 búsquedas de prueba
+-- Aplicado en Supabase el 7/9/2026 (migración
+-- `prospectos_prueba_tres_busquedas`) y ampliado a 5 el 22/9/2026,
+-- cuando se reabrió la pestaña con el contador en cero. Queda acá
+-- para saber qué se tocó y poder repetirlo si hay que levantar
+-- todo de cero.
 -- ------------------------------------------------------------
 -- La pestaña se abre para que Cristian la pruebe, pero cada
 -- búsqueda gasta créditos de Google Maps y de la IA: le tocan
--- tres y después le vuelve el candado, para que nos escriba.
+-- cinco y después le vuelve el candado, para que nos escriba.
 --
 -- El contador va en la base y no en el navegador: borrar la
--- caché o entrar desde el celular no regala tres más.
+-- caché o entrar desde el celular no regala cinco más.
 --
 -- PARA VENDERLE EL SERVICIO, sin tocar código ni deploy:
 --   update public.prospectos_prueba
 --      set limite = 100000 where email = 'cristian@...';
--- Para regalarle otra tanda de pruebas:
+-- Para regalarle otra tanda de pruebas (esto es lo que se hizo
+-- el 22/9/2026 para reabrirle la pestaña):
 --   update public.prospectos_prueba
 --      set usadas = 0 where email = 'cristian@...';
+--
+-- El número también está en PROSPECTOS_PRUEBAS (src/lib.js): si se
+-- cambia acá, cambiarlo allá para que los carteles digan lo mismo.
 -- ============================================================
 
 create table if not exists public.prospectos_prueba (
   email          text primary key,
   usadas         integer not null default 0,
-  limite         integer not null default 3,
+  limite         integer not null default 5,
   actualizado_at timestamptz not null default now()
 );
 
@@ -35,7 +41,7 @@ create or replace function public.prospectos_estado(p_email text)
 returns table (usadas integer, limite integer)
 language sql security definer set search_path = public, pg_temp as $$
   select coalesce((select p.usadas from public.prospectos_prueba p where p.email = lower(p_email)), 0),
-         coalesce((select p.limite from public.prospectos_prueba p where p.email = lower(p_email)), 3);
+         coalesce((select p.limite from public.prospectos_prueba p where p.email = lower(p_email)), 5);
 $$;
 
 -- ---------- Gastar una búsqueda ----------

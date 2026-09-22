@@ -14,7 +14,7 @@ const N8N_WEBHOOK = "https://ntg-group.app.n8n.cloud/webhook/munich-prospectos-b
 // la pestaña le vuelve el candado: la idea es que nos escriba para comprar
 // el servicio, no que se quede pensando que se rompió algo.
 const TEXTO_AGOTADO =
-  "Se terminaron las 3 búsquedas de prueba de clientes potenciales. " +
+  `Se terminaron las ${PROSPECTOS_PRUEBAS} búsquedas de prueba de clientes potenciales. ` +
   "Escribinos para activar el servicio completo y la pestaña se destraba.";
 
 // Google Maps acepta origen + 9 puntos más en un link de indicaciones.

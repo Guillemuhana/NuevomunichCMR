@@ -38,16 +38,19 @@ export function marketingHabilitado() {
   }
 }
 
-// ── Clientes potenciales: 3 búsquedas de prueba ─────────────
+// ── Clientes potenciales: 5 búsquedas de prueba ─────────────
 // La pestaña se abre para que Cristian la pruebe, pero cada búsqueda
-// gasta créditos de Google Maps y de la IA: le tocan tres y después
+// gasta créditos de Google Maps y de la IA: le tocan cinco y después
 // vuelve el candado, para que hable con nosotros antes de seguir.
 //
 // El contador vive en Supabase (tabla `prospectos_prueba`, funciones
 // `prospectos_estado` / `prospectos_consumir`) y no en el navegador:
-// borrar la caché o entrar desde el celular no regala tres más. Para
+// borrar la caché o entrar desde el celular no regala cinco más. Para
 // vender el servicio alcanza con subirle el `limite` a su fila.
-export const PROSPECTOS_PRUEBAS = 3;
+//
+// Si cambiás este número, cambiá también el default de la tabla y el
+// coalesce de las dos funciones en supabase_prospectos_prueba.sql.
+export const PROSPECTOS_PRUEBAS = 5;
 
 // Llave nuestra, no de Cristian: se entra una vez con ?prospectos=on y
 // la pestaña queda sin límite en ese equipo (?prospectos=off la vuelve
