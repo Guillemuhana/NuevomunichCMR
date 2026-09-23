@@ -196,7 +196,7 @@ export function limpiarPrecios(txt) {
     .trim();
 }
 
-export const VENDEDORES = ["Boris", "Cristian", "Luis", "Mario", "Pablo", "Sandra", "Oficina"];
+export const VENDEDORES = ["Ayelen", "Boris", "Cristian", "Luis", "Mario", "Pablo", "Sandra", "Oficina"];
 
 // Vendedores que ya no trabajan en la empresa. No se pueden asignar ni tienen
 // acceso al sistema, pero sus pedidos viejos siguen contando en los reportes.
@@ -212,6 +212,7 @@ export const VENDEDORES_INFO = [
   { nombre: "Sandra Scheverman", alias: "Sandra",    emailPrefix: "sandra" },
   { nombre: "Luis Ludueña",      alias: "Luis",      emailPrefix: "luis" },
   { nombre: "Mario Calabria",    alias: "Mario",     emailPrefix: "mario",     telefono: "5493516177741" },
+  { nombre: "Ayelen",            alias: "Ayelen",    emailPrefix: "ayelen-munich" },
 ];
 
 // Personal de administración (reciben y ven pedidos de vendedores).

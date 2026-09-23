@@ -228,7 +228,11 @@ function Login() {
 
   const handleLogin = async () => {
     setErr(""); setLoad(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pass });
+    // Se puede entrar con el usuario solo (ej. AYELEN-MUNICH): sin "@" se
+    // completa con el dominio de la empresa.
+    const usuario = email.trim().toLowerCase();
+    const mail = usuario.includes("@") ? usuario : `${usuario}@nuevomunich.com.ar`;
+    const { error } = await supabase.auth.signInWithPassword({ email: mail, password: pass });
     // Antes cualquier problema decía "email o contraseña incorrectos", así que
     // un usuario sin confirmar o un login deshabilitado parecían un error de
     // tipeo y se perdía tiempo probando contraseñas.
@@ -267,8 +271,8 @@ function Login() {
         )}
 
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 10.5, fontWeight: 600, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.07em" }}>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+          <label style={{ display: "block", fontSize: 10.5, fontWeight: 600, color: L.muted, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.07em" }}>Email o usuario</label>
+          <input type="text" autoCapitalize="none" autoCorrect="off" value={email} onChange={e => setEmail(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="tu@nuevomunich.com.ar"
             style={inp} autoFocus />
         </div>
