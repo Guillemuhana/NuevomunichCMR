@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { docHojaRutaProspectos } from "./documentos";
 import { PROSPECTOS_PRUEBAS } from "./lib";
+import MapaRadar from "./MapaRadar";
 import { descargarDoc, enviarDoc, imprimirDoc } from "./imprimir";
 
 const N8N_WEBHOOK = "https://ntg-group.app.n8n.cloud/webhook/munich-prospectos-buscar";
@@ -411,6 +412,64 @@ export default function Prospectos({ prueba }) {
                       -webkit-background-clip: text; background-clip: text; color: transparent; }
         .hero p { margin: 0; max-width: 620px; font-size: 14px; line-height: 1.55; color: #cbd5e1; }
 
+        /* ── Mapa-radar decorativo, arriba a la derecha ── */
+        .hero { container-type: inline-size; }
+        .hero-arriba { display: flex; align-items: center; gap: 28px; }
+        .hero-texto { flex: 1 1 auto; min-width: 0; }
+        .hero-arriba > .mapa-radar { position: relative; flex: 0 0 380px; height: 168px; margin: -8px -4px -6px 0;
+                border-radius: 18px; overflow: hidden; background: linear-gradient(160deg,#111a30,#0b1020);
+                border: 1px solid rgba(255,255,255,.14);
+                box-shadow: 0 18px 40px -18px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(251,191,36,.05);
+                transform-style: preserve-3d; will-change: transform; }
+        .mapa-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+        .mapa-calle { fill: none; stroke: rgba(148,163,184,.20); stroke-width: 1.2; }
+        .mapa-avenida { fill: none; stroke: rgba(203,213,225,.30); stroke-width: 2.4; }
+        .mapa-rio { fill: none; stroke: rgba(56,189,248,.28); stroke-width: 7; stroke-linecap: round; }
+        .mapa-rio-flujo { fill: none; stroke: rgba(125,211,252,.55); stroke-width: 1.4; stroke-dasharray: 3 10;
+                          animation: rioFluye 2.4s linear infinite; }
+        @keyframes rioFluye { to { stroke-dashoffset: -26; } }
+        .mapa-ruta { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+                     stroke-dasharray: 1; stroke-dashoffset: 1; filter: drop-shadow(0 0 4px rgba(251,191,36,.7));
+                     animation: rutaTraza 3s ease-in-out .4s forwards; }
+        @keyframes rutaTraza { to { stroke-dashoffset: 0; } }
+        .mapa-pin { transform-box: fill-box; transform-origin: 50% 100%; transform: scale(0); opacity: 0;
+                    animation: pinCae .6s cubic-bezier(.34,1.7,.5,1) forwards; }
+        @keyframes pinCae { 0% { transform: translateY(-14px) scale(.2); opacity: 0; } 100% { transform: none; opacity: 1; } }
+        .mapa-onda { transform-box: fill-box; transform-origin: center; animation: onda 2.2s ease-out infinite; }
+        .mapa-onda-yo { animation-duration: 1.6s; }
+        @keyframes onda { from { transform: scale(1); opacity: .9; stroke-width: 1.6; } to { transform: scale(4.2); opacity: 0; stroke-width: .3; } }
+        .mapa-barrido { position: absolute; width: 520px; height: 520px; margin: -260px 0 0 -260px; border-radius: 50%;
+                        pointer-events: none; mix-blend-mode: screen;
+                        background: conic-gradient(from 0deg, rgba(251,191,36,0) 0deg, rgba(251,191,36,0) 290deg,
+                                    rgba(251,191,36,.10) 330deg, rgba(253,230,138,.42) 359deg, rgba(251,191,36,0) 360deg);
+                        -webkit-mask: radial-gradient(circle, #000 0 45%, transparent 70%);
+                                mask: radial-gradient(circle, #000 0 45%, transparent 70%);
+                        animation: barrer 5.5s linear infinite; }
+        .mapa-barrido.rapido { animation-duration: 1.4s; }
+        @keyframes barrer { to { transform: rotate(360deg); } }
+        .mapa-brillo { position: absolute; inset: 0; pointer-events: none;
+                       background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.07) 45%, transparent 60%);
+                       background-size: 250% 100%; animation: brillo 6s ease-in-out infinite; }
+        @keyframes brillo { 0%,100% { background-position: 120% 0; } 50% { background-position: -20% 0; } }
+        .mapa-tarjeta { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 7px;
+                        max-width: calc(100% - 150px); padding: 6px 11px 6px 7px; border-radius: 999px;
+                        background: rgba(15,23,42,.62); border: 1px solid rgba(255,255,255,.16);
+                        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+                        font-size: 11.5px; font-weight: 700; color: #f8fafc; transform: translateZ(30px); }
+        .mapa-tarjeta-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mapa-tarjeta-icono { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%;
+                              background: linear-gradient(135deg,#f87171,#fbbf24); color: #1f1300; }
+        .mapa-tarjeta-icono.girando svg { animation: barrer 1s linear infinite; }
+        .mapa-leyenda { position: absolute; right: 10px; bottom: 12px; display: flex; gap: 8px; padding: 4px 9px;
+                        border-radius: 999px; background: rgba(15,23,42,.55); backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px); font-size: 10px; font-weight: 600; color: #cbd5e1;
+                        transform: translateZ(20px); }
+        .mapa-leyenda span { display: inline-flex; align-items: center; gap: 4px; }
+        .mapa-leyenda i { width: 7px; height: 7px; border-radius: 50%; }
+        /* Sólo cuando entra al lado del texto: más angosto, se achica; si no, no se muestra. */
+        @container (max-width: 1040px) { .hero-arriba > .mapa-radar { flex-basis: 290px; } .mapa-leyenda { display: none; } .mapa-tarjeta { max-width: calc(100% - 20px); } }
+        @container (max-width: 860px) { .hero-arriba > .mapa-radar { display: none; } }
+
         .panel-busqueda { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; padding: 12px;
                           border-radius: 16px; background: rgba(255,255,255,.07);
                           border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(10px); }
@@ -586,6 +645,8 @@ export default function Prospectos({ prueba }) {
 
         @media (prefers-reduced-motion: reduce) {
           .prospectos *, .prospectos *::before, .prospectos *::after { animation: none !important; transition: none !important; }
+          .mapa-pin { transform: none; opacity: 1; }
+          .mapa-ruta { stroke-dashoffset: 0; }
         }
 
         /* ── Celular ── */
@@ -606,9 +667,14 @@ export default function Prospectos({ prueba }) {
 
       {/* ── Cabecera ── */}
       <header className="hero">
-        <span className="hero-chip"><Sparkles size={13} /> Prospección con IA</span>
-        <h1>Encontrá y ordená tus <em>clientes potenciales</em></h1>
-        <p>La IA rastrea negocios reales en la zona que elijas, los puntúa según su potencial para Nuevo Munich y arma la hoja de ruta ya ordenada por cercanía, lista para mandarle al vendedor.</p>
+        <div className="hero-arriba">
+          <div className="hero-texto">
+            <span className="hero-chip"><Sparkles size={13} /> Prospección con IA</span>
+            <h1>Encontrá y ordená tus <em>clientes potenciales</em></h1>
+            <p>La IA rastrea negocios reales en la zona que elijas, los puntúa según su potencial para Nuevo Munich y arma la hoja de ruta ya ordenada por cercanía, lista para mandarle al vendedor.</p>
+          </div>
+          <MapaRadar zona={zona} cargando={cargando} cantidad={resultados.length} />
+        </div>
 
         <div className="panel-busqueda">
           <label className="campo">
