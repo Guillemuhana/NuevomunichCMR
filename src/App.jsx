@@ -2948,7 +2948,7 @@ export default function App() {
   // resto de los hooks, porque abajo del componente hay returns tempranos.
   const notasPendientes = useNotasPendientes(session?.user?.email);
 
-  // Clientes potenciales: le quedan 3 búsquedas de prueba y después vuelve
+  // Clientes potenciales: dispone de 5 búsquedas de prueba y después vuelve
   // el candado en la pestaña. Va acá arriba por lo mismo que las notas.
   const pruebaProspectos = useProspectosPrueba(session?.user?.email);
 
@@ -3155,7 +3155,7 @@ export default function App() {
               <Notas userName={userName} userEmail={userEmail} isMobile={isMobile} />
             </Suspense>
           </>
-        ) : vista === "prospectos" && rol === "admin" && !pruebaProspectos.agotado ? (
+        ) : vista === "prospectos" && rol === "admin" ? (
           <>
             {isMobile && <MobileBack title="Clientes potenciales" onBack={() => setVista("chat")} />}
             <div className="scroll-y" style={{ flex: 1, overflowY: "auto" }}>

@@ -38,80 +38,44 @@ export function marketingHabilitado() {
   }
 }
 
-// ── Clientes potenciales: 5 búsquedas de prueba ─────────────
-// La pestaña se abre para que Cristian la pruebe, pero cada búsqueda
-// gasta créditos de Google Maps y de la IA: le tocan cinco y después
-// vuelve el candado, para que hable con nosotros antes de seguir.
-//
-// El contador vive en Supabase (tabla `prospectos_prueba`, funciones
-// `prospectos_estado` / `prospectos_consumir`) y no en el navegador:
-// borrar la caché o entrar desde el celular no regala cinco más. Para
-// vender el servicio alcanza con subirle el `limite` a su fila.
-//
-// Si cambiás este número, cambiá también el default de la tabla y el
-// coalesce de las dos funciones en supabase_prospectos_prueba.sql.
+// Cinco búsquedas por cuenta, compartidas entre dispositivos.
+// No hay desbloqueo por URL ni por localStorage.
+// Si cambiás este número, cambiá también supabase_prospectos_prueba.sql.
 export const PROSPECTOS_PRUEBAS = 5;
 
-// Llave nuestra, no de Cristian: se entra una vez con ?prospectos=on y
-// la pestaña queda sin límite en ese equipo (?prospectos=off la vuelve
-// a dejar en modo prueba). El nombre de la llave cambió a propósito: la
-// vieja ("munich-prospectos-on") quedó guardada en los navegadores que
-// destrabaron la pestaña cuando era candado puro, y les habría dado
-// búsquedas ilimitadas sin que nadie se enterara.
-const LLAVE_PROSPECTOS = "munich-prospectos-libre";
-
-export function prospectosSinLimite() {
-  try {
-    const p = new URLSearchParams(window.location.search).get("prospectos");
-    if (p === "on")  localStorage.setItem(LLAVE_PROSPECTOS, "1");
-    if (p === "off") localStorage.removeItem(LLAVE_PROSPECTOS);
-    return localStorage.getItem(LLAVE_PROSPECTOS) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** Primera fila de un rpc, que Supabase devuelve como array. */
-function primeraFila(data) {
-  return Array.isArray(data) ? data[0] : data;
-}
-
-/**
- * Cuántas búsquedas de prueba quedan y cómo gastar una.
- *
- * `restantes` arranca en null (todavía no se sabe) para no mostrar el
- * candado por un parpadeo mientras carga. Si la consulta falla se
- * asumen las tres: el corte de verdad lo hace `consumir`, que es el
- * que toca la base, así que un error de red no regala búsquedas.
- */
 export function useProspectosPrueba(userEmail) {
-  const sinLimite = prospectosSinLimite();
-  const [restantes, setRestantes] = useState(sinLimite ? Infinity : null);
+  const [estado, setEstado] = useState({ email: null, restantes: null });
+  const restantes = estado.email === userEmail ? estado.restantes : null;
 
   useEffect(() => {
-    if (sinLimite) { setRestantes(Infinity); return; }
     if (!userEmail) return;
     let vivo = true;
+    setEstado({ email: userEmail, restantes: null });
     supabase.rpc("prospectos_estado", { p_email: userEmail }).then(({ data, error }) => {
       if (!vivo) return;
-      const fila = primeraFila(data);
-      if (error || !fila) { setRestantes(PROSPECTOS_PRUEBAS); return; }
-      setRestantes(Math.max(0, fila.limite - fila.usadas));
-    });
+      const fila = Array.isArray(data) ? data[0] : data;
+      if (error || !fila) return;
+      setEstado({ email: userEmail, restantes: Math.max(0, Math.min(PROSPECTOS_PRUEBAS, fila.limite) - fila.usadas) });
+    }).catch(() => {});
     return () => { vivo = false; };
-  }, [userEmail, sinLimite]);
+  }, [userEmail]);
 
   const consumir = async () => {
-    if (sinLimite) return { permitido: true, restantes: Infinity };
-    const { data, error } = await supabase.rpc("prospectos_consumir", { p_email: userEmail });
-    const fila = primeraFila(data);
-    if (error || !fila) return { permitido: false, restantes, fallo: true };
-    const quedan = Math.max(0, fila.limite - fila.usadas);
-    setRestantes(quedan);
-    return { permitido: fila.permitido, restantes: quedan };
+    if (!userEmail || restantes === null) return { permitido: false, fallo: true };
+    if (restantes === 0) return { permitido: false, restantes: 0 };
+    try {
+      const { data, error } = await supabase.rpc("prospectos_consumir", { p_email: userEmail });
+      const fila = Array.isArray(data) ? data[0] : data;
+      if (error || !fila) return { permitido: false, fallo: true };
+      const quedan = Math.max(0, Math.min(PROSPECTOS_PRUEBAS, fila.limite) - fila.usadas);
+      setEstado({ email: userEmail, restantes: quedan });
+      return { permitido: fila.permitido && fila.usadas <= PROSPECTOS_PRUEBAS, restantes: quedan };
+    } catch {
+      return { permitido: false, fallo: true };
+    }
   };
 
-  return { restantes, sinLimite, consumir, agotado: restantes === 0 };
+  return { restantes, sinLimite: false, consumir, agotado: restantes === 0 };
 }
 
 // ── Armado del mensaje para la API de Meta ──────────────────

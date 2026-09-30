@@ -10,7 +10,7 @@ import { descargarDoc, enviarDoc, imprimirDoc } from "./imprimir";
 
 const N8N_WEBHOOK = "https://ntg-group.app.n8n.cloud/webhook/munich-prospectos-buscar";
 
-// Lo que se le dice a Cristian cuando gastó las tres pruebas. Al salir de
+// Lo que se le dice a Cristian cuando gastó las cinco pruebas. Al salir de
 // la pestaña le vuelve el candado: la idea es que nos escriba para comprar
 // el servicio, no que se quede pensando que se rompió algo.
 const TEXTO_AGOTADO =
@@ -34,7 +34,28 @@ const LOCALIDADES_POR_PROVINCIA = {
   "Chaco": ["Resistencia", "Presidencia Roque Sáenz Peña", "Villa Ángela", "Charata"],
   "Chubut": ["Rawson", "Comodoro Rivadavia", "Puerto Madryn", "Trelew", "Esquel"],
   "CABA": ["Ciudad Autónoma de Buenos Aires"],
-  "Córdoba": ["Córdoba Centro", "Nueva Córdoba", "Alta Córdoba", "Villa Allende", "Río Ceballos", "Villa Carlos Paz", "La Calera", "Jesús María", "Bell Ville", "Río Cuarto"],
+  "Córdoba": [
+    // Capital y Gran Córdoba
+    "Córdoba Centro", "Nueva Córdoba", "Alta Córdoba", "General Paz", "Cerro de las Rosas", "Argüello",
+    "Villa Belgrano", "Barrio Jardín", "San Vicente", "Alberdi", "Villa Allende", "Mendiolaza",
+    "Unquillo", "Saldán", "Río Ceballos", "Salsipuedes", "La Calera", "Malagueño", "Monte Cristo", "Malvinas Argentinas",
+    // Punilla y Sierras Chicas
+    "Villa Carlos Paz", "Cosquín", "La Falda", "Capilla del Monte", "Bialet Massé", "Santa María de Punilla", "Huerta Grande", "Tanti",
+    // Norte
+    "Jesús María", "Colonia Caroya", "Sinsacate", "Villa del Totoral", "Deán Funes", "Cruz del Eje", "Villa de María",
+    // Traslasierra y Calamuchita
+    "Villa Dolores", "Mina Clavero", "Villa Cura Brochero", "San Javier", "Villa General Belgrano",
+    "Santa Rosa de Calamuchita", "Embalse", "Los Reartes", "Alta Gracia", "Despeñaderos",
+    // Centro y Tercero Arriba
+    "Río Tercero", "Almafuerte", "Hernando", "Oncativo", "Oliva", "Pilar", "Río Segundo", "Villa del Rosario",
+    "Tancacha", "General Fotheringham", "Villa María", "Villa Nueva", "James Craik",
+    // Sur
+    "Río Cuarto", "Las Higueras", "Holmberg", "Sampacho", "Vicuña Mackenna", "General Cabrera", "General Deheza",
+    "Coronel Moldes", "Huinca Renancó", "Laboulaye", "La Carlota",
+    // Este
+    "Bell Ville", "Marcos Juárez", "Leones", "Corral de Bustos", "Justiniano Posse", "Morteros", "San Francisco",
+    "Arroyito", "Las Varillas", "Balnearia", "Miramar de Ansenuza", "Santa Rosa de Río Primero",
+  ],
   "Corrientes": ["Corrientes", "Goya", "Paso de los Libres", "Curuzú Cuatiá"],
   "Entre Ríos": ["Paraná", "Concordia", "Gualeguaychú", "Concepción del Uruguay", "La Paz"],
   "Formosa": ["Formosa", "Clorinda", "Pirané", "El Colorado"],
@@ -54,6 +75,15 @@ const LOCALIDADES_POR_PROVINCIA = {
   "Tierra del Fuego": ["Ushuaia", "Río Grande", "Tolhuin"],
   "Tucumán": ["San Miguel de Tucumán", "Yerba Buena", "Tafí Viejo", "Concepción", "Aguilares"],
 };
+
+// "Pilar", "San Francisco" o "Alberdi" existen en varias provincias: a
+// Google se le manda la localidad con su provincia para que no se vaya
+// a buscar a otro lado.
+function zonaConProvincia(zona) {
+  const provincia = Object.keys(LOCALIDADES_POR_PROVINCIA)
+    .find((p) => p !== zona && LOCALIDADES_POR_PROVINCIA[p].includes(zona));
+  return provincia && provincia !== "CABA" ? `${zona}, ${provincia}` : zona;
+}
 
 // ── Armado del recorrido ─────────────────────────────────────
 // El webhook de n8n devuelve latitud/longitud de cada negocio, así que la
@@ -219,7 +249,7 @@ function AnilloScore({ valor = 0, color }) {
   );
 }
 
-export default function Prospectos({ prueba = { restantes: Infinity, sinLimite: true, consumir: async () => ({ permitido: true }) } }) {
+export default function Prospectos({ prueba }) {
   const [busqueda, setBusqueda] = useState("");
   const [zona, setZona] = useState("Córdoba Centro");
   const [cargando, setCargando] = useState(false);
@@ -237,25 +267,25 @@ export default function Prospectos({ prueba = { restantes: Infinity, sinLimite: 
 
   const buscar = async () => {
     if (!busqueda.trim() || cargando) return;
+    if (prueba.restantes === null) { setError("No se pudo verificar el cupo. Recargá la página para volver a intentar."); return; }
     // Sin pruebas no se llama a Google Maps ni a la IA: se corta antes de gastar.
     if (!prueba.sinLimite && prueba.restantes === 0) { setError(TEXTO_AGOTADO); return; }
     setCargando(true); setError(null); setResultados([]); setBusquedaHecha(false); setRutaAbierta(false);
     try {
-      const res = await fetch(N8N_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ busqueda: busqueda.trim(), zona, query_completo: `${busqueda.trim()} en ${zona} Argentina` }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const lista = Array.isArray(data) ? data : data.resultados || data.leads || [];
-      // La prueba se descuenta recién con la búsqueda ya hecha, y en la base:
-      // si n8n falla no se pierde una, y borrar la caché no regala otras tres.
+      // Reservar el cupo en la base ANTES de llamar al buscador pago.
       const permiso = await prueba.consumir();
       if (!permiso.permitido) {
         setError(permiso.fallo ? "No se pudo verificar la prueba. Probá de nuevo en un momento." : TEXTO_AGOTADO);
         return;
       }
+      const res = await fetch(N8N_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ busqueda: busqueda.trim(), zona, query_completo: `${busqueda.trim()} en ${zonaConProvincia(zona)} Argentina` }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const lista = Array.isArray(data) ? data : data.resultados || data.leads || [];
       setResultados(lista); setSeleccionados([]); setMensajeAccion(""); setBusquedaHecha(true);
     } catch {
       setError("No se pudo conectar con n8n. Verificá que el workflow esté activo.");
@@ -600,11 +630,13 @@ export default function Prospectos({ prueba = { restantes: Infinity, sinLimite: 
             <ChevronDown size={15} className="campo-flecha" />
           </label>
           <button className="btn-buscar" onClick={buscar}
-            disabled={cargando || !busqueda.trim() || (!prueba.sinLimite && prueba.restantes === 0)}>
+            disabled={cargando || !busqueda.trim() || prueba.restantes === null || prueba.restantes === 0}>
             {cargando ? <><Loader2 size={17} className="gira" /> Buscando…</> : <><Sparkles size={17} /> Buscar</>}
           </button>
         </div>
 
+        {prueba.restantes === null && <p role="status">Verificando las búsquedas disponibles. Si no se habilita, recargá la página.</p>}
+        <p style={{ fontSize: 12 }}>Cada intento consume una búsqueda, incluso si el servicio no devuelve resultados.</p>
         {!prueba.sinLimite && prueba.restantes !== null && (
           <div className="prueba" data-agotada={prueba.restantes === 0 ? 1 : 0}>
             <Sparkles size={15} />

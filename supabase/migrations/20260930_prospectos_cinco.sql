@@ -1,3 +1,6 @@
+-- Aplicar UNA SOLA VEZ: nueva tanda de cinco intentos.
+BEGIN;
+
 -- ============================================================
 -- CLIENTES POTENCIALES — 5 búsquedas de prueba
 -- Definición actual; no reinicia consumos existentes.
@@ -79,3 +82,8 @@ revoke execute on function public.prospectos_estado(text) from public, anon;
 revoke execute on function public.prospectos_consumir(text) from public, anon;
 grant  execute on function public.prospectos_estado(text) to authenticated;
 grant  execute on function public.prospectos_consumir(text) to authenticated;
+
+-- Reiniciar el cupo al habilitar esta nueva tanda.
+UPDATE public.prospectos_prueba SET usadas = 0, limite = 5, actualizado_at = now();
+
+COMMIT;
