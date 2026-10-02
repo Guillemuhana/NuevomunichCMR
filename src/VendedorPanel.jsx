@@ -296,7 +296,7 @@ function mensajeDeError(e) {
 const FORM_VACIO = {
   tipo: "pedido",
   clienteNombre: "", clienteTel: "", clienteDireccion: "",
-  items: [{ qty: 1, desc: "" }, { qty: 1, desc: "" }, { qty: 1, desc: "" }],
+  items: [{ qty: "", desc: "" }, { qty: "", desc: "" }, { qty: "", desc: "" }],
   observacion: "", detalle_extra: "",
   adjunto_url: "", adjunto_nombre: "",
   fechaVisita: new Date().toISOString().split("T")[0],
@@ -340,7 +340,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
     items[i] = { ...items[i], [k]: v };
     return { ...f, items };
   });
-  const addItem = () => setForm(f => ({ ...f, items: [...f.items, { qty: 1, desc: "" }] }));
+  const addItem = () => setForm(f => ({ ...f, items: [...f.items, { qty: "", desc: "" }] }));
   const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
 
   // ── Alta desde el catálogo ──
@@ -359,7 +359,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
     });
     // Un renglón vacío al final, para seguir cargando a mano lo que no esté
     // en el catálogo.
-    items.push({ qty: 1, desc: "" });
+    items.push({ qty: "", desc: "" });
     return { ...f, items };
   });
 
@@ -530,7 +530,7 @@ function FormModal({ vendorAlias, editando, contactosMap, onClose, onGuardado })
             {form.items.map((it, i) => (
               <div key={i} className="linea-pedido">
                 <input value={it.qty} onChange={e => setItem(i, "qty", e.target.value)}
-                  style={{ ...inp, width: 56, textAlign: "center", padding: "9px 8px" }} placeholder="Cant"
+                  style={{ ...inp, width: 84, textAlign: "center", padding: "9px 6px" }} placeholder="Cantidad"
                   type="number" min="0" step={it.unidad === "kg" ? "0.1" : "1"} />
                 <select value={it.unidad || "un"} onChange={e => setItem(i, "unidad", e.target.value)}
                   title="Unidad de medida"
